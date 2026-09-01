@@ -13,6 +13,7 @@ Restoran ve kafelerin mevcut PDF veya görsel menülerini yapay zekâ ile okuyup
 - Kategori ve ürün ekleme, düzenleme, silme
 - Ürün bazında eski fiyat ve kampanyalı fiyat gösterimi
 - Ürün görseli yükleme, tarayıcıda otomatik boyutlandırma ve sıkıştırma
+- Görseli olmayan ürünleri OpenAI ile tek tuşta ve toplu tamamlama
 - Renk, tipografi, dört farklı ürün düzeni ve açıklama görünürlüğü ayarları
 - Anlık telefon önizlemesi
 - Tarayıcıda otomatik taslak kaydı
@@ -44,6 +45,7 @@ Gerçek menü analizi için `.env.local` içine sunucu tarafı API anahtarını 
 ```bash
 OPENAI_API_KEY=sk-...
 OPENAI_MODEL=gpt-4.1-mini
+OPENAI_IMAGE_MODEL=gpt-image-1
 ```
 
 Kullanıcılar ve oturumlar varsayılan olarak `.data/easyqr.db` SQLite veritabanında saklanır. Farklı bir konum kullanmak isterseniz:
@@ -52,7 +54,7 @@ Kullanıcılar ve oturumlar varsayılan olarak `.data/easyqr.db` SQLite veritaba
 DATABASE_PATH=/tam/yol/easyqr.db
 ```
 
-`OPENAI_API_KEY` hiçbir zaman `NEXT_PUBLIC_` önekiyle tanımlanmamalıdır.
+`OPENAI_API_KEY` hiçbir zaman `NEXT_PUBLIC_` önekiyle tanımlanmamalıdır. AI görsel asistanı isteğe bağlı çalışır ve OpenAI Images API kullanım kotasını kullanır.
 
 ## Komutlar
 
@@ -73,6 +75,7 @@ npm start          # üretim sunucusu
 - `app/api/menus/*`: menü oluşturma, okuma, güncelleme, yayınlama ve silme
 - `app/m/[slug]`: herkese açık, kalıcı müşteri menüsü
 - `app/api/extract-menu/route.ts`: dosya doğrulama ve AI tabanlı menü çıkarımı
+- `app/api/generate-product-image/route.ts`: kimlik doğrulamalı ve hız sınırlı ürün görseli üretimi
 - `app/api/auth/*`: kayıt, giriş, çıkış ve aktif kullanıcı endpoint’leri
 - `app/giris` ve `app/kayit`: kullanıcı erişim ekranları
 - `lib/auth.ts` ve `lib/db.ts`: oturum ve SQLite altyapısı
@@ -94,6 +97,7 @@ Kullanıcılar, oturumlar, taslaklar ve yayınlanan menüler yerel SQLite verita
 - Yüklemeler 12 MB ile ve desteklenen MIME türleriyle sınırlandırılır.
 - Ürün fotoğrafları en fazla 8 MB olarak alınır, en çok 900 px’e küçültülür ve menüye kaydedilmeden önce sıkıştırılır.
 - API anahtarı yalnızca sunucu route’unda kullanılır.
+- Ürün görseli üretimi oturum ve same-origin kontrolü gerektirir; kullanıcı/IP başına saatte 12 istekle sınırlandırılır.
 - Parolalar 12 maliyet faktörlü `bcrypt` hash’i olarak saklanır.
 - Oturum anahtarının yalnızca SHA-256 özeti veritabanında tutulur; ham anahtar HTTP-only çerezdedir.
 - Kayıt ve giriş endpoint’lerinde aynı-origin kontrolü ve temel deneme sınırı uygulanır.

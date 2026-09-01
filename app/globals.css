@@ -868,6 +868,114 @@ a {
   text-transform: none;
 }
 
+.auto-image-assistant {
+  display: grid;
+  margin: -4px 0 17px;
+  padding: 14px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  background: linear-gradient(135deg, #fff7f1, #fffdf9);
+  border: 1px solid #efd9ce;
+  border-radius: 11px;
+}
+
+.auto-image-copy {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+}
+
+.auto-image-icon {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  place-items: center;
+  color: var(--orange);
+  background: #ffe8dc;
+  border-radius: 9px;
+}
+
+.auto-image-copy > div {
+  min-width: 0;
+}
+
+.auto-image-copy strong {
+  display: block;
+  color: #31352f;
+  font-size: 12.5px;
+}
+
+.auto-image-copy p {
+  margin: 3px 0 0;
+  color: #777c74;
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
+.auto-image-button {
+  display: inline-flex;
+  min-height: 38px;
+  padding: 0 13px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: white;
+  background: #292e27;
+  border-radius: 8px;
+  box-shadow: 0 7px 16px rgba(36, 40, 34, 0.13);
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+  transition: 150ms ease;
+}
+
+.auto-image-button:hover:not(:disabled) {
+  background: var(--orange);
+  transform: translateY(-1px);
+}
+
+.auto-image-button:disabled {
+  color: #9a9e97;
+  background: #e9e8e3;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.auto-image-spinner {
+  animation: spin 1s linear infinite;
+}
+
+.auto-image-progress {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 6px;
+}
+
+.auto-image-progress > span {
+  display: block;
+  height: 5px;
+  overflow: hidden;
+  background: #eadfd8;
+  border-radius: 99px;
+}
+
+.auto-image-progress i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--orange), #f29b6f);
+  border-radius: inherit;
+  transition: width 220ms ease;
+}
+
+.auto-image-progress small {
+  color: #8a6e61;
+  font-size: 9.5px;
+  text-align: right;
+}
+
 .field-label {
   display: grid;
   margin-top: 13px;
@@ -4229,6 +4337,8 @@ a {
   .editor-content, .notice + .editor-content { height: auto; overflow: visible; padding-bottom: 110px; }
   .preview-stage { display: none; }
   .form-section { padding-right: 16px; padding-left: 16px; }
+  .auto-image-assistant { grid-template-columns: 1fr; }
+  .auto-image-button { width: 100%; }
   .category-items { padding-left: 10px; }
   .publish-modal { padding: 28px 20px 24px; }
   .auth-shell { display: block; }

@@ -88,17 +88,13 @@ function loadBrowserImage(source: string) {
   });
 }
 
-async function prepareProductImage(file: File) {
-  if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-    throw new Error("Ürün görseli JPG, PNG veya WEBP olmalı.");
-  }
-  if (file.size > 8 * 1024 * 1024) {
-    throw new Error("Ürün görseli 8 MB’tan küçük olmalı.");
-  }
-
-  const source = await fileToDataUrl(file);
+async function prepareProductImageSource(
+  source: string,
+  maxDimension = 900,
+  maxDataUrlLength = 750_000,
+) {
   const image = await loadBrowserImage(source);
-  const scale = Math.min(1, 900 / Math.max(image.naturalWidth, image.naturalHeight));
+  const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
   const canvas = document.createElement("canvas");
   canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
   canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
@@ -108,10 +104,24 @@ async function prepareProductImage(file: File) {
   context.fillRect(0, 0, canvas.width, canvas.height);
   context.drawImage(image, 0, 0, canvas.width, canvas.height);
 
-  let result = canvas.toDataURL("image/jpeg", 0.78);
-  if (result.length > 700_000) result = canvas.toDataURL("image/jpeg", 0.62);
-  if (result.length > 750_000) throw new Error("Görsel optimize edilemedi; daha küçük bir dosya seç.");
-  return result;
+  const qualities = [0.78, 0.66, 0.56, 0.46, 0.36];
+  let result = "";
+  for (const quality of qualities) {
+    result = canvas.toDataURL("image/jpeg", quality);
+    if (result.length <= maxDataUrlLength) return result;
+  }
+  throw new Error("Görsel menü için yeterince küçültülemedi.");
+}
+
+async function prepareProductImage(file: File) {
+  if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+    throw new Error("Ürün görseli JPG, PNG veya WEBP olmalı.");
+  }
+  if (file.size > 8 * 1024 * 1024) {
+    throw new Error("Ürün görseli 8 MB’tan küçük olmalı.");
+  }
+
+  return prepareProductImageSource(await fileToDataUrl(file));
 }
 
 function getErrorMessage(error: unknown) {
@@ -149,6 +159,13 @@ export function MenuStudio({
   const [activeMenuSlug, setActiveMenuSlug] = useState("");
   const [activeMenuStatus, setActiveMenuStatus] = useState<"draft" | "published">("draft");
   const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "error">("saved");
+  const [generatingImages, setGeneratingImages] = useState(false);
+  const [imageGenerationProgress, setImageGenerationProgress] = useState({ done: 0, total: 0 });
+  const totalItemCount = menu.categories.reduce((sum, category) => sum + category.items.length, 0);
+  const missingImageCount = menu.categories.reduce(
+    (sum, category) => sum + category.items.filter((item) => !item.image).length,
+    0,
+  );
 
   useEffect(() => {
     const readHash = async () => {
@@ -418,6 +435,108 @@ export function MenuStudio({
       setNotice("Ürün görseli menü için optimize edildi ve eklendi.");
     } catch (imageError) {
       setNotice(`Görsel eklenemedi: ${getErrorMessage(imageError)}`);
+    }
+  };
+
+  const generateMissingImages = async () => {
+    if (generatingImages) return;
+
+    const missingItems = menu.categories.flatMap((category) =>
+      category.items
+        .filter((item) => !item.image)
+        .map((item) => ({
+          itemId: item.id,
+          name: item.name,
+          description: item.description,
+        })),
+    );
+
+    if (missingItems.length === 0) {
+      setNotice("Tüm ürünlerin görseli zaten hazır.");
+      return;
+    }
+
+    const currentImageSize = menu.categories.reduce(
+      (menuTotal, category) =>
+        menuTotal + category.items.reduce((categoryTotal, item) => categoryTotal + (item.image?.length || 0), 0),
+      0,
+    );
+    const capacity = Math.max(0, Math.floor((8_000_000 - currentImageSize) / 420_000));
+    const queue = missingItems.slice(0, Math.min(6, capacity));
+
+    if (queue.length === 0) {
+      setNotice("Menü görsel depolama sınırına yaklaştı. Devam etmek için bazı büyük görselleri kaldır veya değiştir.");
+      return;
+    }
+
+    setGeneratingImages(true);
+    setImageGenerationProgress({ done: 0, total: queue.length });
+    setNotice("");
+    let completed = 0;
+    let failed = 0;
+
+    try {
+      for (let index = 0; index < queue.length; index += 1) {
+        const target = queue[index];
+        const response = await fetch("/api/generate-product-image", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: target.name,
+            description: target.description,
+            restaurantName: menu.restaurantName,
+          }),
+        });
+
+        let result: { imageDataUrl?: string; code?: string; message?: string } = {};
+        try {
+          result = (await response.json()) as typeof result;
+        } catch {
+          result = {};
+        }
+
+        if (!response.ok) {
+          if ([401, 403, 429, 503].includes(response.status) || result.code === "AI_NOT_CONFIGURED") {
+            throw new Error(result.message || "Görsel servisine şu anda ulaşılamıyor.");
+          }
+          failed += 1;
+        } else if (!result.imageDataUrl) {
+          failed += 1;
+        } else {
+          try {
+            const optimizedImage = await prepareProductImageSource(result.imageDataUrl, 720, 420_000);
+            setMenu((current) => ({
+              ...current,
+              categories: current.categories.map((category) => ({
+                ...category,
+                items: category.items.map((item) =>
+                  item.id === target.itemId && !item.image ? { ...item, image: optimizedImage } : item,
+                ),
+              })),
+            }));
+            completed += 1;
+          } catch {
+            failed += 1;
+          }
+        }
+
+        setImageGenerationProgress({ done: index + 1, total: queue.length });
+      }
+
+      if (completed === 0) {
+        setNotice("Görseller üretilemedi. Ürün adlarını ve açıklamalarını kontrol edip tekrar dene.");
+      } else {
+        const remaining = Math.max(0, missingItems.length - completed);
+        let message = completed + " ürün görseli otomatik oluşturuldu.";
+        if (failed > 0) message += " " + failed + " ürün atlandı.";
+        if (remaining > 0) message += " Kalan " + remaining + " ürün için düğmeye tekrar basabilirsin.";
+        setNotice(message);
+      }
+    } catch (generationError) {
+      const prefix = completed > 0 ? completed + " görsel hazırlandı. " : "";
+      setNotice(prefix + getErrorMessage(generationError));
+    } finally {
+      setGeneratingImages(false);
     }
   };
 
@@ -777,7 +896,45 @@ export function MenuStudio({
               <section className="form-section categories-section">
                 <div className="section-heading">
                   <div><span>İçerik</span><h2>Kategoriler ve ürünler</h2></div>
-                  <div className="item-count">{menu.categories.reduce((sum, category) => sum + category.items.length, 0)} ürün</div>
+                  <div className="item-count">{totalItemCount} ürün</div>
+                </div>
+                <div className="auto-image-assistant" aria-live="polite">
+                  <div className="auto-image-copy">
+                    <span className="auto-image-icon"><Sparkles size={17} /></span>
+                    <div>
+                      <strong>AI görsel asistanı</strong>
+                      <p>
+                        {missingImageCount > 0
+                          ? <>{missingImageCount} üründe görsel eksik. Tek seferde en fazla 6 görsel üretilir; eklediklerin korunur.</>
+                          : <>Tüm ürünlerin görseli hazır.</>}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    className="auto-image-button"
+                    disabled={generatingImages || missingImageCount === 0}
+                    onClick={() => { void generateMissingImages(); }}
+                    title="OpenAI kullanım kotanı kullanır"
+                  >
+                    {generatingImages ? <Loader2 className="auto-image-spinner" size={16} /> : <Sparkles size={16} />}
+                    {generatingImages
+                      ? <>{imageGenerationProgress.done}/{imageGenerationProgress.total} hazırlanıyor</>
+                      : <>AI ile tamamla</>}
+                  </button>
+                  {generatingImages && (
+                    <div className="auto-image-progress">
+                      <span aria-hidden="true">
+                        <i
+                          style={{
+                            width: imageGenerationProgress.total
+                              ? Math.round((imageGenerationProgress.done / imageGenerationProgress.total) * 100) + "%"
+                              : "0%",
+                          }}
+                        />
+                      </span>
+                      <small>{imageGenerationProgress.done} / {imageGenerationProgress.total} ürün işlendi</small>
+                    </div>
+                  )}
                 </div>
                 <div className="category-list">
                   {menu.categories.map((category, categoryIndex) => (
