@@ -78,7 +78,13 @@ function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Beklenmeyen bir sorun oluştu.";
 }
 
-export function MenuStudio() {
+export function MenuStudio({
+  workspaceMode = false,
+  initialUser = null,
+}: {
+  workspaceMode?: boolean;
+  initialUser?: AuthUser | null;
+}) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [screen, setScreen] = useState<"upload" | "studio">("upload");
   const [tab, setTab] = useState<EditorTab>("content");
@@ -95,8 +101,10 @@ export function MenuStudio() {
   const [copied, setCopied] = useState(false);
   const [publicPayload, setPublicPayload] = useState<PublishedMenu | null>(null);
   const [publicError, setPublicError] = useState("");
-  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
-  const [authStatus, setAuthStatus] = useState<"loading" | "authenticated" | "anonymous">("loading");
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(initialUser);
+  const [authStatus, setAuthStatus] = useState<"loading" | "authenticated" | "anonymous">(
+    initialUser ? "authenticated" : "loading",
+  );
   const [activeMenuId, setActiveMenuId] = useState("");
   const [activeMenuSlug, setActiveMenuSlug] = useState("");
   const [activeMenuStatus, setActiveMenuStatus] = useState<"draft" | "published">("draft");
@@ -205,12 +213,12 @@ export function MenuStudio() {
     setActiveMenuId(result.menu.id);
     setActiveMenuSlug(result.menu.slug);
     setActiveMenuStatus(result.menu.status);
-    window.history.replaceState(null, "", `/?menu=${result.menu.id}`);
+    window.history.replaceState(null, "", `/studio?menu=${result.menu.id}`);
     return result.menu;
   };
 
   const goToLogin = () => {
-    window.location.href = "/giris?next=/";
+    window.location.href = "/giris?next=%2Fstudio%3Fnew%3D1";
   };
 
   const requestUpload = () => {
@@ -453,6 +461,7 @@ export function MenuStudio() {
     setAuthStatus("anonymous");
     setScreen("upload");
     setNotice("");
+    window.location.href = "/";
   };
 
   const goToDashboard = async () => {
@@ -481,6 +490,84 @@ export function MenuStudio() {
             easyqr ana sayfasına dön
           </button>
         </div>
+      </main>
+    );
+  }
+
+  if (screen === "upload" && workspaceMode) {
+    return (
+      <main className="studio-new-shell">
+        <header className="studio-new-header">
+          <Brand />
+          <nav aria-label="Uygulama yolu">
+            <a href="/dashboard">Dashboard</a><span>/</span><a href="/dashboard/menus">Menülerim</a><span>/</span><strong>Yeni menü</strong>
+          </nav>
+          <div className="studio-new-user">
+            <span><UserRound size={16} /> {currentUser?.name}</span>
+            <button className="icon-button" aria-label="Çıkış yap" onClick={() => void logout()}><LogOut size={16} /></button>
+          </div>
+        </header>
+
+        <section className="studio-new-content">
+          <a className="studio-new-back" href="/dashboard/menus"><ArrowLeft size={16} /> Menülerime dön</a>
+          <div className="studio-new-title">
+            <span><Sparkles size={14} /> Yeni menü</span>
+            <h1>Menünü nasıl oluşturmak istersin?</h1>
+            <p>Mevcut dosyanı yapay zekâ ile dönüştür veya örnek içerikle başlayıp kendin düzenle.</p>
+          </div>
+
+          <div className="studio-create-grid">
+            <div
+              className={`workspace-upload-card ${dragging ? "is-dragging" : ""}`}
+              onDragEnter={(event) => { event.preventDefault(); setDragging(true); }}
+              onDragOver={(event) => event.preventDefault()}
+              onDragLeave={() => setDragging(false)}
+              onDrop={onDrop}
+            >
+              {loading ? (
+                <div className="analysis-state" aria-live="polite">
+                  <div className="scan-document"><FileText size={48} strokeWidth={1.5} /><span className="scan-line" /></div>
+                  <h2>Menün okunuyor</h2>
+                  <p>{fileName}</p>
+                  <div className="analysis-steps">
+                    <span className="done"><Check size={14} /> Dosya alındı</span>
+                    <span className="active"><Loader2 size={14} /> Ürünler ayrıştırılıyor</span>
+                    <span>Tasarım hazırlanıyor</span>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="workspace-upload-icon"><UploadCloud size={30} /></div>
+                  <span className="workspace-option-label">Önerilen</span>
+                  <h2>Menü dosyanı yükle</h2>
+                  <p>PDF veya menü fotoğrafını bırak; ürünleri ve fiyatları yapay zekâ ayırsın.</p>
+                  <button className="primary-button" onClick={requestUpload}><Sparkles size={17} /> Dosya seç ve dönüştür</button>
+                  <div className="file-types"><span>PDF</span><span>JPG</span><span>PNG</span><small>Maks. 12 MB</small></div>
+                </>
+              )}
+              <input ref={inputRef} className="sr-only" type="file" accept=".pdf,image/jpeg,image/png,image/webp" onChange={onInputChange} />
+            </div>
+
+            <div className="workspace-manual-card">
+              <div className="workspace-manual-icon"><FileText size={27} /></div>
+              <span className="workspace-option-label neutral">Alternatif</span>
+              <h2>Örnek menüyle başla</h2>
+              <p>Hazır kategorileri ve ürünleri aç, sonra tüm alanları işletmene göre değiştir.</p>
+              <button className="secondary-button" onClick={() => void openDemo()}><Plus size={17} /> Örnek taslak oluştur</button>
+              <small>Sonrasında tüm ürünleri silebilir veya yenilerini ekleyebilirsin.</small>
+            </div>
+          </div>
+
+          {error && <div className="workspace-error"><X size={16} /> {error}</div>}
+
+          <div className="studio-new-steps">
+            <article><span>1</span><div><strong>İçeriği aktar</strong><small>Dosyadan veya örnekten başla</small></div></article>
+            <i />
+            <article><span>2</span><div><strong>Tasarımı düzenle</strong><small>Renk ve görünümü seç</small></div></article>
+            <i />
+            <article><span>3</span><div><strong>QR kodunu yayınla</strong><small>Kalıcı bağlantını paylaş</small></div></article>
+          </div>
+        </section>
       </main>
     );
   }

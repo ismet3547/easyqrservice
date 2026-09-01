@@ -15,7 +15,8 @@ Restoran ve kafelerin mevcut PDF veya görsel menülerini yapay zekâ ile okuyup
 - Anlık telefon önizlemesi
 - Tarayıcıda otomatik taslak kaydı
 - Kullanıcı hesabına göre ayrılmış yerel taslaklar
-- Korumalı dashboard, menü listesi ve gerçek zamanlı özet metrikler
+- Korumalı dashboard, ayrı menü yönetim sayfası ve gerçek zamanlı özet metrikler
+- Giriş sonrasında landing page'den tamamen ayrılan korumalı menü oluşturma alanı
 - Menülerin SQLite veritabanına otomatik kaydı
 - Dashboard’dan menü açma, bağlantı kopyalama ve silme
 - QR kod, bağlantı kopyalama, paylaşma ve SVG indirme
@@ -60,9 +61,10 @@ npm start          # üretim sunucusu
 
 ## Mimari
 
-- `app/page.tsx`: uygulama girişi
-- `components/MenuStudio.tsx`: yükleme, editör, önizleme ve QR akışları
+- `app/page.tsx`: ziyaretçilere açık landing page; giriş yapan kullanıcıyı dashboard'a yönlendirir
+- `app/studio` ve `components/MenuStudio.tsx`: korumalı yükleme, editör, önizleme ve QR akışları
 - `app/dashboard` ve `components/Dashboard.tsx`: korumalı işletme paneli
+- `app/dashboard/menus` ve `components/MenusDashboard.tsx`: menü arama, filtreleme ve yönetim sayfası
 - `app/api/menus/*`: menü oluşturma, okuma, güncelleme, yayınlama ve silme
 - `app/m/[slug]`: herkese açık, kalıcı müşteri menüsü
 - `app/api/extract-menu/route.ts`: dosya doğrulama ve AI tabanlı menü çıkarımı

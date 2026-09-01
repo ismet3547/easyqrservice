@@ -66,14 +66,14 @@ export function Dashboard({ user, initialMenus }: { user: SessionUser; initialMe
   return (
     <main className="dashboard-shell">
       <aside className="dashboard-sidebar">
-        <Link className="dashboard-brand" href="/">
+        <Link className="dashboard-brand" href="/dashboard">
           <span><QrCode size={19} /></span><strong>easy<i>qr</i></strong>
         </Link>
 
         <nav className="dashboard-nav" aria-label="Dashboard menüsü">
           <span className="dashboard-nav-label">Çalışma alanı</span>
           <Link className="active" href="/dashboard"><LayoutDashboard size={17} /> Genel bakış</Link>
-          <a href="#menuler"><BookOpen size={17} /> Menülerim <b>{menus.length}</b></a>
+          <Link href="/dashboard/menus"><BookOpen size={17} /> Menülerim <b>{menus.length}</b></Link>
           <button disabled title="Detaylı analitik sonraki sürümde"><BarChart3 size={17} /> Analitik <small>Yakında</small></button>
           <span className="dashboard-nav-label second">Hesap</span>
           <button disabled title="Ayarlar sonraki sürümde"><Settings size={17} /> Ayarlar</button>
@@ -89,7 +89,7 @@ export function Dashboard({ user, initialMenus }: { user: SessionUser; initialMe
 
       <section className="dashboard-main">
         <header className="dashboard-mobile-header">
-          <Link className="dashboard-brand" href="/"><span><QrCode size={17} /></span><strong>easy<i>qr</i></strong></Link>
+          <Link className="dashboard-brand" href="/dashboard"><span><QrCode size={17} /></span><strong>easy<i>qr</i></strong></Link>
           <Link className="dashboard-mobile-avatar" href="/dashboard">{user.name.slice(0, 1).toLocaleUpperCase("tr-TR")}</Link>
         </header>
 
@@ -100,7 +100,7 @@ export function Dashboard({ user, initialMenus }: { user: SessionUser; initialMe
               <h1>Hoş geldin, {user.name.split(" ")[0]}.</h1>
               <p>Menülerini yönet, performansını takip et ve yeni deneyimler oluştur.</p>
             </div>
-            <Link className="dashboard-primary" href="/?new=1"><Plus size={18} /> Yeni menü oluştur</Link>
+            <Link className="dashboard-primary" href="/studio?new=1"><Plus size={18} /> Yeni menü oluştur</Link>
           </div>
 
           <div className="dashboard-stats">
@@ -114,7 +114,7 @@ export function Dashboard({ user, initialMenus }: { user: SessionUser; initialMe
             <section className="dashboard-menus" id="menuler">
               <div className="dashboard-section-heading">
                 <div><span>İçerik</span><h2>Menülerim</h2></div>
-                {menus.length > 0 && <Link href="/?new=1"><Plus size={15} /> Yeni ekle</Link>}
+                {menus.length > 0 && <Link href="/studio?new=1"><Plus size={15} /> Yeni ekle</Link>}
               </div>
 
               {menus.length === 0 ? (
@@ -122,7 +122,7 @@ export function Dashboard({ user, initialMenus }: { user: SessionUser; initialMe
                   <div className="empty-illustration"><QrCode size={34} /><Sparkles size={16} /></div>
                   <h3>İlk menünü oluşturalım</h3>
                   <p>Mevcut menünü yükle; yapay zekâ ürünleri, kategorileri ve fiyatları senin için ayırsın.</p>
-                  <Link className="dashboard-primary" href="/?new=1"><Plus size={17} /> Menü oluştur</Link>
+                  <Link className="dashboard-primary" href="/studio?new=1"><Plus size={17} /> Menü oluştur</Link>
                 </div>
               ) : (
                 <div className="dashboard-menu-list">
@@ -143,7 +143,7 @@ export function Dashboard({ user, initialMenus }: { user: SessionUser; initialMe
                           <p>{storedMenu.menu.categories.length} kategori · {productCount} ürün</p>
                           <div className="menu-card-meta"><span><Eye size={13} /> {storedMenu.viewCount} görüntülenme</span><span>Güncellendi {new Date(storedMenu.updatedAt).toLocaleDateString("tr-TR", { day: "numeric", month: "short" })}</span></div>
                           <div className="menu-card-actions">
-                            <Link href={`/?menu=${storedMenu.id}`}><FilePenLine size={15} /> Düzenle</Link>
+                            <Link href={`/studio?menu=${storedMenu.id}`}><FilePenLine size={15} /> Düzenle</Link>
                             {storedMenu.status === "published" && <a href={`/m/${storedMenu.slug}`} target="_blank" rel="noreferrer"><Eye size={15} /> Görüntüle</a>}
                             {storedMenu.status === "published" && <button onClick={() => void copyMenuLink(storedMenu)}>{copiedId === storedMenu.id ? <Check size={15} /> : <Copy size={15} />} {copiedId === storedMenu.id ? "Kopyalandı" : "Bağlantı"}</button>}
                             <button className="delete-menu-button" disabled={deletingId === storedMenu.id} onClick={() => void deleteMenu(storedMenu)}><Trash2 size={15} /></button>
@@ -167,9 +167,9 @@ export function Dashboard({ user, initialMenus }: { user: SessionUser; initialMe
 
               <section className="dashboard-tips">
                 <div className="dashboard-section-heading"><div><span>İpuçları</span><h2>Daha iyi bir menü</h2></div></div>
-                <a href="#menuler"><span>01</span><div><strong>Fiyatlarını kontrol et</strong><small>AI çıktısını yayınlamadan önce gözden geçir.</small></div><ChevronRight size={15} /></a>
-                <a href="#menuler"><span>02</span><div><strong>Kısa açıklamalar kullan</strong><small>İki satırı geçmeyen açıklamalar daha kolay okunur.</small></div><ChevronRight size={15} /></a>
-                <a href="#menuler"><span>03</span><div><strong>QR kodunu test et</strong><small>Baskıdan önce farklı telefonlarla okut.</small></div><ChevronRight size={15} /></a>
+                <Link href="/dashboard/menus"><span>01</span><div><strong>Fiyatlarını kontrol et</strong><small>AI çıktısını yayınlamadan önce gözden geçir.</small></div><ChevronRight size={15} /></Link>
+                <Link href="/dashboard/menus"><span>02</span><div><strong>Kısa açıklamalar kullan</strong><small>İki satırı geçmeyen açıklamalar daha kolay okunur.</small></div><ChevronRight size={15} /></Link>
+                <Link href="/dashboard/menus"><span>03</span><div><strong>QR kodunu test et</strong><small>Baskıdan önce farklı telefonlarla okut.</small></div><ChevronRight size={15} /></Link>
               </section>
             </aside>
           </div>
