@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { MenuData } from "@/lib/menu";
+import { getCurrentUser } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -112,6 +113,14 @@ function extractOutputText(response: Record<string, unknown>) {
 }
 
 export async function POST(request: Request) {
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json(
+      { code: "AUTH_REQUIRED", message: "Menü oluşturmak için giriş yapmalısın." },
+      { status: 401 },
+    );
+  }
+
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     return NextResponse.json(

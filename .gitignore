@@ -8,6 +8,9 @@
 # production
 /build
 
+# local database
+/.data/
+
 # local environment files
 .env*
 !.env.example

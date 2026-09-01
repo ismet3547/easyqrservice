@@ -11,6 +11,7 @@ import {
   LayoutGrid,
   List,
   Loader2,
+  LogOut,
   Palette,
   Plus,
   QrCode,
@@ -20,6 +21,7 @@ import {
   Sparkles,
   Trash2,
   UploadCloud,
+  UserRound,
   X,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
@@ -44,6 +46,7 @@ import {
 } from "@/lib/menu";
 
 type EditorTab = "content" | "design";
+type AuthUser = { id: string; name: string; email: string; createdAt: string };
 
 const themePresets = [
   { name: "Mandarin", accent: "#ea5b2a", background: "#f7f2e8", surface: "#fffdf9", text: "#20251f" },
@@ -92,25 +95,12 @@ export function MenuStudio() {
   const [copied, setCopied] = useState(false);
   const [publicPayload, setPublicPayload] = useState<PublishedMenu | null>(null);
   const [publicError, setPublicError] = useState("");
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const [authStatus, setAuthStatus] = useState<"loading" | "authenticated" | "anonymous">("loading");
 
   useEffect(() => {
     const readHash = async () => {
-      if (!window.location.hash.startsWith("#menu=")) {
-        const draft = window.localStorage.getItem("easyqr-draft");
-        if (!draft) return;
-        try {
-          const saved = JSON.parse(draft) as PublishedMenu;
-          if (saved?.menu?.categories && saved?.theme?.accent) {
-            setMenu(saved.menu);
-            setTheme(saved.theme);
-            setNotice("Son taslağın tarayıcıdan geri yüklendi.");
-            setScreen("studio");
-          }
-        } catch {
-          window.localStorage.removeItem("easyqr-draft");
-        }
-        return;
-      }
+      if (!window.location.hash.startsWith("#menu=")) return;
       try {
         const payload = await decodePublishedMenu(window.location.hash.slice(6));
         setPublicPayload(payload);
@@ -122,11 +112,64 @@ export function MenuStudio() {
   }, []);
 
   useEffect(() => {
-    if (screen !== "studio") return;
-    window.localStorage.setItem("easyqr-draft", JSON.stringify({ menu, theme }));
-  }, [menu, screen, theme]);
+    if (window.location.hash.startsWith("#menu=")) return;
+    const loadUser = async () => {
+      try {
+        const response = await fetch("/api/auth/me", { cache: "no-store" });
+        const result = (await response.json()) as { user: AuthUser | null };
+        if (!result.user) {
+          setAuthStatus("anonymous");
+          return;
+        }
+
+        setCurrentUser(result.user);
+        setAuthStatus("authenticated");
+        const draftKey = `easyqr-draft:${result.user.id}`;
+        const draft = window.localStorage.getItem(draftKey);
+        if (!draft) return;
+        try {
+          const saved = JSON.parse(draft) as PublishedMenu;
+          if (saved?.menu?.categories && saved?.theme?.accent) {
+            setMenu(saved.menu);
+            setTheme(saved.theme);
+            setNotice("Son taslağın hesabın için geri yüklendi.");
+            setScreen("studio");
+          }
+        } catch {
+          window.localStorage.removeItem(draftKey);
+        }
+      } catch {
+        setAuthStatus("anonymous");
+      }
+    };
+    void loadUser();
+  }, []);
+
+  useEffect(() => {
+    if (screen !== "studio" || !currentUser) return;
+    window.localStorage.setItem(
+      `easyqr-draft:${currentUser.id}`,
+      JSON.stringify({ menu, theme }),
+    );
+  }, [currentUser, menu, screen, theme]);
+
+  const goToLogin = () => {
+    window.location.href = "/giris?next=/";
+  };
+
+  const requestUpload = () => {
+    if (!currentUser) {
+      goToLogin();
+      return;
+    }
+    inputRef.current?.click();
+  };
 
   const openDemo = () => {
+    if (!currentUser) {
+      goToLogin();
+      return;
+    }
     setMenu(cloneDemoMenu());
     setTheme(defaultTheme);
     setNotice("Örnek menü açık — tüm alanları özgürce değiştirebilirsin.");
@@ -135,6 +178,10 @@ export function MenuStudio() {
 
   const processFile = async (file?: File) => {
     if (!file) return;
+    if (!currentUser) {
+      goToLogin();
+      return;
+    }
     const supported = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
     if (!supported.includes(file.type)) {
       setError("Lütfen JPG, PNG, WEBP veya PDF biçiminde bir dosya seç.");
@@ -164,6 +211,12 @@ export function MenuStudio() {
       };
 
       if (!response.ok) {
+        if (result.code === "AUTH_REQUIRED") {
+          setCurrentUser(null);
+          setAuthStatus("anonymous");
+          goToLogin();
+          return;
+        }
         if (result.code === "AI_NOT_CONFIGURED") {
           setMenu(cloneDemoMenu());
           setNotice(
@@ -306,6 +359,14 @@ export function MenuStudio() {
     URL.revokeObjectURL(url);
   };
 
+  const logout = async () => {
+    await fetch("/api/auth/logout", { method: "POST" });
+    setCurrentUser(null);
+    setAuthStatus("anonymous");
+    setScreen("upload");
+    setNotice("");
+  };
+
   if (publicPayload) {
     return <PublicMenu menu={publicPayload.menu} theme={publicPayload.theme} />;
   }
@@ -334,9 +395,21 @@ export function MenuStudio() {
             <a href="#nasil-calisir">Nasıl çalışır?</a>
             <button className="nav-demo" onClick={openDemo}>Örnek menü</button>
           </nav>
-          <button className="header-cta" onClick={() => inputRef.current?.click()}>
-            Menü oluştur
-          </button>
+          <div className="landing-auth-actions">
+            {authStatus === "loading" ? (
+              <span className="auth-status-skeleton" />
+            ) : currentUser ? (
+              <>
+                <span className="landing-user"><UserRound size={15} /> {currentUser.name.split(" ")[0]}</span>
+                <button className="header-cta" onClick={requestUpload}>Menü oluştur</button>
+              </>
+            ) : (
+              <>
+                <a className="login-link" href="/giris">Giriş yap</a>
+                <a className="header-cta" href="/kayit">Ücretsiz başla</a>
+              </>
+            )}
+          </div>
         </header>
 
         <section className="hero">
@@ -384,7 +457,7 @@ export function MenuStudio() {
                     <h2>Menünü buraya bırak</h2>
                     <p>ya da bilgisayarından bir dosya seç</p>
                   </div>
-                  <button className="primary-button upload-button" onClick={() => inputRef.current?.click()}>
+                  <button className="primary-button upload-button" onClick={requestUpload}>
                     <Sparkles size={17} /> Menüyü dönüştür
                   </button>
                   <div className="file-types">
@@ -433,8 +506,10 @@ export function MenuStudio() {
           </div>
         </div>
         <div className="studio-actions">
+          {currentUser && <span className="studio-user"><UserRound size={15} /><span>{currentUser.name}</span></span>}
           <button className="secondary-button mobile-preview-button" onClick={() => setMobilePreviewOpen(true)}><Eye size={17} /> Önizle</button>
           <button className="primary-button" onClick={() => void preparePublish()}><QrCode size={17} /> QR menüyü oluştur</button>
+          <button className="icon-button logout-button" aria-label="Çıkış yap" title="Çıkış yap" onClick={() => void logout()}><LogOut size={17} /></button>
         </div>
       </header>
 
