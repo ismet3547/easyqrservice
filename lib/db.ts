@@ -32,4 +32,22 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS sessions_token_hash_idx ON sessions(token_hash);
   CREATE INDEX IF NOT EXISTS sessions_expires_at_idx ON sessions(expires_at);
+
+  CREATE TABLE IF NOT EXISTS menus (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    slug TEXT NOT NULL UNIQUE,
+    status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published')),
+    content_json TEXT NOT NULL,
+    theme_json TEXT NOT NULL,
+    view_count INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    published_at TEXT,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE INDEX IF NOT EXISTS menus_user_updated_idx ON menus(user_id, updated_at DESC);
+  CREATE INDEX IF NOT EXISTS menus_slug_idx ON menus(slug);
 `);

@@ -15,8 +15,12 @@ Restoran ve kafelerin mevcut PDF veya görsel menülerini yapay zekâ ile okuyup
 - Anlık telefon önizlemesi
 - Tarayıcıda otomatik taslak kaydı
 - Kullanıcı hesabına göre ayrılmış yerel taslaklar
+- Korumalı dashboard, menü listesi ve gerçek zamanlı özet metrikler
+- Menülerin SQLite veritabanına otomatik kaydı
+- Dashboard’dan menü açma, bağlantı kopyalama ve silme
 - QR kod, bağlantı kopyalama, paylaşma ve SVG indirme
-- Bağlantı içinden açılan mobil müşteri menüsü
+- Kısa ve kalıcı `/m/{slug}` müşteri menüsü
+- Yayındaki menüler için görüntülenme sayacı
 
 ## Yerelde çalıştırma
 
@@ -58,22 +62,25 @@ npm start          # üretim sunucusu
 
 - `app/page.tsx`: uygulama girişi
 - `components/MenuStudio.tsx`: yükleme, editör, önizleme ve QR akışları
+- `app/dashboard` ve `components/Dashboard.tsx`: korumalı işletme paneli
+- `app/api/menus/*`: menü oluşturma, okuma, güncelleme, yayınlama ve silme
+- `app/m/[slug]`: herkese açık, kalıcı müşteri menüsü
 - `app/api/extract-menu/route.ts`: dosya doğrulama ve AI tabanlı menü çıkarımı
 - `app/api/auth/*`: kayıt, giriş, çıkış ve aktif kullanıcı endpoint’leri
 - `app/giris` ve `app/kayit`: kullanıcı erişim ekranları
 - `lib/auth.ts` ve `lib/db.ts`: oturum ve SQLite altyapısı
-- `lib/menu.ts`: veri modeli, demo içerik ve paylaşım bağlantısı kodlama/çözme
+- `lib/menu.ts` ve `lib/menus.ts`: menü veri modeli ve kalıcı menü işlemleri
 - `app/globals.css`: responsive tasarım sistemi
 
 ## MVP notu
 
-Bu sürümde yayınlanan menü sıkıştırılarak URL parçasının içinde taşınır; sunucuya veya veritabanına kaydedilmez. Bu yaklaşım kurulumsuz demo ve küçük menüler için çalışır. Üretime geçerken önerilen sonraki adımlar:
+Kullanıcılar, oturumlar, taslaklar ve yayınlanan menüler yerel SQLite veritabanında saklanır. Yayınlanan her menü aynı QR kodla güncellenebilen kalıcı bir `/m/{slug}` adresi alır. Üretime geçerken önerilen sonraki adımlar:
 
 1. Üretim ortamı için PostgreSQL ile işletme, menü, kategori ve ürün tabloları
 2. E-posta doğrulama, şifre sıfırlama ve çoklu işletme desteği
-3. Kısa, kalıcı menü adresleri (`/m/{slug}`) ve gerçek yayınlama akışı
-4. Ürün görseli, alerjen, çoklu dil ve stokta yok işaretleme
-5. QR tarama ve ürün görüntülenme analitiği
+3. Ürün görseli, alerjen, çoklu dil ve stokta yok işaretleme
+4. Günlük görüntülenme serisi ve gelişmiş QR analitiği
+5. İşletme profili, ekip rolleri ve abonelik planları
 
 ## Güvenlik
 

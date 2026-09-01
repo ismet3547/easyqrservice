@@ -26,7 +26,6 @@ import {
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import {
-  type CSSProperties,
   type ChangeEvent,
   type DragEvent,
   useEffect,
@@ -38,12 +37,13 @@ import {
   decodePublishedMenu,
   defaultTheme,
   demoMenu,
-  encodePublishedMenu,
   type MenuData,
   type MenuItem,
   type MenuTheme,
   type PublishedMenu,
 } from "@/lib/menu";
+import { MenuPreview, PublicMenu } from "@/components/MenuPreview";
+import type { StoredMenu } from "@/lib/menus";
 
 type EditorTab = "content" | "design";
 type AuthUser = { id: string; name: string; email: string; createdAt: string };
@@ -97,6 +97,10 @@ export function MenuStudio() {
   const [publicError, setPublicError] = useState("");
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [authStatus, setAuthStatus] = useState<"loading" | "authenticated" | "anonymous">("loading");
+  const [activeMenuId, setActiveMenuId] = useState("");
+  const [activeMenuSlug, setActiveMenuSlug] = useState("");
+  const [activeMenuStatus, setActiveMenuStatus] = useState<"draft" | "published">("draft");
+  const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "error">("saved");
 
   useEffect(() => {
     const readHash = async () => {
@@ -124,6 +128,25 @@ export function MenuStudio() {
 
         setCurrentUser(result.user);
         setAuthStatus("authenticated");
+        const searchParams = new URLSearchParams(window.location.search);
+        const requestedMenuId = searchParams.get("menu");
+        if (requestedMenuId) {
+          const menuResponse = await fetch(`/api/menus/${requestedMenuId}`, { cache: "no-store" });
+          if (menuResponse.ok) {
+            const menuResult = (await menuResponse.json()) as { menu: StoredMenu };
+            setMenu(menuResult.menu.menu);
+            setTheme(menuResult.menu.theme);
+            setActiveMenuId(menuResult.menu.id);
+            setActiveMenuSlug(menuResult.menu.slug);
+            setActiveMenuStatus(menuResult.menu.status);
+            setScreen("studio");
+          } else {
+            setError("Açmak istediğin menü bulunamadı.");
+          }
+          return;
+        }
+        if (searchParams.has("new")) return;
+
         const draftKey = `easyqr-draft:${result.user.id}`;
         const draft = window.localStorage.getItem(draftKey);
         if (!draft) return;
@@ -153,6 +176,39 @@ export function MenuStudio() {
     );
   }, [currentUser, menu, screen, theme]);
 
+  useEffect(() => {
+    if (screen !== "studio" || !currentUser || !activeMenuId) return;
+    setSaveStatus("saving");
+    const timeout = window.setTimeout(async () => {
+      try {
+        const response = await fetch(`/api/menus/${activeMenuId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ menu, theme, status: activeMenuStatus }),
+        });
+        setSaveStatus(response.ok ? "saved" : "error");
+      } catch {
+        setSaveStatus("error");
+      }
+    }, 650);
+    return () => window.clearTimeout(timeout);
+  }, [activeMenuId, activeMenuStatus, currentUser, menu, screen, theme]);
+
+  const persistNewMenu = async (newMenu: MenuData, newTheme: MenuTheme) => {
+    const response = await fetch("/api/menus", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ menu: newMenu, theme: newTheme }),
+    });
+    const result = (await response.json()) as { menu?: StoredMenu; message?: string };
+    if (!response.ok || !result.menu) throw new Error(result.message || "Menü kaydedilemedi.");
+    setActiveMenuId(result.menu.id);
+    setActiveMenuSlug(result.menu.slug);
+    setActiveMenuStatus(result.menu.status);
+    window.history.replaceState(null, "", `/?menu=${result.menu.id}`);
+    return result.menu;
+  };
+
   const goToLogin = () => {
     window.location.href = "/giris?next=/";
   };
@@ -165,15 +221,22 @@ export function MenuStudio() {
     inputRef.current?.click();
   };
 
-  const openDemo = () => {
+  const openDemo = async () => {
     if (!currentUser) {
       goToLogin();
       return;
     }
-    setMenu(cloneDemoMenu());
+    const demo = cloneDemoMenu();
+    setMenu(demo);
     setTheme(defaultTheme);
     setNotice("Örnek menü açık — tüm alanları özgürce değiştirebilirsin.");
     setScreen("studio");
+    try {
+      await persistNewMenu(demo, defaultTheme);
+    } catch (persistError) {
+      setNotice(getErrorMessage(persistError));
+      setSaveStatus("error");
+    }
   };
 
   const processFile = async (file?: File) => {
@@ -218,11 +281,13 @@ export function MenuStudio() {
           return;
         }
         if (result.code === "AI_NOT_CONFIGURED") {
-          setMenu(cloneDemoMenu());
+          const demo = cloneDemoMenu();
+          setMenu(demo);
           setNotice(
             "Demo modu açık: API anahtarı eklenene kadar örnek ürünlerle tasarım yapabilirsin.",
           );
           setScreen("studio");
+          await persistNewMenu(demo, theme);
           return;
         }
         throw new Error(result.message || "Menü analiz edilemedi.");
@@ -231,6 +296,7 @@ export function MenuStudio() {
       setMenu(result.menu);
       setNotice(`${file.name} başarıyla okundu. Fiyatları yayınlamadan önce kontrol et.`);
       setScreen("studio");
+      await persistNewMenu(result.menu, theme);
     } catch (uploadError) {
       setError(getErrorMessage(uploadError));
     } finally {
@@ -326,10 +392,32 @@ export function MenuStudio() {
   };
 
   const preparePublish = async () => {
-    const encoded = await encodePublishedMenu({ menu, theme });
-    setPublishUrl(`${window.location.origin}${window.location.pathname}#menu=${encoded}`);
-    setPublishOpen(true);
-    setCopied(false);
+    try {
+      let menuId = activeMenuId;
+      let menuSlug = activeMenuSlug;
+      if (!menuId) {
+        const storedMenu = await persistNewMenu(menu, theme);
+        menuId = storedMenu.id;
+        menuSlug = storedMenu.slug;
+      }
+      const response = await fetch(`/api/menus/${menuId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ menu, theme, status: "published" }),
+      });
+      const result = (await response.json()) as { menu?: StoredMenu; message?: string };
+      if (!response.ok || !result.menu) throw new Error(result.message || "Menü yayınlanamadı.");
+      menuSlug = result.menu.slug;
+      setActiveMenuStatus("published");
+      setActiveMenuSlug(menuSlug);
+      setSaveStatus("saved");
+      setPublishUrl(`${window.location.origin}/m/${menuSlug}`);
+      setPublishOpen(true);
+      setCopied(false);
+    } catch (publishError) {
+      setNotice(getErrorMessage(publishError));
+      setSaveStatus("error");
+    }
   };
 
   const copyLink = async () => {
@@ -367,6 +455,17 @@ export function MenuStudio() {
     setNotice("");
   };
 
+  const goToDashboard = async () => {
+    if (activeMenuId) {
+      await fetch(`/api/menus/${activeMenuId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ menu, theme, status: activeMenuStatus }),
+      }).catch(() => null);
+    }
+    window.location.href = "/dashboard";
+  };
+
   if (publicPayload) {
     return <PublicMenu menu={publicPayload.menu} theme={publicPayload.theme} />;
   }
@@ -400,7 +499,7 @@ export function MenuStudio() {
               <span className="auth-status-skeleton" />
             ) : currentUser ? (
               <>
-                <span className="landing-user"><UserRound size={15} /> {currentUser.name.split(" ")[0]}</span>
+                <a className="landing-user" href="/dashboard"><UserRound size={15} /> Dashboard</a>
                 <button className="header-cta" onClick={requestUpload}>Menü oluştur</button>
               </>
             ) : (
@@ -497,12 +596,12 @@ export function MenuStudio() {
     <main className="studio-shell">
       <header className="studio-header">
         <div className="studio-header-left">
-          <button className="icon-button" aria-label="Geri dön" onClick={() => setScreen("upload")}><ArrowLeft size={19} /></button>
+          <button className="icon-button" aria-label="Dashboard'a dön" onClick={() => void goToDashboard()}><ArrowLeft size={19} /></button>
           <Brand compact />
           <span className="header-divider" />
           <div className="document-name">
             <strong>{menu.restaurantName || "İsimsiz menü"}</strong>
-            <span><span className="saved-dot" /> Tarayıcıya kaydedildi</span>
+            <span className={`save-state ${saveStatus}`}><span className="saved-dot" /> {saveStatus === "saving" ? "Kaydediliyor…" : saveStatus === "error" ? "Kaydedilemedi" : "Tüm değişiklikler kaydedildi"}</span>
           </div>
         </div>
         <div className="studio-actions">
@@ -646,7 +745,7 @@ export function MenuStudio() {
               <button className="primary-button" onClick={downloadQr}><Download size={17} /> QR kodu indir</button>
               <button className="secondary-button" onClick={() => void shareLink()}><Share2 size={17} /> Paylaş</button>
             </div>
-            <small>Bu MVP bağlantısı menü verisini URL içinde taşır. Kalıcı ve kısa bağlantılı yayınlama için sonraki adımda veritabanı eklenebilir.</small>
+            <small>Bu kısa bağlantı kalıcıdır. Menüyü editörden güncellediğinde aynı QR kod yeni içeriği göstermeye devam eder.</small>
           </section>
         </div>
       )}
@@ -671,67 +770,6 @@ function Brand({ compact = false }: { compact?: boolean }) {
     <div className={`brand ${compact ? "compact" : ""}`}>
       <span className="brand-mark"><QrCode size={compact ? 17 : 20} /></span>
       <strong>easy<span>qr</span></strong>
-    </div>
-  );
-}
-
-function PublicMenu({ menu, theme }: PublishedMenu) {
-  return (
-    <main className="public-menu-shell" style={{ background: theme.background }}>
-      <MenuPreview menu={menu} theme={theme} />
-      <footer className="public-menu-footer"><Brand compact /><span>ile hazırlandı</span></footer>
-    </main>
-  );
-}
-
-function MenuPreview({ menu, theme, framed = false }: PublishedMenu & { framed?: boolean }) {
-  const style = {
-    "--menu-accent": theme.accent,
-    "--menu-bg": theme.background,
-    "--menu-surface": theme.surface,
-    "--menu-text": theme.text,
-  } as CSSProperties;
-
-  return (
-    <div className={`menu-preview font-${theme.font} layout-${theme.layout} ${framed ? "is-framed" : ""}`} style={style}>
-      <header className="menu-hero">
-        <div className="menu-monogram">{menu.restaurantName.trim().charAt(0) || "M"}</div>
-        <span className="menu-welcome">Hoş geldiniz</span>
-        <h1>{menu.restaurantName || "İsimsiz menü"}</h1>
-        {menu.subtitle && <p>{menu.subtitle}</p>}
-        <div className="menu-meta"><span><i /> Şimdi açık</span><span>•</span><span>Servis 22:30’a kadar</span></div>
-      </header>
-
-      <nav className="menu-categories" aria-label="Menü kategorileri">
-        {menu.categories.map((category, index) => (
-          <a key={category.id} className={index === 0 ? "active" : ""} href={`#${category.id}`}>{category.name}</a>
-        ))}
-      </nav>
-
-      <div className="menu-sections">
-        {menu.categories.map((category) => (
-          <section id={category.id} key={category.id}>
-            <div className="menu-section-heading"><h2>{category.name}</h2><span>{category.items.length} ürün</span></div>
-            <div className="menu-items">
-              {category.items.map((item) => (
-                <article className="menu-item" key={item.id}>
-                  <div className="menu-item-copy">
-                    <div className="menu-item-title">
-                      <h3>{item.name || "İsimsiz ürün"}</h3>
-                      {item.badge && <span>{item.badge}</span>}
-                    </div>
-                    {theme.showDescriptions && item.description && <p>{item.description}</p>}
-                  </div>
-                  <strong className="menu-price">{item.price}<small>{menu.currency}</small></strong>
-                </article>
-              ))}
-              {category.items.length === 0 && <div className="empty-category">Bu kategoride henüz ürün yok.</div>}
-            </div>
-          </section>
-        ))}
-      </div>
-
-      <div className="menu-bottom-note"><span>Afiyet olsun</span><i>✦</i><span>Fiyatlara KDV dahildir</span></div>
     </div>
   );
 }

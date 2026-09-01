@@ -51,7 +51,7 @@ export function AuthScreen({ mode }: { mode: AuthMode }) {
       const requestedNext = searchParams.get("next");
       const safeNext = requestedNext?.startsWith("/") && !requestedNext.startsWith("//")
         ? requestedNext
-        : "/";
+        : "/dashboard";
       router.replace(safeNext);
       router.refresh();
     } catch (submitError) {
