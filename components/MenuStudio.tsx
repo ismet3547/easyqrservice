@@ -8,6 +8,7 @@ import {
   Copy,
   Download,
   Eye,
+  EyeOff,
   FileText,
   GalleryVerticalEnd,
   Grid2X2,
@@ -164,7 +165,8 @@ export function MenuStudio({
   const [imageGenerationProgress, setImageGenerationProgress] = useState({ done: 0, total: 0 });
   const totalItemCount = menu.categories.reduce((sum, category) => sum + category.items.length, 0);
   const missingImageCount = menu.categories.reduce(
-    (sum, category) => sum + category.items.filter((item) => !item.image).length,
+    (sum, category) =>
+      sum + category.items.filter((item) => !item.image && item.availability !== "hidden").length,
     0,
   );
 
@@ -420,6 +422,7 @@ export function MenuStudio({
                   originalPrice: "",
                   isCampaign: false,
                   image: "",
+                  availability: "available",
                 },
               ],
             }
@@ -444,7 +447,7 @@ export function MenuStudio({
 
     const missingItems = menu.categories.flatMap((category) =>
       category.items
-        .filter((item) => !item.image)
+        .filter((item) => !item.image && item.availability !== "hidden")
         .map((item) => ({
           itemId: item.id,
           name: item.name,
@@ -1023,7 +1026,7 @@ export function MenuStudio({
                       </summary>
                       <div className="category-items">
                         {category.items.map((item, itemIndex) => (
-                          <article className="item-editor" key={item.id}>
+                          <article className={`item-editor availability-${item.availability || "available"}`} key={item.id}>
                             <div className="item-editor-top">
                               <input aria-label="Ürün adı" className="item-name-input" value={item.name} onChange={(event) => updateItem(categoryIndex, itemIndex, "name", event.target.value)} />
                               <div className="price-input"><input aria-label={item.isCampaign ? "Kampanyalı fiyat" : "Fiyat"} value={item.price} onChange={(event) => updateItem(categoryIndex, itemIndex, "price", event.target.value)} /><span>{menu.currency}</span></div>
@@ -1057,6 +1060,41 @@ export function MenuStudio({
                                     <ImageOff size={14} /> Kaldır
                                   </button>
                                 )}
+                              </div>
+                            </div>
+                            <div className="item-availability">
+                              <div className="item-availability-copy">
+                                <strong>Ürün durumu</strong>
+                                <small>
+                                  {(item.availability || "available") === "sold-out"
+                                    ? "Menüde görünür ve Tükendi etiketi taşır."
+                                    : (item.availability || "available") === "hidden"
+                                      ? "Müşteri menüsünde ve kategori sayısında görünmez."
+                                      : "Müşteriler ürünü normal şekilde görür."}
+                                </small>
+                              </div>
+                              <div className="availability-options" role="group" aria-label={(item.name || "Ürün") + " menü durumu"}>
+                                <button
+                                  className={`availability-option available ${(item.availability || "available") === "available" ? "active" : ""}`}
+                                  aria-pressed={(item.availability || "available") === "available"}
+                                  onClick={() => updateItem(categoryIndex, itemIndex, "availability", "available")}
+                                >
+                                  <Check size={13} /> Satışta
+                                </button>
+                                <button
+                                  className={`availability-option sold-out ${item.availability === "sold-out" ? "active" : ""}`}
+                                  aria-pressed={item.availability === "sold-out"}
+                                  onClick={() => updateItem(categoryIndex, itemIndex, "availability", "sold-out")}
+                                >
+                                  <X size={13} /> Tükendi
+                                </button>
+                                <button
+                                  className={`availability-option hidden ${item.availability === "hidden" ? "active" : ""}`}
+                                  aria-pressed={item.availability === "hidden"}
+                                  onClick={() => updateItem(categoryIndex, itemIndex, "availability", "hidden")}
+                                >
+                                  <EyeOff size={13} /> Gizli
+                                </button>
                               </div>
                             </div>
                             <div className="item-editor-extras">

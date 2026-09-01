@@ -12,6 +12,7 @@ Restoran ve kafelerin mevcut PDF veya görsel menülerini yapay zekâ ile okuyup
 - API anahtarı olmadan deneyimlenebilen, açıkça etiketlenmiş demo modu
 - Kategori ve ürün ekleme, düzenleme, silme
 - Ürün bazında eski fiyat ve kampanyalı fiyat gösterimi
+- Ürünleri Satışta, Tükendi veya Gizli olarak yönetme
 - Ürün görseli yükleme, tarayıcıda otomatik boyutlandırma ve sıkıştırma
 - Görseli olmayan ürünleri OpenAI ile tek tuşta ve toplu tamamlama
 - Renk, tipografi, dört farklı ürün düzeni ve açıklama görünürlüğü ayarları
@@ -88,7 +89,7 @@ Kullanıcılar, oturumlar, taslaklar ve yayınlanan menüler yerel SQLite verita
 
 1. Üretim ortamı için PostgreSQL ile işletme, menü, kategori ve ürün tabloları
 2. E-posta doğrulama, şifre sıfırlama ve çoklu işletme desteği
-3. Alerjen, çoklu dil ve stokta yok işaretleme
+3. Alerjen ve çoklu dil desteği
 4. Trafik kaynağı, cihaz türü ve anonim tekil ziyaretçi analitiği
 5. İşletme profili, ekip rolleri ve abonelik planları
 
@@ -102,4 +103,5 @@ Kullanıcılar, oturumlar, taslaklar ve yayınlanan menüler yerel SQLite verita
 - Oturum anahtarının yalnızca SHA-256 özeti veritabanında tutulur; ham anahtar HTTP-only çerezdedir.
 - Kayıt ve giriş endpoint’lerinde aynı-origin kontrolü ve temel deneme sınırı uygulanır.
 - AI çıktısı, yayınlamadan önce kullanıcı tarafından düzenlenebilir ve kontrol edilebilir.
+- Gizli ürünler herkese açık müşteri bileşenine gönderilmeden önce sunucuda filtrelenir.
 - Üretimde dağıtık rate limiting, PostgreSQL, e-posta doğrulama, kalıcı dosya politikası ve kötü amaçlı dosya taraması eklenmelidir.

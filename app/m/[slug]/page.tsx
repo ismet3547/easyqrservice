@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PublicMenu } from "@/components/MenuPreview";
+import { getVisibleMenu } from "@/lib/menu";
 import { getPublishedMenu, recordMenuView } from "@/lib/menus";
 
 export const dynamic = "force-dynamic";
@@ -23,5 +24,5 @@ export default async function PublicMenuPage({ params }: PublicMenuPageProps) {
   const storedMenu = getPublishedMenu(slug);
   if (!storedMenu) notFound();
   recordMenuView(storedMenu.id);
-  return <PublicMenu menu={storedMenu.menu} theme={storedMenu.theme} />;
+  return <PublicMenu menu={getVisibleMenu(storedMenu.menu)} theme={storedMenu.theme} />;
 }

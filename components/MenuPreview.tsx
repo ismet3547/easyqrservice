@@ -2,7 +2,7 @@
 
 import { QrCode } from "lucide-react";
 import type { CSSProperties } from "react";
-import type { PublishedMenu } from "@/lib/menu";
+import { getVisibleMenu, type PublishedMenu } from "@/lib/menu";
 
 export function PublicMenu({ menu, theme }: PublishedMenu) {
   return (
@@ -26,6 +26,7 @@ export function MenuPreview({ menu, theme, framed = false }: PublishedMenu & { f
     "--menu-surface": theme.surface,
     "--menu-text": theme.text,
   } as CSSProperties;
+  const visibleCategories = getVisibleMenu(menu).categories;
 
   return (
     <div className={`menu-preview font-${theme.font} layout-${theme.layout} ${framed ? "is-framed" : ""}`} style={style}>
@@ -37,37 +38,56 @@ export function MenuPreview({ menu, theme, framed = false }: PublishedMenu & { f
         <div className="menu-meta"><span><i /> Şimdi açık</span><span>•</span><span>Servis 22:30’a kadar</span></div>
       </header>
 
-      <nav className="menu-categories" aria-label="Menü kategorileri">
-        {menu.categories.map((category, index) => (
-          <a key={category.id} className={index === 0 ? "active" : ""} href={`#${category.id}`}>{category.name}</a>
-        ))}
-      </nav>
+      {visibleCategories.length > 0 && (
+        <nav className="menu-categories" aria-label="Menü kategorileri">
+          {visibleCategories.map((category, index) => (
+            <a key={category.id} className={index === 0 ? "active" : ""} href={`#${category.id}`}>{category.name}</a>
+          ))}
+        </nav>
+      )}
 
       <div className="menu-sections">
-        {menu.categories.map((category) => (
+        {visibleCategories.length > 0 ? visibleCategories.map((category) => (
           <section id={category.id} key={category.id}>
             <div className="menu-section-heading"><h2>{category.name}</h2><span>{category.items.length} ürün</span></div>
             <div className="menu-items">
-              {category.items.map((item) => (
-                <article className={`menu-item ${item.image ? "has-image" : ""}`} key={item.id}>
-                  {item.image && <div className="menu-item-image"><img src={item.image} alt={item.name || "Ürün görseli"} /></div>}
-                  <div className="menu-item-copy">
-                    <div className="menu-item-title">
-                      <h3>{item.name || "İsimsiz ürün"}</h3>
-                      {item.badge && <span>{item.badge}</span>}
+              {category.items.map((item) => {
+                const soldOut = item.availability === "sold-out";
+                return (
+                  <article
+                    className={`menu-item ${item.image ? "has-image" : ""} ${soldOut ? "is-sold-out" : ""}`}
+                    aria-disabled={soldOut}
+                    key={item.id}
+                  >
+                    {item.image && <div className="menu-item-image"><img src={item.image} alt={item.name || "Ürün görseli"} /></div>}
+                    <div className="menu-item-copy">
+                      <div className="menu-item-title">
+                        <h3>{item.name || "İsimsiz ürün"}</h3>
+                        {(soldOut || item.badge) && (
+                          <div className="menu-item-badges">
+                            {soldOut && <span className="sold-out-label">Tükendi</span>}
+                            {item.badge && <span>{item.badge}</span>}
+                          </div>
+                        )}
+                      </div>
+                      {theme.showDescriptions && item.description && <p>{item.description}</p>}
                     </div>
-                    {theme.showDescriptions && item.description && <p>{item.description}</p>}
-                  </div>
-                  <div className={`menu-price-area ${item.isCampaign && item.originalPrice ? "has-campaign" : ""}`}>
-                    {item.isCampaign && item.originalPrice && <><span className="menu-campaign-label">Kampanya</span><del>{item.originalPrice}<small>{menu.currency}</small></del></>}
-                    <strong className="menu-price">{item.price}<small>{menu.currency}</small></strong>
-                  </div>
-                </article>
-              ))}
-              {category.items.length === 0 && <div className="empty-category">Bu kategoride henüz ürün yok.</div>}
+                    <div className={`menu-price-area ${item.isCampaign && item.originalPrice ? "has-campaign" : ""}`}>
+                      {item.isCampaign && item.originalPrice && <><span className="menu-campaign-label">Kampanya</span><del>{item.originalPrice}<small>{menu.currency}</small></del></>}
+                      <strong className="menu-price">{item.price}<small>{menu.currency}</small></strong>
+                    </div>
+                  </article>
+                );
+              })}
             </div>
           </section>
-        ))}
+        )) : (
+          <div className="menu-empty-state">
+            <span>Menü güncelleniyor</span>
+            <h2>Şu anda gösterilecek ürün yok</h2>
+            <p>Yeni ürünler hazır olduğunda burada görünecek.</p>
+          </div>
+        )}
       </div>
 
       <div className="menu-bottom-note"><span>Afiyet olsun</span><i>✦</i><span>Fiyatlara KDV dahildir</span></div>

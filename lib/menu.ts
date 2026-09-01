@@ -1,3 +1,5 @@
+export type MenuItemAvailability = "available" | "sold-out" | "hidden";
+
 export type MenuItem = {
   id: string;
   name: string;
@@ -7,6 +9,7 @@ export type MenuItem = {
   originalPrice?: string;
   isCampaign?: boolean;
   image?: string;
+  availability?: MenuItemAvailability;
 };
 
 export type MenuCategory = {
@@ -116,6 +119,18 @@ export const demoMenu: MenuData = {
     },
   ],
 };
+
+export function getVisibleMenu(menu: MenuData): MenuData {
+  return {
+    ...menu,
+    categories: menu.categories
+      .map((category) => ({
+        ...category,
+        items: category.items.filter((item) => item.availability !== "hidden"),
+      }))
+      .filter((category) => category.items.length > 0),
+  };
+}
 
 export function createId(prefix: string) {
   const suffix =

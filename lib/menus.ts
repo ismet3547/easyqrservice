@@ -114,6 +114,8 @@ export function isValidMenuData(value: unknown): value is MenuData {
       (item.originalPrice === undefined ||
         (typeof item.originalPrice === "string" && item.originalPrice.length <= 40)) &&
       (item.isCampaign === undefined || typeof item.isCampaign === "boolean") &&
+      (item.availability === undefined ||
+        ["available", "sold-out", "hidden"].includes(item.availability)) &&
       (item.image === undefined || item.image === "" ||
         (typeof item.image === "string" &&
           item.image.length <= 750_000 &&
