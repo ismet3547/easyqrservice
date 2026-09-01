@@ -6,6 +6,7 @@ export type MenuItem = {
   badge: string;
   originalPrice?: string;
   isCampaign?: boolean;
+  image?: string;
 };
 
 export type MenuCategory = {

@@ -12,6 +12,7 @@ Restoran ve kafelerin mevcut PDF veya görsel menülerini yapay zekâ ile okuyup
 - API anahtarı olmadan deneyimlenebilen, açıkça etiketlenmiş demo modu
 - Kategori ve ürün ekleme, düzenleme, silme
 - Ürün bazında eski fiyat ve kampanyalı fiyat gösterimi
+- Ürün görseli yükleme, tarayıcıda otomatik boyutlandırma ve sıkıştırma
 - Renk, tipografi, dört farklı ürün düzeni ve açıklama görünürlüğü ayarları
 - Anlık telefon önizlemesi
 - Tarayıcıda otomatik taslak kaydı
@@ -84,13 +85,14 @@ Kullanıcılar, oturumlar, taslaklar ve yayınlanan menüler yerel SQLite verita
 
 1. Üretim ortamı için PostgreSQL ile işletme, menü, kategori ve ürün tabloları
 2. E-posta doğrulama, şifre sıfırlama ve çoklu işletme desteği
-3. Ürün görseli, alerjen, çoklu dil ve stokta yok işaretleme
+3. Alerjen, çoklu dil ve stokta yok işaretleme
 4. Trafik kaynağı, cihaz türü ve anonim tekil ziyaretçi analitiği
 5. İşletme profili, ekip rolleri ve abonelik planları
 
 ## Güvenlik
 
 - Yüklemeler 12 MB ile ve desteklenen MIME türleriyle sınırlandırılır.
+- Ürün fotoğrafları en fazla 8 MB olarak alınır, en çok 900 px’e küçültülür ve menüye kaydedilmeden önce sıkıştırılır.
 - API anahtarı yalnızca sunucu route’unda kullanılır.
 - Parolalar 12 maliyet faktörlü `bcrypt` hash’i olarak saklanır.
 - Oturum anahtarının yalnızca SHA-256 özeti veritabanında tutulur; ham anahtar HTTP-only çerezdedir.

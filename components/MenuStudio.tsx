@@ -11,6 +11,8 @@ import {
   FileText,
   GalleryVerticalEnd,
   Grid2X2,
+  ImageOff,
+  ImagePlus,
   LayoutGrid,
   List,
   Loader2,
@@ -75,6 +77,41 @@ function fileToDataUrl(file: File) {
     reader.onerror = () => reject(new Error("Dosya okunamadı."));
     reader.readAsDataURL(file);
   });
+}
+
+function loadBrowserImage(source: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Görsel açılamadı."));
+    image.src = source;
+  });
+}
+
+async function prepareProductImage(file: File) {
+  if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+    throw new Error("Ürün görseli JPG, PNG veya WEBP olmalı.");
+  }
+  if (file.size > 8 * 1024 * 1024) {
+    throw new Error("Ürün görseli 8 MB’tan küçük olmalı.");
+  }
+
+  const source = await fileToDataUrl(file);
+  const image = await loadBrowserImage(source);
+  const scale = Math.min(1, 900 / Math.max(image.naturalWidth, image.naturalHeight));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+  canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("Görsel işlenemedi.");
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+  let result = canvas.toDataURL("image/jpeg", 0.78);
+  if (result.length > 700_000) result = canvas.toDataURL("image/jpeg", 0.62);
+  if (result.length > 750_000) throw new Error("Görsel optimize edilemedi; daha küçük bir dosya seç.");
+  return result;
 }
 
 function getErrorMessage(error: unknown) {
@@ -364,12 +401,24 @@ export function MenuStudio({
                   badge: "",
                   originalPrice: "",
                   isCampaign: false,
+                  image: "",
                 },
               ],
             }
           : category,
       ),
     }));
+  };
+
+  const updateItemImage = async (categoryIndex: number, itemIndex: number, file?: File) => {
+    if (!file) return;
+    try {
+      const image = await prepareProductImage(file);
+      updateItem(categoryIndex, itemIndex, "image", image);
+      setNotice("Ürün görseli menü için optimize edildi ve eklendi.");
+    } catch (imageError) {
+      setNotice(`Görsel eklenemedi: ${getErrorMessage(imageError)}`);
+    }
   };
 
   const removeItem = (categoryIndex: number, itemIndex: number) => {
@@ -756,6 +805,14 @@ export function MenuStudio({
                               <button aria-label="Ürünü sil" onClick={() => removeItem(categoryIndex, itemIndex)}><Trash2 size={15} /></button>
                             </div>
                             <textarea aria-label="Ürün açıklaması" rows={2} value={item.description} onChange={(event) => updateItem(categoryIndex, itemIndex, "description", event.target.value)} />
+                            <div className="item-image-editor">
+                              <label className={item.image ? "has-image" : ""}>
+                                {item.image ? <img src={item.image} alt="" /> : <ImagePlus size={18} />}
+                                <span><strong>{item.image ? "Görseli değiştir" : "Ürün görseli ekle"}</strong><small>JPG, PNG veya WEBP · otomatik küçültülür</small></span>
+                                <input className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => { void updateItemImage(categoryIndex, itemIndex, event.target.files?.[0]); event.target.value = ""; }} />
+                              </label>
+                              {item.image && <button aria-label="Ürün görselini kaldır" onClick={() => updateItem(categoryIndex, itemIndex, "image", "")}><ImageOff size={15} /> Kaldır</button>}
+                            </div>
                             <div className="item-editor-extras">
                               <input aria-label="Ürün etiketi" className="badge-input" placeholder="Etiket ekle (örn. Yeni)" value={item.badge} onChange={(event) => updateItem(categoryIndex, itemIndex, "badge", event.target.value)} />
                               <button className={`campaign-toggle ${item.isCampaign ? "active" : ""}`} onClick={() => updateItem(categoryIndex, itemIndex, "isCampaign", !item.isCampaign)}><BadgePercent size={14} /> {item.isCampaign ? "Kampanyalı" : "Kampanya ekle"}</button>

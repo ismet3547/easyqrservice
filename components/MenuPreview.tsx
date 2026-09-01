@@ -49,7 +49,8 @@ export function MenuPreview({ menu, theme, framed = false }: PublishedMenu & { f
             <div className="menu-section-heading"><h2>{category.name}</h2><span>{category.items.length} ürün</span></div>
             <div className="menu-items">
               {category.items.map((item) => (
-                <article className="menu-item" key={item.id}>
+                <article className={`menu-item ${item.image ? "has-image" : ""}`} key={item.id}>
+                  {item.image && <div className="menu-item-image"><img src={item.image} alt={item.name || "Ürün görseli"} /></div>}
                   <div className="menu-item-copy">
                     <div className="menu-item-title">
                       <h3>{item.name || "İsimsiz ürün"}</h3>

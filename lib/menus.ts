@@ -87,6 +87,17 @@ export function isValidMenuData(value: unknown): value is MenuData {
   );
   if (totalItems > 500) return false;
 
+  const totalImageSize = menu.categories.reduce(
+    (menuTotal, category) => menuTotal + (Array.isArray(category?.items)
+      ? category.items.reduce(
+          (categoryTotal, item) => categoryTotal + (typeof item?.image === "string" ? item.image.length : 0),
+          0,
+        )
+      : 0),
+    0,
+  );
+  if (totalImageSize > 8_000_000) return false;
+
   return menu.categories.every((category) =>
     category &&
     typeof category.id === "string" && category.id.length <= 100 &&
@@ -102,7 +113,11 @@ export function isValidMenuData(value: unknown): value is MenuData {
       typeof item.badge === "string" && item.badge.length <= 40 &&
       (item.originalPrice === undefined ||
         (typeof item.originalPrice === "string" && item.originalPrice.length <= 40)) &&
-      (item.isCampaign === undefined || typeof item.isCampaign === "boolean"),
+      (item.isCampaign === undefined || typeof item.isCampaign === "boolean") &&
+      (item.image === undefined || item.image === "" ||
+        (typeof item.image === "string" &&
+          item.image.length <= 750_000 &&
+          /^data:image\/(?:jpeg|png|webp);base64,/i.test(item.image))),
     ),
   );
 }
