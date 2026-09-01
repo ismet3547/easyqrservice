@@ -160,6 +160,7 @@ export function MenuStudio({
   const [activeMenuStatus, setActiveMenuStatus] = useState<"draft" | "published">("draft");
   const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "error">("saved");
   const [generatingImages, setGeneratingImages] = useState(false);
+  const [generatingItemId, setGeneratingItemId] = useState("");
   const [imageGenerationProgress, setImageGenerationProgress] = useState({ done: 0, total: 0 });
   const totalItemCount = menu.categories.reduce((sum, category) => sum + category.items.length, 0);
   const missingImageCount = menu.categories.reduce(
@@ -439,7 +440,7 @@ export function MenuStudio({
   };
 
   const generateMissingImages = async () => {
-    if (generatingImages) return;
+    if (generatingImages || generatingItemId) return;
 
     const missingItems = menu.categories.flatMap((category) =>
       category.items
@@ -448,6 +449,7 @@ export function MenuStudio({
           itemId: item.id,
           name: item.name,
           description: item.description,
+          categoryName: category.name,
         })),
     );
 
@@ -484,6 +486,7 @@ export function MenuStudio({
           body: JSON.stringify({
             name: target.name,
             description: target.description,
+            categoryName: target.categoryName,
             restaurantName: menu.restaurantName,
           }),
         });
@@ -537,6 +540,71 @@ export function MenuStudio({
       setNotice(prefix + getErrorMessage(generationError));
     } finally {
       setGeneratingImages(false);
+    }
+  };
+
+  const generateItemImage = async (categoryIndex: number, itemIndex: number) => {
+    const category = menu.categories[categoryIndex];
+    const item = category?.items[itemIndex];
+    if (!category || !item || generatingImages || generatingItemId) return;
+
+    const currentImageSize = menu.categories.reduce(
+      (menuTotal, currentCategory) =>
+        menuTotal + currentCategory.items.reduce(
+          (categoryTotal, currentItem) => categoryTotal + (currentItem.image?.length || 0),
+          0,
+        ),
+      0,
+    );
+    if (currentImageSize - (item.image?.length || 0) + 420_000 > 8_000_000) {
+      setNotice("Menü görsel depolama sınırına yaklaştı. Önce bazı büyük görselleri kaldır veya değiştir.");
+      return;
+    }
+
+    setGeneratingItemId(item.id);
+    setNotice("");
+    try {
+      const response = await fetch("/api/generate-product-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: item.name,
+          description: item.description,
+          categoryName: category.name,
+          restaurantName: menu.restaurantName,
+        }),
+      });
+
+      let result: { imageDataUrl?: string; message?: string } = {};
+      try {
+        result = (await response.json()) as typeof result;
+      } catch {
+        result = {};
+      }
+
+      if (!response.ok || !result.imageDataUrl) {
+        throw new Error(result.message || "Bu ürün için görsel üretilemedi.");
+      }
+
+      const optimizedImage = await prepareProductImageSource(result.imageDataUrl, 720, 420_000);
+      setMenu((current) => ({
+        ...current,
+        categories: current.categories.map((currentCategory) =>
+          currentCategory.id === category.id
+            ? {
+                ...currentCategory,
+                items: currentCategory.items.map((currentItem) =>
+                  currentItem.id === item.id ? { ...currentItem, image: optimizedImage } : currentItem,
+                ),
+              }
+            : currentCategory,
+        ),
+      }));
+      setNotice((item.name.trim() || "Ürün") + " için yeni AI görseli hazırlandı.");
+    } catch (generationError) {
+      setNotice("Görsel yenilenemedi: " + getErrorMessage(generationError));
+    } finally {
+      setGeneratingItemId("");
     }
   };
 
@@ -912,7 +980,7 @@ export function MenuStudio({
                   </div>
                   <button
                     className="auto-image-button"
-                    disabled={generatingImages || missingImageCount === 0}
+                    disabled={generatingImages || Boolean(generatingItemId) || missingImageCount === 0}
                     onClick={() => { void generateMissingImages(); }}
                     title="OpenAI kullanım kotanı kullanır"
                   >
@@ -968,7 +1036,28 @@ export function MenuStudio({
                                 <span><strong>{item.image ? "Görseli değiştir" : "Ürün görseli ekle"}</strong><small>JPG, PNG veya WEBP · otomatik küçültülür</small></span>
                                 <input className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => { void updateItemImage(categoryIndex, itemIndex, event.target.files?.[0]); event.target.value = ""; }} />
                               </label>
-                              {item.image && <button aria-label="Ürün görselini kaldır" onClick={() => updateItem(categoryIndex, itemIndex, "image", "")}><ImageOff size={15} /> Kaldır</button>}
+                              <div className="item-image-actions">
+                                <button
+                                  className="item-ai-image-button"
+                                  disabled={generatingImages || Boolean(generatingItemId)}
+                                  aria-label={(item.image ? "AI ile görseli yenile: " : "AI ile görsel oluştur: ") + (item.name || "ürün")}
+                                  onClick={() => { void generateItemImage(categoryIndex, itemIndex); }}
+                                >
+                                  {generatingItemId === item.id
+                                    ? <Loader2 className="auto-image-spinner" size={14} />
+                                    : <Sparkles size={14} />}
+                                  {generatingItemId === item.id ? "Üretiliyor" : item.image ? "AI ile yenile" : "AI oluştur"}
+                                </button>
+                                {item.image && (
+                                  <button
+                                    className="item-remove-image-button"
+                                    aria-label="Ürün görselini kaldır"
+                                    onClick={() => updateItem(categoryIndex, itemIndex, "image", "")}
+                                  >
+                                    <ImageOff size={14} /> Kaldır
+                                  </button>
+                                )}
+                              </div>
                             </div>
                             <div className="item-editor-extras">
                               <input aria-label="Ürün etiketi" className="badge-input" placeholder="Etiket ekle (örn. Yeni)" value={item.badge} onChange={(event) => updateItem(categoryIndex, itemIndex, "badge", event.target.value)} />

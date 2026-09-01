@@ -8,6 +8,7 @@ export const maxDuration = 60;
 type GenerateProductImageBody = {
   name?: string;
   description?: string;
+  categoryName?: string;
   restaurantName?: string;
 };
 
@@ -15,6 +16,50 @@ type OpenAIImageResponse = {
   data?: Array<{ b64_json?: string }>;
   error?: { code?: string; message?: string };
 };
+
+function normalizeMenuText(value: string) {
+  return value
+    .toLocaleLowerCase("tr-TR")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/ı/g, "i")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function getVisualGuidance(name: string, categoryName: string) {
+  const item = normalizeMenuText(name);
+  const category = normalizeMenuText(categoryName);
+
+  if (item === "maden suyu" || item === "soda" || item.startsWith("soda ")) {
+    return "In Turkish restaurant usage this is sparkling mineral water. Show a clear glass of carbonated mineral water with visible bubbles. It is a beverage, never food, soup, dessert, or a plated dish.";
+  }
+
+  if (
+    item === "su" ||
+    item.startsWith("su ") ||
+    item.includes("icme suyu") ||
+    item.includes("kaynak suyu")
+  ) {
+    return "This item is plain still drinking water. Show one clean transparent drinking glass filled with clear colorless water and subtle condensation. Never show a bowl, plate, soup, noodles, pastry, sauce, tea, coffee, or colored drink.";
+  }
+
+  if (item === "ayran" || item.startsWith("ayran ")) {
+    return "This is Turkish ayran, a cold white yogurt drink served in a clear glass or traditional metal cup. It is a beverage, not yogurt in a bowl and not solid food.";
+  }
+
+  const beverageCategories = ["icecek", "icecekler", "kahve", "cay", "mesrubat", "soguk icecek", "sicak icecek"];
+  if (beverageCategories.some((keyword) => category.includes(keyword))) {
+    return "This menu item belongs to the beverage category. Show it unmistakably as a drink in an appropriate glass or cup, never as solid food or a plated dish.";
+  }
+
+  const dessertCategories = ["tatli", "tatlilar", "pasta", "dondurma"];
+  if (dessertCategories.some((keyword) => category.includes(keyword))) {
+    return "This menu item belongs to the dessert category. Show a realistic single dessert serving, not a savory meal or beverage.";
+  }
+
+  return "";
+}
 
 const hourlyImageLimit = 12;
 
@@ -63,12 +108,14 @@ export async function POST(request: Request) {
 
   const name = typeof body.name === "string" ? body.name.trim() : "";
   const description = typeof body.description === "string" ? body.description.trim() : "";
+  const categoryName = typeof body.categoryName === "string" ? body.categoryName.trim() : "";
   const restaurantName = typeof body.restaurantName === "string" ? body.restaurantName.trim() : "";
 
   if (
     !name ||
     name.length > 180 ||
     description.length > 1000 ||
+    categoryName.length > 100 ||
     restaurantName.length > 120
   ) {
     return NextResponse.json(
@@ -77,14 +124,19 @@ export async function POST(request: Request) {
     );
   }
 
+  const visualGuidance = getVisualGuidance(name, categoryName);
   const prompt = [
-    "Create a photorealistic square food photograph for a professional restaurant QR menu.",
-    "Dish name: " + name + ".",
-    description ? "Dish description and ingredients: " + description + "." : "",
+    "Create a photorealistic square product photograph for a professional restaurant QR menu.",
+    "The menu language is Turkish; interpret the Turkish item name using its category and description.",
+    "Menu item name: " + name + ".",
+    categoryName ? "Menu category: " + categoryName + "." : "",
+    description ? "Item description and ingredients: " + description + "." : "",
     restaurantName ? "Restaurant context: " + restaurantName + "." : "",
-    "Show one finished serving only, plated naturally and accurately from the supplied details.",
-    "Use a clean elegant surface, soft natural light, a 45-degree camera angle, appetizing realistic texture, and centered composition.",
-    "No written text, prices, logos, watermarks, people, hands, packaging, collage, or decorative typography.",
+    visualGuidance,
+    "Show exactly one finished serving in the correct vessel or plate and represent the named item faithfully.",
+    "If the identity is uncertain, use the most canonical restaurant serving for the stated category; never invent a different product.",
+    "Use a clean elegant surface, soft natural light, a 45-degree camera angle, realistic texture, and centered composition.",
+    "No written text, prices, logos, watermarks, people, hands, branded packaging, collage, or decorative typography.",
   ].filter(Boolean).join(" ");
 
   let openAIResponse: Response;
