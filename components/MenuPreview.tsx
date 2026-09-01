@@ -57,7 +57,10 @@ export function MenuPreview({ menu, theme, framed = false }: PublishedMenu & { f
                     </div>
                     {theme.showDescriptions && item.description && <p>{item.description}</p>}
                   </div>
-                  <strong className="menu-price">{item.price}<small>{menu.currency}</small></strong>
+                  <div className={`menu-price-area ${item.isCampaign && item.originalPrice ? "has-campaign" : ""}`}>
+                    {item.isCampaign && item.originalPrice && <><span className="menu-campaign-label">Kampanya</span><del>{item.originalPrice}<small>{menu.currency}</small></del></>}
+                    <strong className="menu-price">{item.price}<small>{menu.currency}</small></strong>
+                  </div>
                 </article>
               ))}
               {category.items.length === 0 && <div className="empty-category">Bu kategoride henüz ürün yok.</div>}

@@ -11,7 +11,8 @@ Restoran ve kafelerin mevcut PDF veya görsel menülerini yapay zekâ ile okuyup
 - OpenAI Responses API ile kategori, ürün, açıklama ve fiyat çıkarımı
 - API anahtarı olmadan deneyimlenebilen, açıkça etiketlenmiş demo modu
 - Kategori ve ürün ekleme, düzenleme, silme
-- Renk, tipografi, kart/kompakt düzen ve açıklama görünürlüğü ayarları
+- Ürün bazında eski fiyat ve kampanyalı fiyat gösterimi
+- Renk, tipografi, dört farklı ürün düzeni ve açıklama görünürlüğü ayarları
 - Anlık telefon önizlemesi
 - Tarayıcıda otomatik taslak kaydı
 - Kullanıcı hesabına göre ayrılmış yerel taslaklar

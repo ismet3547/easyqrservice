@@ -2,12 +2,15 @@
 
 import {
   ArrowLeft,
+  BadgePercent,
   Check,
   ChevronDown,
   Copy,
   Download,
   Eye,
   FileText,
+  GalleryVerticalEnd,
+  Grid2X2,
   LayoutGrid,
   List,
   Loader2,
@@ -327,7 +330,7 @@ export function MenuStudio({
     categoryIndex: number,
     itemIndex: number,
     key: keyof Omit<MenuItem, "id">,
-    value: string,
+    value: string | boolean,
   ) => {
     setMenu((current) => ({
       ...current,
@@ -359,6 +362,8 @@ export function MenuStudio({
                   description: "Ürün açıklaması",
                   price: "0",
                   badge: "",
+                  originalPrice: "",
+                  isCampaign: false,
                 },
               ],
             }
@@ -747,11 +752,21 @@ export function MenuStudio({
                           <article className="item-editor" key={item.id}>
                             <div className="item-editor-top">
                               <input aria-label="Ürün adı" className="item-name-input" value={item.name} onChange={(event) => updateItem(categoryIndex, itemIndex, "name", event.target.value)} />
-                              <div className="price-input"><input aria-label="Fiyat" value={item.price} onChange={(event) => updateItem(categoryIndex, itemIndex, "price", event.target.value)} /><span>{menu.currency}</span></div>
+                              <div className="price-input"><input aria-label={item.isCampaign ? "Kampanyalı fiyat" : "Fiyat"} value={item.price} onChange={(event) => updateItem(categoryIndex, itemIndex, "price", event.target.value)} /><span>{menu.currency}</span></div>
                               <button aria-label="Ürünü sil" onClick={() => removeItem(categoryIndex, itemIndex)}><Trash2 size={15} /></button>
                             </div>
                             <textarea aria-label="Ürün açıklaması" rows={2} value={item.description} onChange={(event) => updateItem(categoryIndex, itemIndex, "description", event.target.value)} />
-                            <input aria-label="Ürün etiketi" className="badge-input" placeholder="Etiket ekle (örn. Yeni)" value={item.badge} onChange={(event) => updateItem(categoryIndex, itemIndex, "badge", event.target.value)} />
+                            <div className="item-editor-extras">
+                              <input aria-label="Ürün etiketi" className="badge-input" placeholder="Etiket ekle (örn. Yeni)" value={item.badge} onChange={(event) => updateItem(categoryIndex, itemIndex, "badge", event.target.value)} />
+                              <button className={`campaign-toggle ${item.isCampaign ? "active" : ""}`} onClick={() => updateItem(categoryIndex, itemIndex, "isCampaign", !item.isCampaign)}><BadgePercent size={14} /> {item.isCampaign ? "Kampanyalı" : "Kampanya ekle"}</button>
+                            </div>
+                            {item.isCampaign && (
+                              <div className="campaign-editor">
+                                <BadgePercent size={16} />
+                                <label><span>Eski fiyat</span><div className="price-input"><input aria-label="Kampanya öncesi fiyat" placeholder="475" value={item.originalPrice || ""} onChange={(event) => updateItem(categoryIndex, itemIndex, "originalPrice", event.target.value)} /><span>{menu.currency}</span></div></label>
+                                <p>Menüde <del>{item.originalPrice || "475"}{menu.currency}</del> yerine <strong>{item.price || "400"}{menu.currency}</strong> gösterilir.</p>
+                              </div>
+                            )}
                           </article>
                         ))}
                         <button className="add-row-button" onClick={() => addItem(categoryIndex)}><Plus size={16} /> Ürün ekle</button>
@@ -796,8 +811,10 @@ export function MenuStudio({
               <section className="form-section">
                 <div className="section-heading"><div><span>Düzen</span><h2>Ürün görünümü</h2></div></div>
                 <div className="layout-grid">
-                  <button className={theme.layout === "cards" ? "active" : ""} onClick={() => setTheme({ ...theme, layout: "cards" })}><LayoutGrid size={22} /><span>Kartlar</span></button>
-                  <button className={theme.layout === "compact" ? "active" : ""} onClick={() => setTheme({ ...theme, layout: "compact" })}><List size={22} /><span>Kompakt</span></button>
+                  <button className={theme.layout === "cards" ? "active" : ""} onClick={() => setTheme({ ...theme, layout: "cards" })}><LayoutGrid size={22} /><span><strong>Kartlar</strong><small>Rahat ve dengeli</small></span></button>
+                  <button className={theme.layout === "compact" ? "active" : ""} onClick={() => setTheme({ ...theme, layout: "compact" })}><List size={22} /><span><strong>Kompakt</strong><small>Uzun menüler için</small></span></button>
+                  <button className={theme.layout === "tiles" ? "active" : ""} onClick={() => setTheme({ ...theme, layout: "tiles" })}><Grid2X2 size={22} /><span><strong>Izgara</strong><small>İki sütunlu vitrin</small></span></button>
+                  <button className={theme.layout === "showcase" ? "active" : ""} onClick={() => setTheme({ ...theme, layout: "showcase" })}><GalleryVerticalEnd size={22} /><span><strong>Öne çıkan</strong><small>İlk ürünü vurgular</small></span></button>
                 </div>
                 <label className="toggle-row"><span><strong>Ürün açıklamaları</strong><small>Menüde açıklamaları göster</small></span><input type="checkbox" checked={theme.showDescriptions} onChange={(event) => setTheme({ ...theme, showDescriptions: event.target.checked })} /><i /></label>
               </section>

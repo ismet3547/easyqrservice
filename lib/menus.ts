@@ -99,7 +99,10 @@ export function isValidMenuData(value: unknown): value is MenuData {
       typeof item.name === "string" && item.name.length <= 180 &&
       typeof item.description === "string" && item.description.length <= 1000 &&
       typeof item.price === "string" && item.price.length <= 40 &&
-      typeof item.badge === "string" && item.badge.length <= 40,
+      typeof item.badge === "string" && item.badge.length <= 40 &&
+      (item.originalPrice === undefined ||
+        (typeof item.originalPrice === "string" && item.originalPrice.length <= 40)) &&
+      (item.isCampaign === undefined || typeof item.isCampaign === "boolean"),
     ),
   );
 }
@@ -114,7 +117,7 @@ export function isValidMenuTheme(value: unknown): value is MenuTheme {
     isColor(theme.surface) &&
     isColor(theme.text) &&
     ["modern", "editorial", "friendly"].includes(theme.font || "") &&
-    ["cards", "compact"].includes(theme.layout || "") &&
+    ["cards", "compact", "tiles", "showcase"].includes(theme.layout || "") &&
     typeof theme.showDescriptions === "boolean"
   );
 }

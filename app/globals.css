@@ -1058,6 +1058,67 @@ a {
   border-color: #f1ddd2;
 }
 
+.item-editor-extras {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.campaign-toggle {
+  display: inline-flex;
+  min-height: 31px;
+  padding: 0 9px;
+  align-items: center;
+  gap: 5px;
+  color: #71766e;
+  background: #fff;
+  border: 1px solid #dfded8;
+  border-radius: 6px;
+  font-size: 9px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.campaign-toggle:hover,
+.campaign-toggle.active {
+  color: #b44822;
+  background: #fff1e9;
+  border-color: #efc3b1;
+}
+
+.campaign-editor {
+  display: grid;
+  padding: 10px;
+  grid-template-columns: 21px 105px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  color: #c6532b;
+  background: #fff4ed;
+  border: 1px solid #f0d1c3;
+  border-radius: 7px;
+}
+
+.campaign-editor > label {
+  display: grid;
+  gap: 4px;
+  color: #777c74;
+  font-size: 8px;
+  font-weight: 750;
+}
+
+.campaign-editor .price-input { height: 31px; }
+
+.campaign-editor > p {
+  margin: 0;
+  color: #8b6b5e;
+  font-size: 8.5px;
+  line-height: 1.45;
+}
+
+.campaign-editor del { color: #9a8379; }
+.campaign-editor strong { color: #b44923; }
+
 .add-row-button,
 .add-category-button {
   display: flex;
@@ -1206,17 +1267,25 @@ a {
 
 .layout-grid button {
   display: flex;
-  min-height: 67px;
+  min-height: 76px;
+  padding: 11px;
   align-items: center;
-  justify-content: center;
-  gap: 9px;
+  justify-content: flex-start;
+  gap: 10px;
   color: #73786f;
   background: white;
   border: 1px solid #dfded8;
   border-radius: 9px;
   font-size: 10px;
   font-weight: 700;
+  text-align: left;
 }
+
+.layout-grid button > svg { flex: 0 0 auto; }
+.layout-grid button > span { display: grid; gap: 3px; }
+.layout-grid button strong { color: inherit; font-size: 10px; }
+.layout-grid button small { color: #92968f; font-size: 8px; font-weight: 550; }
+.layout-grid button.active small { color: #c97b5e; }
 
 .layout-grid button.active {
   color: var(--orange);
@@ -1624,6 +1693,42 @@ a {
   font-size: 7px;
 }
 
+.menu-price-area {
+  display: grid;
+  min-width: 42px;
+  justify-items: end;
+  gap: 2px;
+}
+
+.menu-price-area del {
+  color: color-mix(in srgb, var(--menu-text), transparent 56%);
+  font-family: Inter, sans-serif;
+  font-size: 8px;
+  text-decoration-thickness: 1px;
+}
+
+.menu-price-area del small {
+  margin-left: 1px;
+  font-size: 6px;
+}
+
+.menu-campaign-label {
+  padding: 2px 4px;
+  color: var(--menu-bg);
+  background: var(--menu-accent);
+  border-radius: 3px;
+  font-family: Inter, sans-serif;
+  font-size: 5px;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.menu-price-area.has-campaign .menu-price {
+  font-size: 12px;
+  font-weight: 850;
+}
+
 .layout-compact .menu-items {
   gap: 0;
 }
@@ -1631,6 +1736,80 @@ a {
 .layout-compact .menu-item {
   min-height: 61px;
   padding: 12px 2px;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--menu-text), transparent 87%);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.layout-tiles .menu-items {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.layout-tiles .menu-item {
+  display: flex;
+  min-height: 132px;
+  padding: 14px;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.layout-tiles .menu-item-title {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.layout-tiles .menu-item-copy p {
+  margin-top: 8px;
+}
+
+.layout-tiles .menu-price-area {
+  width: 100%;
+  margin-top: auto;
+  padding-top: 9px;
+  grid-template-columns: 1fr auto;
+  align-items: end;
+  justify-items: start;
+  border-top: 1px solid color-mix(in srgb, var(--menu-text), transparent 90%);
+}
+
+.layout-tiles .menu-price-area .menu-campaign-label { grid-column: 1; grid-row: 1; }
+.layout-tiles .menu-price-area del { grid-column: 1; grid-row: 2; }
+.layout-tiles .menu-price-area .menu-price { grid-column: 2; grid-row: 1 / span 2; align-self: end; }
+
+.layout-showcase .menu-items {
+  gap: 7px;
+}
+
+.layout-showcase .menu-item:first-child {
+  position: relative;
+  min-height: 132px;
+  padding: 41px 17px 18px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--menu-accent), var(--menu-surface) 84%);
+  border-color: color-mix(in srgb, var(--menu-accent), transparent 65%);
+  box-shadow: 0 9px 22px color-mix(in srgb, var(--menu-accent), transparent 88%);
+}
+
+.layout-showcase .menu-item:first-child::before {
+  position: absolute;
+  top: 13px;
+  left: 17px;
+  content: "Öne çıkan";
+  color: var(--menu-accent);
+  font-family: Inter, sans-serif;
+  font-size: 6px;
+  font-weight: 850;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.layout-showcase .menu-item:not(:first-child) {
+  min-height: 64px;
+  padding: 12px 3px;
   background: transparent;
   border: 0;
   border-bottom: 1px solid color-mix(in srgb, var(--menu-text), transparent 87%);
@@ -1703,8 +1882,16 @@ a {
 .public-menu-shell .menu-item-copy p { font-size: 10.5px; }
 .public-menu-shell .menu-price { font-size: 15px; }
 .public-menu-shell .menu-price small { font-size: 9px; }
+.public-menu-shell .menu-price-area del { font-size: 11px; }
+.public-menu-shell .menu-price-area del small { font-size: 8px; }
+.public-menu-shell .menu-campaign-label { padding: 3px 6px; font-size: 7px; }
+.public-menu-shell .menu-price-area.has-campaign .menu-price { font-size: 17px; }
 .public-menu-shell .menu-item-title span { font-size: 7px; }
 .public-menu-shell .layout-compact .menu-item { min-height: 78px; padding: 16px 3px; }
+.public-menu-shell .layout-tiles .menu-item { min-height: 178px; padding: 19px; }
+.public-menu-shell .layout-showcase .menu-item:first-child { min-height: 172px; padding: 51px 23px 23px; }
+.public-menu-shell .layout-showcase .menu-item:first-child::before { top: 18px; left: 23px; font-size: 8px; }
+.public-menu-shell .layout-showcase .menu-item:not(:first-child) { min-height: 82px; padding: 17px 4px; }
 
 .public-menu-footer {
   display: flex;
@@ -4040,6 +4227,11 @@ a {
   .theme-grid { grid-template-columns: 1fr; }
   .publish-actions { grid-template-columns: 1fr; }
   .item-editor-top { grid-template-columns: minmax(0, 1fr) 70px 28px; }
+  .item-editor-extras { align-items: stretch; flex-direction: column; }
+  .item-editor .badge-input { width: 100%; }
+  .campaign-toggle { justify-content: center; }
+  .campaign-editor { grid-template-columns: 21px minmax(0, 1fr); }
+  .campaign-editor > p { grid-column: 1 / -1; }
   .public-menu-shell .menu-hero h1 { font-size: 35px; }
   .dashboard-stats { grid-template-columns: 1fr; }
   .dashboard-menu-card { grid-template-columns: 1fr; }

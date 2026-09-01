@@ -4,6 +4,8 @@ export type MenuItem = {
   description: string;
   price: string;
   badge: string;
+  originalPrice?: string;
+  isCampaign?: boolean;
 };
 
 export type MenuCategory = {
@@ -25,7 +27,7 @@ export type MenuTheme = {
   surface: string;
   text: string;
   font: "modern" | "editorial" | "friendly";
-  layout: "cards" | "compact";
+  layout: "cards" | "compact" | "tiles" | "showcase";
   showDescriptions: boolean;
 };
 
@@ -59,6 +61,8 @@ export const demoMenu: MenuData = {
           description: "Ekşi maya ekmek, avokado, poşe yumurta ve taze otlar",
           price: "285",
           badge: "Favori",
+          originalPrice: "340",
+          isCampaign: true,
         },
         {
           id: "granola-kase",
