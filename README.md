@@ -19,6 +19,8 @@ Restoran ve kafelerin mevcut PDF veya görsel menülerini yapay zekâ ile okuyup
 - Giriş sonrasında landing page'den tamamen ayrılan korumalı menü oluşturma alanı
 - Menülerin SQLite veritabanına otomatik kaydı
 - Dashboard’dan menü açma, bağlantı kopyalama ve silme
+- Günlük QR menü açılışlarını gösteren 7, 14 ve 30 günlük analitik ekranı
+- Menü bazlı görüntülenme sıralaması ve mobil dashboard navigasyonu
 - QR kod, bağlantı kopyalama, paylaşma ve SVG indirme
 - Kısa ve kalıcı `/m/{slug}` müşteri menüsü
 - Yayındaki menüler için görüntülenme sayacı
@@ -65,6 +67,7 @@ npm start          # üretim sunucusu
 - `app/studio` ve `components/MenuStudio.tsx`: korumalı yükleme, editör, önizleme ve QR akışları
 - `app/dashboard` ve `components/Dashboard.tsx`: korumalı işletme paneli
 - `app/dashboard/menus` ve `components/MenusDashboard.tsx`: menü arama, filtreleme ve yönetim sayfası
+- `app/dashboard/analytics`, `components/AnalyticsDashboard.tsx` ve `lib/analytics.ts`: günlük açılış trendi ve menü performansı
 - `app/api/menus/*`: menü oluşturma, okuma, güncelleme, yayınlama ve silme
 - `app/m/[slug]`: herkese açık, kalıcı müşteri menüsü
 - `app/api/extract-menu/route.ts`: dosya doğrulama ve AI tabanlı menü çıkarımı
@@ -81,7 +84,7 @@ Kullanıcılar, oturumlar, taslaklar ve yayınlanan menüler yerel SQLite verita
 1. Üretim ortamı için PostgreSQL ile işletme, menü, kategori ve ürün tabloları
 2. E-posta doğrulama, şifre sıfırlama ve çoklu işletme desteği
 3. Ürün görseli, alerjen, çoklu dil ve stokta yok işaretleme
-4. Günlük görüntülenme serisi ve gelişmiş QR analitiği
+4. Trafik kaynağı, cihaz türü ve anonim tekil ziyaretçi analitiği
 5. İşletme profili, ekip rolleri ve abonelik planları
 
 ## Güvenlik

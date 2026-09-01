@@ -191,5 +191,10 @@ export function getPublishedMenu(slug: string) {
 }
 
 export function recordMenuView(id: string) {
-  db.prepare("UPDATE menus SET view_count = view_count + 1 WHERE id = ?").run(id);
+  const recordView = db.transaction((menuId: string) => {
+    db.prepare("INSERT INTO menu_views (menu_id, viewed_at) VALUES (?, ?)")
+      .run(menuId, new Date().toISOString());
+    db.prepare("UPDATE menus SET view_count = view_count + 1 WHERE id = ?").run(menuId);
+  });
+  recordView(id);
 }

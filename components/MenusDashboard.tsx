@@ -21,6 +21,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import type { SessionUser } from "@/lib/auth";
 import type { MenuStatus, StoredMenu } from "@/lib/menus";
+import { DashboardMobileNav } from "@/components/DashboardMobileNav";
 
 type Filter = "all" | MenuStatus;
 
@@ -71,7 +72,7 @@ export function MenusDashboard({ user, initialMenus }: { user: SessionUser; init
           <span className="dashboard-nav-label">Çalışma alanı</span>
           <Link href="/dashboard"><LayoutDashboard size={17} /> Genel bakış</Link>
           <Link className="active" href="/dashboard/menus"><BookOpen size={17} /> Menülerim <b>{menus.length}</b></Link>
-          <button disabled><BarChart3 size={17} /> Analitik <small>Yakında</small></button>
+          <Link href="/dashboard/analytics"><BarChart3 size={17} /> Analitik</Link>
           <span className="dashboard-nav-label second">Hesap</span>
           <button disabled><Settings size={17} /> Ayarlar</button>
           <button disabled><CircleHelp size={17} /> Yardım merkezi</button>
@@ -139,6 +140,7 @@ export function MenusDashboard({ user, initialMenus }: { user: SessionUser; init
           )}
         </div>
       </section>
+      <DashboardMobileNav active="menus" />
     </main>
   );
 }

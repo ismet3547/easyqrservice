@@ -50,4 +50,14 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS menus_user_updated_idx ON menus(user_id, updated_at DESC);
   CREATE INDEX IF NOT EXISTS menus_slug_idx ON menus(slug);
+
+  CREATE TABLE IF NOT EXISTS menu_views (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    menu_id TEXT NOT NULL,
+    viewed_at TEXT NOT NULL,
+    FOREIGN KEY (menu_id) REFERENCES menus(id) ON DELETE CASCADE
+  );
+
+  CREATE INDEX IF NOT EXISTS menu_views_menu_viewed_idx ON menu_views(menu_id, viewed_at DESC);
+  CREATE INDEX IF NOT EXISTS menu_views_viewed_idx ON menu_views(viewed_at DESC);
 `);

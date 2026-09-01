@@ -24,6 +24,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { SessionUser } from "@/lib/auth";
 import type { StoredMenu } from "@/lib/menus";
+import { DashboardMobileNav } from "@/components/DashboardMobileNav";
 
 export function Dashboard({ user, initialMenus }: { user: SessionUser; initialMenus: StoredMenu[] }) {
   const router = useRouter();
@@ -74,7 +75,7 @@ export function Dashboard({ user, initialMenus }: { user: SessionUser; initialMe
           <span className="dashboard-nav-label">Çalışma alanı</span>
           <Link className="active" href="/dashboard"><LayoutDashboard size={17} /> Genel bakış</Link>
           <Link href="/dashboard/menus"><BookOpen size={17} /> Menülerim <b>{menus.length}</b></Link>
-          <button disabled title="Detaylı analitik sonraki sürümde"><BarChart3 size={17} /> Analitik <small>Yakında</small></button>
+          <Link href="/dashboard/analytics"><BarChart3 size={17} /> Analitik</Link>
           <span className="dashboard-nav-label second">Hesap</span>
           <button disabled title="Ayarlar sonraki sürümde"><Settings size={17} /> Ayarlar</button>
           <button disabled title="Yardım merkezi sonraki sürümde"><CircleHelp size={17} /> Yardım merkezi</button>
@@ -175,6 +176,7 @@ export function Dashboard({ user, initialMenus }: { user: SessionUser; initialMe
           </div>
         </div>
       </section>
+      <DashboardMobileNav active="overview" />
     </main>
   );
 }
