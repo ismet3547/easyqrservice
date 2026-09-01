@@ -1,3 +1,38 @@
+export const menuDietaryTags = ["vegan", "vegetarian", "gluten-free", "spicy"] as const;
+export type MenuDietaryTag = (typeof menuDietaryTags)[number];
+
+export const menuAllergens = [
+  "gluten",
+  "milk",
+  "egg",
+  "nuts",
+  "peanut",
+  "soy",
+  "sesame",
+  "fish",
+  "shellfish",
+] as const;
+export type MenuAllergen = (typeof menuAllergens)[number];
+
+export const dietaryTagLabels: Record<MenuDietaryTag, string> = {
+  vegan: "Vegan",
+  vegetarian: "Vejetaryen",
+  "gluten-free": "Glutensiz",
+  spicy: "Acılı",
+};
+
+export const allergenLabels: Record<MenuAllergen, string> = {
+  gluten: "Gluten",
+  milk: "Süt",
+  egg: "Yumurta",
+  nuts: "Kuruyemiş",
+  peanut: "Yer fıstığı",
+  soy: "Soya",
+  sesame: "Susam",
+  fish: "Balık",
+  shellfish: "Kabuklu deniz ürünü",
+};
+
 export type MenuItemAvailability = "available" | "sold-out" | "hidden";
 
 export type MenuItem = {
@@ -10,6 +45,8 @@ export type MenuItem = {
   isCampaign?: boolean;
   image?: string;
   availability?: MenuItemAvailability;
+  dietaryTags?: MenuDietaryTag[];
+  allergens?: MenuAllergen[];
 };
 
 export type MenuCategory = {
@@ -67,6 +104,8 @@ export const demoMenu: MenuData = {
           badge: "Favori",
           originalPrice: "340",
           isCampaign: true,
+          dietaryTags: ["vegetarian"],
+          allergens: ["gluten", "egg"],
         },
         {
           id: "granola-kase",
@@ -74,6 +113,8 @@ export const demoMenu: MenuData = {
           description: "Süzme yoğurt, mevsim meyveleri, bal ve fındık",
           price: "220",
           badge: "",
+          dietaryTags: ["vegetarian"],
+          allergens: ["milk", "nuts"],
         },
         {
           id: "menemen",

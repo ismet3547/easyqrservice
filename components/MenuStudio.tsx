@@ -15,6 +15,7 @@ import {
   ImageOff,
   ImagePlus,
   LayoutGrid,
+  Leaf,
   List,
   Loader2,
   LogOut,
@@ -39,11 +40,17 @@ import {
   useState,
 } from "react";
 import {
+  allergenLabels,
   createId,
+  dietaryTagLabels,
   decodePublishedMenu,
   defaultTheme,
   demoMenu,
+  menuAllergens,
+  menuDietaryTags,
+  type MenuAllergen,
   type MenuData,
+  type MenuDietaryTag,
   type MenuItem,
   type MenuTheme,
   type PublishedMenu,
@@ -404,6 +411,74 @@ export function MenuStudio({
     }));
   };
 
+  const toggleDietaryTag = (
+    categoryIndex: number,
+    itemIndex: number,
+    tag: MenuDietaryTag,
+  ) => {
+    setMenu((current) => ({
+      ...current,
+      categories: current.categories.map((category, currentCategoryIndex) =>
+        currentCategoryIndex !== categoryIndex
+          ? category
+          : {
+              ...category,
+              items: category.items.map((item, currentItemIndex) => {
+                if (currentItemIndex !== itemIndex) return item;
+                const currentTags = item.dietaryTags || [];
+                const removing = currentTags.includes(tag);
+                let dietaryTags = removing
+                  ? currentTags.filter((currentTag) => currentTag !== tag)
+                  : [...currentTags, tag];
+
+                if (!removing && tag === "vegan") {
+                  dietaryTags = dietaryTags.filter((currentTag) => currentTag !== "vegetarian");
+                }
+                if (!removing && tag === "vegetarian") {
+                  dietaryTags = dietaryTags.filter((currentTag) => currentTag !== "vegan");
+                }
+
+                const allergens = !removing && tag === "gluten-free"
+                  ? (item.allergens || []).filter((allergen) => allergen !== "gluten")
+                  : item.allergens || [];
+
+                return { ...item, dietaryTags, allergens };
+              }),
+            },
+      ),
+    }));
+  };
+
+  const toggleAllergen = (
+    categoryIndex: number,
+    itemIndex: number,
+    allergen: MenuAllergen,
+  ) => {
+    setMenu((current) => ({
+      ...current,
+      categories: current.categories.map((category, currentCategoryIndex) =>
+        currentCategoryIndex !== categoryIndex
+          ? category
+          : {
+              ...category,
+              items: category.items.map((item, currentItemIndex) => {
+                if (currentItemIndex !== itemIndex) return item;
+                const currentAllergens = item.allergens || [];
+                const removing = currentAllergens.includes(allergen);
+                const allergens = removing
+                  ? currentAllergens.filter((currentAllergen) => currentAllergen !== allergen)
+                  : [...currentAllergens, allergen];
+                const dietaryTags = !removing && allergen === "gluten"
+                  ? (item.dietaryTags || []).filter((tag) => tag !== "gluten-free")
+                  : item.dietaryTags || [];
+
+                return { ...item, dietaryTags, allergens };
+              }),
+            },
+      ),
+    }));
+  };
+
   const addItem = (categoryIndex: number) => {
     setMenu((current) => ({
       ...current,
@@ -423,6 +498,8 @@ export function MenuStudio({
                   isCampaign: false,
                   image: "",
                   availability: "available",
+                  dietaryTags: [],
+                  allergens: [],
                 },
               ],
             }
@@ -1097,6 +1174,54 @@ export function MenuStudio({
                                 </button>
                               </div>
                             </div>
+                            <details className="item-dietary-editor">
+                              <summary>
+                                <Leaf size={16} />
+                                <span className="item-dietary-summary-copy">
+                                  <strong>Beslenme &amp; alerjenler</strong>
+                                  <small>Menüde gösterilecek ürün bilgileri</small>
+                                </span>
+                                <b>{(item.dietaryTags?.length || 0) + (item.allergens?.length || 0)}</b>
+                                <ChevronDown className="dietary-chevron" size={15} />
+                              </summary>
+                              <div className="item-dietary-body">
+                                <div className="item-dietary-group">
+                                  <span>Beslenme etiketleri</span>
+                                  <div className="item-dietary-options">
+                                    {menuDietaryTags.map((tag) => (
+                                      <button
+                                        type="button"
+                                        key={tag}
+                                        className={`dietary-choice ${tag} ${item.dietaryTags?.includes(tag) ? "active" : ""}`}
+                                        aria-pressed={item.dietaryTags?.includes(tag) || false}
+                                        onClick={() => toggleDietaryTag(categoryIndex, itemIndex, tag)}
+                                      >
+                                        {dietaryTagLabels[tag]}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                                <div className="item-dietary-group">
+                                  <span>Alerjenler</span>
+                                  <div className="item-dietary-options">
+                                    {menuAllergens.map((allergen) => (
+                                      <button
+                                        type="button"
+                                        key={allergen}
+                                        className={`allergen-choice ${item.allergens?.includes(allergen) ? "active" : ""}`}
+                                        aria-pressed={item.allergens?.includes(allergen) || false}
+                                        onClick={() => toggleAllergen(categoryIndex, itemIndex, allergen)}
+                                      >
+                                        {allergenLabels[allergen]}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                                <p className="item-allergen-caution">
+                                  Bu bilgileri yayınlamadan önce mutfak ekibiyle doğrula. Çapraz bulaşma ayrıca değerlendirilmelidir.
+                                </p>
+                              </div>
+                            </details>
                             <div className="item-editor-extras">
                               <input aria-label="Ürün etiketi" className="badge-input" placeholder="Etiket ekle (örn. Yeni)" value={item.badge} onChange={(event) => updateItem(categoryIndex, itemIndex, "badge", event.target.value)} />
                               <button className={`campaign-toggle ${item.isCampaign ? "active" : ""}`} onClick={() => updateItem(categoryIndex, itemIndex, "isCampaign", !item.isCampaign)}><BadgePercent size={14} /> {item.isCampaign ? "Kampanyalı" : "Kampanya ekle"}</button>

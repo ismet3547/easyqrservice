@@ -1338,6 +1338,153 @@ a {
   border-color: #bfc2bb;
 }
 
+.item-dietary-editor {
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid #e1e1da;
+  border-radius: 8px;
+}
+
+.category-editor .item-dietary-editor > summary {
+  display: grid;
+  min-height: 47px;
+  padding: 9px 10px;
+  grid-template-columns: auto minmax(0, 1fr) 25px auto;
+  align-items: center;
+  gap: 8px;
+  color: #60665e;
+  background: #fff;
+  cursor: pointer;
+  list-style: none;
+}
+
+.category-editor .item-dietary-editor > summary:hover,
+.item-dietary-editor[open] > summary {
+  color: #45603b;
+  background: #f7faf5;
+}
+
+.category-editor .item-dietary-editor > summary > svg:first-child {
+  color: #668253;
+}
+
+.category-editor .item-dietary-editor > summary > .item-dietary-summary-copy {
+  display: grid;
+  width: auto;
+  height: auto;
+  margin: 0;
+  place-items: initial;
+  gap: 2px;
+  color: inherit;
+  background: transparent;
+  border-radius: 0;
+  font-size: inherit;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.item-dietary-summary-copy strong {
+  font-size: 11px;
+}
+
+.item-dietary-summary-copy small {
+  color: #8a8f87;
+  font-size: 9px;
+}
+
+.item-dietary-editor > summary > b {
+  display: grid;
+  width: 25px;
+  height: 25px;
+  place-items: center;
+  color: #63715a;
+  background: #edf2e9;
+  border-radius: 6px;
+  font-size: 10px;
+}
+
+.dietary-chevron {
+  color: #989d95;
+  transition: transform 150ms ease;
+}
+
+.item-dietary-editor[open] .dietary-chevron {
+  transform: rotate(180deg);
+}
+
+.item-dietary-body {
+  display: grid;
+  padding: 12px;
+  gap: 13px;
+  border-top: 1px solid #e8e8e2;
+}
+
+.item-dietary-group {
+  display: grid;
+  gap: 7px;
+}
+
+.item-dietary-group > span {
+  color: #737970;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.item-dietary-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.dietary-choice,
+.allergen-choice {
+  min-height: 33px;
+  padding: 0 10px;
+  color: #747a71;
+  background: #fafaf8;
+  border: 1px solid #ddddda;
+  border-radius: 7px;
+  font-size: 10px;
+  font-weight: 720;
+}
+
+.dietary-choice.active {
+  color: #4f713f;
+  background: #edf5e8;
+  border-color: #b9d0aa;
+}
+
+.dietary-choice.gluten-free.active {
+  color: #80651d;
+  background: #fff7d9;
+  border-color: #e3d28f;
+}
+
+.dietary-choice.spicy.active {
+  color: #a24827;
+  background: #fff0e7;
+  border-color: #e7bba8;
+}
+
+.allergen-choice.active {
+  color: #963f32;
+  background: #fff0ec;
+  border-color: #e4b7ae;
+}
+
+.item-allergen-caution {
+  margin: 0;
+  padding: 9px 10px;
+  color: #80635c;
+  background: #fff8f5;
+  border-left: 3px solid #d79582;
+  border-radius: 5px;
+  font-size: 9px;
+  line-height: 1.5;
+}
+
 .item-editor-extras {
   display: flex;
   align-items: center;
@@ -2004,6 +2151,50 @@ a {
   line-height: 1.45;
 }
 
+.menu-dietary-tags {
+  display: flex;
+  margin-top: 7px;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.menu-dietary-tags span {
+  padding: 3px 5px;
+  color: #4d6e3e;
+  background: #edf5e8;
+  border-radius: 4px;
+  font-family: Inter, sans-serif;
+  font-size: 5.5px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.menu-dietary-tags .tag-gluten-free {
+  color: #7a601d;
+  background: #fff5cf;
+}
+
+.menu-dietary-tags .tag-spicy {
+  color: #9e4124;
+  background: #ffe9dd;
+}
+
+.menu-item-allergens {
+  display: flex;
+  margin-top: 6px;
+  flex-wrap: wrap;
+  gap: 3px;
+  color: color-mix(in srgb, var(--menu-text), transparent 43%);
+  font-family: Inter, sans-serif;
+  font-size: 6px;
+  line-height: 1.4;
+}
+
+.menu-item-allergens strong {
+  color: #9a4938;
+  font-weight: 800;
+}
+
 .menu-price {
   display: flex;
   color: var(--menu-accent);
@@ -2212,6 +2403,25 @@ a {
   line-height: 1.5;
 }
 
+.menu-allergen-note {
+  display: grid;
+  margin: 0 16px 22px;
+  padding: 12px 13px;
+  gap: 4px;
+  color: color-mix(in srgb, var(--menu-text), transparent 35%);
+  background: color-mix(in srgb, #fff1eb, var(--menu-bg) 52%);
+  border: 1px solid color-mix(in srgb, #bd6a53, transparent 68%);
+  border-radius: 9px;
+  font-family: Inter, sans-serif;
+  font-size: 6.5px;
+  line-height: 1.5;
+}
+
+.menu-allergen-note strong {
+  color: #994b39;
+  font-size: 7px;
+}
+
 .menu-bottom-note {
   display: flex;
   padding: 0 16px 35px;
@@ -2267,6 +2477,11 @@ a {
 .public-menu-shell .menu-item-title h3 { font-size: 14px; }
 .public-menu-shell .font-editorial .menu-item-title h3 { font-size: 16px; }
 .public-menu-shell .menu-item-copy p { font-size: 10.5px; }
+.public-menu-shell .menu-dietary-tags { margin-top: 9px; gap: 5px; }
+.public-menu-shell .menu-dietary-tags span { padding: 4px 7px; font-size: 7.5px; }
+.public-menu-shell .menu-item-allergens { margin-top: 8px; font-size: 8.5px; }
+.public-menu-shell .menu-allergen-note { margin-right: 22px; margin-left: 22px; padding: 15px 16px; font-size: 9px; }
+.public-menu-shell .menu-allergen-note strong { font-size: 10px; }
 .public-menu-shell .menu-price { font-size: 15px; }
 .public-menu-shell .menu-price small { font-size: 9px; }
 .public-menu-shell .menu-price-area del { font-size: 11px; }
@@ -4627,6 +4842,8 @@ a {
   .item-availability { grid-template-columns: 1fr; }
   .availability-options { width: 100%; }
   .availability-option { min-height: 38px; padding: 0 6px; }
+  .item-dietary-body { padding: 11px; }
+  .dietary-choice, .allergen-choice { flex: 1 1 calc(50% - 6px); }
   .item-editor-extras { align-items: stretch; flex-direction: column; }
   .item-editor .badge-input { width: 100%; }
   .campaign-toggle { justify-content: center; }

@@ -2,7 +2,12 @@
 
 import { QrCode } from "lucide-react";
 import type { CSSProperties } from "react";
-import { getVisibleMenu, type PublishedMenu } from "@/lib/menu";
+import {
+  allergenLabels,
+  dietaryTagLabels,
+  getVisibleMenu,
+  type PublishedMenu,
+} from "@/lib/menu";
 
 export function PublicMenu({ menu, theme }: PublishedMenu) {
   return (
@@ -27,6 +32,9 @@ export function MenuPreview({ menu, theme, framed = false }: PublishedMenu & { f
     "--menu-text": theme.text,
   } as CSSProperties;
   const visibleCategories = getVisibleMenu(menu).categories;
+  const hasAllergenInfo = visibleCategories.some((category) =>
+    category.items.some((item) => (item.allergens?.length || 0) > 0),
+  );
 
   return (
     <div className={`menu-preview font-${theme.font} layout-${theme.layout} ${framed ? "is-framed" : ""}`} style={style}>
@@ -71,6 +79,19 @@ export function MenuPreview({ menu, theme, framed = false }: PublishedMenu & { f
                         )}
                       </div>
                       {theme.showDescriptions && item.description && <p>{item.description}</p>}
+                      {(item.dietaryTags?.length || 0) > 0 && (
+                        <div className="menu-dietary-tags" aria-label="Beslenme etiketleri">
+                          {item.dietaryTags?.map((tag) => (
+                            <span className={`tag-${tag}`} key={tag}>{dietaryTagLabels[tag]}</span>
+                          ))}
+                        </div>
+                      )}
+                      {(item.allergens?.length || 0) > 0 && (
+                        <div className="menu-item-allergens">
+                          <strong>Alerjenler:</strong>
+                          <span>{item.allergens?.map((allergen) => allergenLabels[allergen]).join(", ")}</span>
+                        </div>
+                      )}
                     </div>
                     <div className={`menu-price-area ${item.isCampaign && item.originalPrice ? "has-campaign" : ""}`}>
                       {item.isCampaign && item.originalPrice && <><span className="menu-campaign-label">Kampanya</span><del>{item.originalPrice}<small>{menu.currency}</small></del></>}
@@ -90,6 +111,12 @@ export function MenuPreview({ menu, theme, framed = false }: PublishedMenu & { f
         )}
       </div>
 
+      {hasAllergenInfo && (
+        <div className="menu-allergen-note">
+          <strong>Alerjen bilgisi</strong>
+          <span>Bilgiler işletme beyanıdır. Ciddi alerjiniz veya çapraz bulaşma hassasiyetiniz varsa sipariş vermeden önce ekibe danışın.</span>
+        </div>
+      )}
       <div className="menu-bottom-note"><span>Afiyet olsun</span><i>✦</i><span>Fiyatlara KDV dahildir</span></div>
     </div>
   );

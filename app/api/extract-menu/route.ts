@@ -88,6 +88,8 @@ function addStableIds(menu: ExtractedMenu): MenuData {
         ...item,
         id: `${slug(item.name, "urun")}-${categoryIndex + 1}-${itemIndex + 1}`,
         availability: "available",
+        dietaryTags: [],
+        allergens: [],
       })),
     })),
   };

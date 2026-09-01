@@ -1,6 +1,11 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { db } from "@/lib/db";
-import type { MenuData, MenuTheme } from "@/lib/menu";
+import {
+  menuAllergens,
+  menuDietaryTags,
+  type MenuData,
+  type MenuTheme,
+} from "@/lib/menu";
 
 export type MenuStatus = "draft" | "published";
 
@@ -116,6 +121,16 @@ export function isValidMenuData(value: unknown): value is MenuData {
       (item.isCampaign === undefined || typeof item.isCampaign === "boolean") &&
       (item.availability === undefined ||
         ["available", "sold-out", "hidden"].includes(item.availability)) &&
+      (item.dietaryTags === undefined ||
+        (Array.isArray(item.dietaryTags) &&
+          item.dietaryTags.length <= menuDietaryTags.length &&
+          new Set(item.dietaryTags).size === item.dietaryTags.length &&
+          item.dietaryTags.every((tag) => menuDietaryTags.includes(tag)))) &&
+      (item.allergens === undefined ||
+        (Array.isArray(item.allergens) &&
+          item.allergens.length <= menuAllergens.length &&
+          new Set(item.allergens).size === item.allergens.length &&
+          item.allergens.every((allergen) => menuAllergens.includes(allergen)))) &&
       (item.image === undefined || item.image === "" ||
         (typeof item.image === "string" &&
           item.image.length <= 750_000 &&
