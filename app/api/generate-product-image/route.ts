@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser, isSameOrigin } from "@/lib/auth";
 import { checkRateLimit, getClientAddress } from "@/lib/rate-limit";
+import {
+  createAiCacheKey,
+  deleteAiCacheEntry,
+  readAiCache,
+  writeAiCache,
+} from "@/lib/ai-cache";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -10,6 +16,7 @@ type GenerateProductImageBody = {
   description?: string;
   categoryName?: string;
   restaurantName?: string;
+  refresh?: boolean;
 };
 
 type OpenAIImageResponse = {
@@ -62,6 +69,9 @@ function getVisualGuidance(name: string, categoryName: string) {
 }
 
 const hourlyImageLimit = 12;
+const cacheOperation = "product-image";
+const cacheVersion = "v1";
+const cacheTtlMs = 14 * 24 * 60 * 60 * 1000;
 
 export async function POST(request: Request) {
   if (!isSameOrigin(request)) {
@@ -71,6 +81,72 @@ export async function POST(request: Request) {
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ message: "Görsel üretmek için giriş yapmalısın." }, { status: 401 });
+  }
+
+  let body: GenerateProductImageBody;
+  try {
+    body = (await request.json()) as GenerateProductImageBody;
+  } catch {
+    return NextResponse.json({ message: "Geçersiz istek." }, { status: 400 });
+  }
+
+  const name = typeof body.name === "string" ? body.name.trim() : "";
+  const description = typeof body.description === "string" ? body.description.trim() : "";
+  const categoryName = typeof body.categoryName === "string" ? body.categoryName.trim() : "";
+  const restaurantName = typeof body.restaurantName === "string" ? body.restaurantName.trim() : "";
+  const refresh = body.refresh === true;
+
+  if (
+    !name ||
+    name.length > 180 ||
+    description.length > 1000 ||
+    categoryName.length > 100 ||
+    restaurantName.length > 120 ||
+    (body.refresh !== undefined && typeof body.refresh !== "boolean")
+  ) {
+    return NextResponse.json(
+      { message: "Ürün adı veya açıklaması görsel üretimi için uygun değil." },
+      { status: 400 },
+    );
+  }
+
+  const visualGuidance = getVisualGuidance(name, categoryName);
+  const prompt = [
+    "Create a photorealistic square product photograph for a professional restaurant QR menu.",
+    "The menu language is Turkish; interpret the Turkish item name using its category and description.",
+    "Menu item name: " + name + ".",
+    categoryName ? "Menu category: " + categoryName + "." : "",
+    description ? "Item description and ingredients: " + description + "." : "",
+    restaurantName ? "Restaurant context: " + restaurantName + "." : "",
+    visualGuidance,
+    "Show exactly one finished serving in the correct vessel or plate and represent the named item faithfully.",
+    "If the identity is uncertain, use the most canonical restaurant serving for the stated category; never invent a different product.",
+    "Use a clean elegant surface, soft natural light, a 45-degree camera angle, realistic texture, and centered composition.",
+    "No written text, prices, logos, watermarks, people, hands, branded packaging, collage, or decorative typography.",
+  ].filter(Boolean).join(" ");
+
+  const model = process.env.OPENAI_IMAGE_MODEL || "gpt-image-1";
+  const cacheKey = createAiCacheKey({
+    operation: cacheOperation,
+    version: cacheVersion,
+    model,
+    input: prompt + "\0size=1024x1024\0quality=low",
+  });
+  if (!refresh) {
+    const cachedImage = readAiCache<unknown>(cacheKey, cacheOperation);
+    if (cachedImage !== null) {
+      if (
+        typeof cachedImage === "string" &&
+        cachedImage.startsWith("data:image/png;base64,") &&
+        cachedImage.length <= 12_000_022
+      ) {
+        return NextResponse.json(
+          { imageDataUrl: cachedImage },
+          { headers: { "Cache-Control": "no-store", "X-AI-Cache": "HIT" } },
+        );
+      }
+      deleteAiCacheEntry(cacheKey);
+    }
   }
 
   const rateLimit = checkRateLimit(
@@ -99,46 +175,6 @@ export async function POST(request: Request) {
     );
   }
 
-  let body: GenerateProductImageBody;
-  try {
-    body = (await request.json()) as GenerateProductImageBody;
-  } catch {
-    return NextResponse.json({ message: "Geçersiz istek." }, { status: 400 });
-  }
-
-  const name = typeof body.name === "string" ? body.name.trim() : "";
-  const description = typeof body.description === "string" ? body.description.trim() : "";
-  const categoryName = typeof body.categoryName === "string" ? body.categoryName.trim() : "";
-  const restaurantName = typeof body.restaurantName === "string" ? body.restaurantName.trim() : "";
-
-  if (
-    !name ||
-    name.length > 180 ||
-    description.length > 1000 ||
-    categoryName.length > 100 ||
-    restaurantName.length > 120
-  ) {
-    return NextResponse.json(
-      { message: "Ürün adı veya açıklaması görsel üretimi için uygun değil." },
-      { status: 400 },
-    );
-  }
-
-  const visualGuidance = getVisualGuidance(name, categoryName);
-  const prompt = [
-    "Create a photorealistic square product photograph for a professional restaurant QR menu.",
-    "The menu language is Turkish; interpret the Turkish item name using its category and description.",
-    "Menu item name: " + name + ".",
-    categoryName ? "Menu category: " + categoryName + "." : "",
-    description ? "Item description and ingredients: " + description + "." : "",
-    restaurantName ? "Restaurant context: " + restaurantName + "." : "",
-    visualGuidance,
-    "Show exactly one finished serving in the correct vessel or plate and represent the named item faithfully.",
-    "If the identity is uncertain, use the most canonical restaurant serving for the stated category; never invent a different product.",
-    "Use a clean elegant surface, soft natural light, a 45-degree camera angle, realistic texture, and centered composition.",
-    "No written text, prices, logos, watermarks, people, hands, branded packaging, collage, or decorative typography.",
-  ].filter(Boolean).join(" ");
-
   let openAIResponse: Response;
   try {
     openAIResponse = await fetch("https://api.openai.com/v1/images/generations", {
@@ -148,7 +184,7 @@ export async function POST(request: Request) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: process.env.OPENAI_IMAGE_MODEL || "gpt-image-1",
+        model,
         prompt,
         size: "1024x1024",
         quality: "low",
@@ -202,8 +238,18 @@ export async function POST(request: Request) {
     );
   }
 
+  const imageDataUrl = "data:image/png;base64," + base64Image;
+  writeAiCache({
+    cacheKey,
+    operation: cacheOperation,
+    value: imageDataUrl,
+    ttlMs: cacheTtlMs,
+    maxEntries: 30,
+    maxOperationBytes: 64 * 1024 * 1024,
+    maxPayloadBytes: 4 * 1024 * 1024,
+  });
   return NextResponse.json(
-    { imageDataUrl: "data:image/png;base64," + base64Image },
-    { headers: { "Cache-Control": "no-store" } },
+    { imageDataUrl },
+    { headers: { "Cache-Control": "no-store", "X-AI-Cache": refresh ? "BYPASS" : "MISS" } },
   );
 }

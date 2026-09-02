@@ -394,6 +394,7 @@ export function MenuStudio({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ fileName: file.name, mimeType: file.type, dataUrl }),
       });
+      const cacheHit = response.headers.get("X-AI-Cache") === "HIT";
       const result = (await response.json()) as {
         menu?: MenuData;
         code?: string;
@@ -421,7 +422,11 @@ export function MenuStudio({
       }
       if (!result.menu) throw new Error("Menü verisi alınamadı.");
       setMenu(result.menu);
-      setNotice(`${file.name} başarıyla okundu. Fiyatları yayınlamadan önce kontrol et.`);
+      setNotice(
+        cacheHit
+          ? `${file.name} daha önce analiz edilmişti; menü önbellekten anında getirildi.`
+          : `${file.name} başarıyla okundu. Fiyatları yayınlamadan önce kontrol et.`,
+      );
       setScreen("studio");
       await persistNewMenu(result.menu, theme);
     } catch (uploadError) {
@@ -608,6 +613,7 @@ export function MenuStudio({
     setNotice("");
     let completed = 0;
     let failed = 0;
+    let cacheHits = 0;
 
     try {
       for (let index = 0; index < queue.length; index += 1) {
@@ -622,6 +628,7 @@ export function MenuStudio({
             restaurantName: menu.restaurantName,
           }),
         });
+        const cacheHit = response.headers.get("X-AI-Cache") === "HIT";
 
         let result: { imageDataUrl?: string; code?: string; message?: string } = {};
         try {
@@ -650,6 +657,7 @@ export function MenuStudio({
               })),
             }));
             completed += 1;
+            if (cacheHit) cacheHits += 1;
           } catch {
             failed += 1;
           }
@@ -663,6 +671,7 @@ export function MenuStudio({
       } else {
         const remaining = Math.max(0, missingItems.length - completed);
         let message = completed + " ürün görseli otomatik oluşturuldu.";
+        if (cacheHits > 0) message += " " + cacheHits + " tanesi önbellekten getirildi.";
         if (failed > 0) message += " " + failed + " ürün atlandı.";
         if (remaining > 0) message += " Kalan " + remaining + " ürün için düğmeye tekrar basabilirsin.";
         setNotice(message);
@@ -704,6 +713,7 @@ export function MenuStudio({
           description: item.description,
           categoryName: category.name,
           restaurantName: menu.restaurantName,
+          refresh: true,
         }),
       });
 
@@ -765,6 +775,7 @@ export function MenuStudio({
           })),
         }),
       });
+      const cacheHit = response.headers.get("X-AI-Cache") === "HIT";
 
       let result: EnglishTranslationResult = {};
       try {
@@ -820,7 +831,11 @@ export function MenuStudio({
           };
         }),
       }));
-      setNotice("İngilizce çeviri hazır. Yabancı ziyaretçiler menüyü otomatik olarak İngilizce görecek.");
+      setNotice(
+        cacheHit
+          ? "Aynı içerik daha önce çevrilmişti; İngilizce menü önbellekten anında getirildi."
+          : "İngilizce çeviri hazır. Yabancı ziyaretçiler menüyü otomatik olarak İngilizce görecek.",
+      );
     } catch (translationError) {
       setNotice("Çeviri oluşturulamadı: " + getErrorMessage(translationError));
     } finally {

@@ -9,6 +9,8 @@ Restoran ve kafelerin mevcut PDF veya görsel menülerini yapay zekâ ile okuyup
 - `bcrypt` parola hash’i ve veritabanında tutulan güvenli oturumlar
 - HTTP-only, SameSite oturum çerezi ve giriş denemesi sınırı
 - OpenAI Responses API ile kategori, ürün, açıklama ve fiyat çıkarımı
+- Aynı menü analizi ve çeviriyi tekrar AI'a göndermeyen kalıcı SQLite önbelleği
+- Otomatik ürün görsellerinde önbellek; kullanıcı tarafından yapılan “yenile” işleminde yeni üretim
 - API anahtarı olmadan deneyimlenebilen, açıkça etiketlenmiş demo modu
 - Kategori ve ürün ekleme, düzenleme, silme
 - Ürün bazında eski fiyat ve kampanyalı fiyat gösterimi
@@ -62,6 +64,8 @@ DATABASE_PATH=/tam/yol/easyqr.db
 
 `OPENAI_API_KEY` hiçbir zaman `NEXT_PUBLIC_` önekiyle tanımlanmamalıdır. AI görsel asistanı isteğe bağlı çalışır ve OpenAI Images API kullanım kotasını kullanır.
 
+AI sonuçları aynı SQLite veritabanında, model ve işlem sürümünü de içeren SHA-256 anahtarlarla saklanır. Menü analizi ve çeviri kayıtları 30 gün, otomatik ürün görselleri 14 gün geçerlidir. Girdi dosyalarının kendisi saklanmaz; yalnızca içerik özeti ve doğrulanmış AI sonucu tutulur. Süresi dolan veya kapasite sınırını aşan kayıtlar otomatik temizlenir.
+
 ## Komutlar
 
 ```bash
@@ -86,6 +90,7 @@ npm start          # üretim sunucusu
 - `app/api/auth/*`: kayıt, giriş, çıkış ve aktif kullanıcı endpoint’leri
 - `app/giris` ve `app/kayit`: kullanıcı erişim ekranları
 - `lib/auth.ts` ve `lib/db.ts`: oturum ve SQLite altyapısı
+- `lib/ai-cache.ts`: süreli, boyut kontrollü ve sürümlü AI sonuç önbelleği
 - `lib/menu.ts` ve `lib/menus.ts`: menü veri modeli ve kalıcı menü işlemleri
 - `app/globals.css`: responsive tasarım sistemi
 
@@ -102,10 +107,12 @@ Kullanıcılar, oturumlar, taslaklar ve yayınlanan menüler yerel SQLite verita
 ## Güvenlik
 
 - Yüklemeler 12 MB ile ve desteklenen MIME türleriyle sınırlandırılır.
+- Menü analizi oturum ve same-origin kontrolü gerektirir; dosya yalnızca işlem veya içerik özeti üretimi sırasında bellekte tutulur.
 - Ürün fotoğrafları en fazla 8 MB olarak alınır, en çok 900 px’e küçültülür ve menüye kaydedilmeden önce sıkıştırılır.
 - API anahtarı yalnızca sunucu route’unda kullanılır.
 - Ürün görseli üretimi oturum ve same-origin kontrolü gerektirir; kullanıcı/IP başına saatte 12 istekle sınırlandırılır.
 - Menü çevirisi oturum ve same-origin kontrolü gerektirir; yalnızca metin alanları AI servisine gönderilir ve kullanıcı/IP başına saatte 8 istekle sınırlandırılır.
+- Önbellek anahtarları ham içerik yerine SHA-256 özetidir; model veya prompt sürümü değiştiğinde eski sonuç kullanılmaz.
 - Parolalar 12 maliyet faktörlü `bcrypt` hash’i olarak saklanır.
 - Oturum anahtarının yalnızca SHA-256 özeti veritabanında tutulur; ham anahtar HTTP-only çerezdedir.
 - Kayıt ve giriş endpoint’lerinde aynı-origin kontrolü ve temel deneme sınırı uygulanır.

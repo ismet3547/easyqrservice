@@ -60,4 +60,19 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS menu_views_menu_viewed_idx ON menu_views(menu_id, viewed_at DESC);
   CREATE INDEX IF NOT EXISTS menu_views_viewed_idx ON menu_views(viewed_at DESC);
+
+  CREATE TABLE IF NOT EXISTS ai_cache (
+    cache_key TEXT PRIMARY KEY,
+    operation TEXT NOT NULL,
+    payload_json TEXT NOT NULL,
+    payload_bytes INTEGER NOT NULL,
+    hit_count INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    last_accessed_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS ai_cache_operation_accessed_idx
+    ON ai_cache(operation, last_accessed_at DESC);
+  CREATE INDEX IF NOT EXISTS ai_cache_expires_idx ON ai_cache(expires_at);
 `);

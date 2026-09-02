@@ -1,12 +1,22 @@
 import { NextResponse } from "next/server";
 import type { MenuData } from "@/lib/menu";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, isSameOrigin } from "@/lib/auth";
+import {
+  createAiCacheKey,
+  deleteAiCacheEntry,
+  readAiCache,
+  writeAiCache,
+} from "@/lib/ai-cache";
+import { isValidMenuData } from "@/lib/menus";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const supportedTypes = new Set(["image/jpeg", "image/png", "image/webp", "application/pdf"]);
 const maximumFileSize = 12 * 1024 * 1024;
+const cacheOperation = "menu-extraction";
+const cacheVersion = "v1";
+const cacheTtlMs = 30 * 24 * 60 * 60 * 1000;
 
 type ExtractionBody = {
   fileName?: string;
@@ -118,19 +128,15 @@ function extractOutputText(response: Record<string, unknown>) {
 }
 
 export async function POST(request: Request) {
+  if (!isSameOrigin(request)) {
+    return NextResponse.json({ message: "Geçersiz istek kaynağı." }, { status: 403 });
+  }
+
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json(
       { code: "AUTH_REQUIRED", message: "Menü oluşturmak için giriş yapmalısın." },
       { status: 401 },
-    );
-  }
-
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    return NextResponse.json(
-      { code: "AI_NOT_CONFIGURED", message: "OPENAI_API_KEY yapılandırılmamış." },
-      { status: 503 },
     );
   }
 
@@ -152,6 +158,32 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "Dosya boyutu 12 MB sınırını aşıyor." }, { status: 413 });
   }
 
+  const model = process.env.OPENAI_MODEL || "gpt-4.1-mini";
+  const cacheKey = createAiCacheKey({
+    operation: cacheOperation,
+    version: cacheVersion,
+    model,
+    input: JSON.stringify([fileName, mimeType, dataUrl]),
+  });
+  const cachedMenu = readAiCache<unknown>(cacheKey, cacheOperation);
+  if (cachedMenu !== null) {
+    if (isValidMenuData(cachedMenu)) {
+      return NextResponse.json(
+        { menu: cachedMenu },
+        { headers: { "Cache-Control": "no-store", "X-AI-Cache": "HIT" } },
+      );
+    }
+    deleteAiCacheEntry(cacheKey);
+  }
+
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    return NextResponse.json(
+      { code: "AI_NOT_CONFIGURED", message: "OPENAI_API_KEY yapılandırılmamış." },
+      { status: 503 },
+    );
+  }
+
   const fileContent = mimeType === "application/pdf"
     ? { type: "input_file", filename: fileName, file_data: dataUrl }
     : { type: "input_image", image_url: dataUrl, detail: "high" };
@@ -163,7 +195,7 @@ export async function POST(request: Request) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: process.env.OPENAI_MODEL || "gpt-4.1-mini",
+      model,
       input: [
         {
           role: "user",
@@ -203,8 +235,22 @@ export async function POST(request: Request) {
   }
 
   try {
-    const menu = JSON.parse(extractOutputText(result)) as ExtractedMenu;
-    return NextResponse.json({ menu: addStableIds(menu) });
+    const extractedMenu = JSON.parse(extractOutputText(result)) as ExtractedMenu;
+    const menu = addStableIds(extractedMenu);
+    if (!isValidMenuData(menu)) throw new Error("Extracted menu failed validation.");
+    writeAiCache({
+      cacheKey,
+      operation: cacheOperation,
+      value: menu,
+      ttlMs: cacheTtlMs,
+      maxEntries: 120,
+      maxOperationBytes: 32 * 1024 * 1024,
+      maxPayloadBytes: 1024 * 1024,
+    });
+    return NextResponse.json(
+      { menu },
+      { headers: { "Cache-Control": "no-store", "X-AI-Cache": "MISS" } },
+    );
   } catch {
     return NextResponse.json(
       { message: "Menü okundu ancak sonuç işlenemedi. Lütfen yeniden deneyin." },
