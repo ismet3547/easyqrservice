@@ -58,13 +58,23 @@ import {
   hasEnglishMenuTranslation,
   menuAllergens,
   menuDietaryTags,
+  menuThemePresets,
   menuWeekdays,
+  normalizeMenuTheme,
+  type MenuCardStyle,
+  type MenuCategoryStyle,
+  type MenuCornerStyle,
   type MenuAllergen,
   type MenuBusinessProfile,
   type MenuData,
+  type MenuDensity,
   type MenuDietaryTag,
+  type MenuHeroStyle,
+  type MenuImageRatio,
   type MenuItem,
+  type MenuPriceStyle,
   type MenuTheme,
+  type MenuThemePresetId,
   type MenuWeekday,
   type PublishedMenu,
 } from "@/lib/menu";
@@ -93,11 +103,17 @@ type EnglishTranslationResult = {
   message?: string;
 };
 
-const themePresets = [
-  { name: "Mandarin", accent: "#ea5b2a", background: "#f7f2e8", surface: "#fffdf9", text: "#20251f" },
-  { name: "Zeytin", accent: "#64734a", background: "#f1f0e8", surface: "#fbfbf7", text: "#25291f" },
-  { name: "Bordo", accent: "#9d3d46", background: "#f8eff0", surface: "#fffafa", text: "#2c2021" },
-  { name: "Gece", accent: "#d9a441", background: "#181916", surface: "#24251f", text: "#f7f2e8" },
+const themePresetOptions: Array<{
+  description: string;
+  id: MenuThemePresetId;
+  label: string;
+}> = [
+  { id: "minimal", label: "Minimal", description: "Temiz ve hızlı okunan" },
+  { id: "bistro", label: "Modern Bistro", description: "Sıcak ve dengeli" },
+  { id: "botanical", label: "Botanik", description: "Doğal ve ferah" },
+  { id: "editorial", label: "Editoryal", description: "Şık ve karakterli" },
+  { id: "dark-luxe", label: "Dark Luxe", description: "Koyu ve premium" },
+  { id: "playful", label: "Enerjik", description: "Renkli ve hareketli" },
 ];
 
 const fontOptions: Array<{ id: MenuTheme["font"]; label: string; sample: string }> = [
@@ -105,6 +121,85 @@ const fontOptions: Array<{ id: MenuTheme["font"]; label: string; sample: string 
   { id: "editorial", label: "Editoryal", sample: "Aa" },
   { id: "friendly", label: "Samimi", sample: "Aa" },
 ];
+
+type ThemeChoiceOption<Value extends string> = { id: Value; label: string };
+
+const cardStyleOptions: Array<ThemeChoiceOption<MenuCardStyle>> = [
+  { id: "flat", label: "Düz" },
+  { id: "outlined", label: "Çizgili" },
+  { id: "elevated", label: "Gölgeli" },
+];
+const cornerStyleOptions: Array<ThemeChoiceOption<MenuCornerStyle>> = [
+  { id: "square", label: "Keskin" },
+  { id: "soft", label: "Yumuşak" },
+  { id: "rounded", label: "Yuvarlak" },
+];
+const densityOptions: Array<ThemeChoiceOption<MenuDensity>> = [
+  { id: "compact", label: "Sıkı" },
+  { id: "comfortable", label: "Dengeli" },
+  { id: "airy", label: "Ferah" },
+];
+const imageRatioOptions: Array<ThemeChoiceOption<MenuImageRatio>> = [
+  { id: "square", label: "Kare" },
+  { id: "portrait", label: "Dikey" },
+  { id: "landscape", label: "Yatay" },
+];
+const priceStyleOptions: Array<ThemeChoiceOption<MenuPriceStyle>> = [
+  { id: "plain", label: "Sade" },
+  { id: "pill", label: "Rozet" },
+  { id: "accent", label: "Çizgili" },
+];
+const categoryStyleOptions: Array<ThemeChoiceOption<MenuCategoryStyle>> = [
+  { id: "pills", label: "Buton" },
+  { id: "underline", label: "Alt çizgi" },
+  { id: "minimal", label: "Minimal" },
+];
+const heroStyleOptions: Array<ThemeChoiceOption<MenuHeroStyle>> = [
+  { id: "clean", label: "Sade" },
+  { id: "tinted", label: "Renkli" },
+  { id: "pattern", label: "Desenli" },
+];
+
+const themeColorOptions: Array<{
+  id: "accent" | "background" | "surface" | "text";
+  label: string;
+}> = [
+  { id: "accent", label: "Vurgu" },
+  { id: "background", label: "Arka plan" },
+  { id: "surface", label: "Kartlar" },
+  { id: "text", label: "Metin" },
+];
+
+function ThemeChoiceGroup<Value extends string>({
+  description,
+  label,
+  onChange,
+  options,
+  value,
+}: {
+  description: string;
+  label: string;
+  onChange: (value: Value) => void;
+  options: Array<ThemeChoiceOption<Value>>;
+  value: Value;
+}) {
+  return (
+    <div className="theme-choice-group">
+      <div><strong>{label}</strong><small>{description}</small></div>
+      <div className="theme-choice-options" role="group" aria-label={label}>
+        {options.map((option) => (
+          <button
+            aria-pressed={value === option.id}
+            className={value === option.id ? "active" : ""}
+            key={option.id}
+            onClick={() => onChange(option.id)}
+            type="button"
+          >{option.label}</button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 const weekdayLabels: Record<MenuWeekday, string> = {
   monday: "Pazartesi",
@@ -292,6 +387,13 @@ export function MenuStudio({
     menu.translations?.en?.sourceFingerprint === getMenuTranslationFingerprint(menu);
   const businessProfile = getMenuBusinessProfile(menu);
 
+  const updateThemeOption = <Key extends keyof MenuTheme>(
+    key: Key,
+    value: MenuTheme[Key],
+  ) => {
+    setTheme((current) => ({ ...current, [key]: value, stylePreset: "custom" }));
+  };
+
   useEffect(() => {
     const readHash = async () => {
       if (!window.location.hash.startsWith("#menu=")) return;
@@ -325,7 +427,7 @@ export function MenuStudio({
           if (menuResponse.ok) {
             const menuResult = (await menuResponse.json()) as { menu: StoredMenu };
             setMenu(menuResult.menu.menu);
-            setTheme(menuResult.menu.theme);
+            setTheme(normalizeMenuTheme(menuResult.menu.theme));
             setActiveMenuId(menuResult.menu.id);
             setActiveMenuSlug(menuResult.menu.slug);
             setActiveMenuStatus(menuResult.menu.status);
@@ -344,7 +446,7 @@ export function MenuStudio({
           const saved = JSON.parse(draft) as PublishedMenu;
           if (saved?.menu?.categories && saved?.theme?.accent) {
             setMenu(saved.menu);
-            setTheme(saved.theme);
+            setTheme(normalizeMenuTheme(saved.theme));
             setNotice("Son taslağın hesabın için geri yüklendi.");
             setScreen("studio");
           }
@@ -1721,29 +1823,58 @@ export function MenuStudio({
             </div>
           ) : (
             <div className="editor-content design-content">
-              <section className="form-section">
-                <div className="section-heading"><div><span>Görünüm</span><h2>Renk paleti</h2></div></div>
+              <section className="form-section theme-preset-section">
+                <div className="section-heading"><div><span>Hızlı başlangıç</span><h2>Hazır stiller</h2></div></div>
+                <p className="theme-section-description">Renk, tipografi ve görünüm ayarlarını tek seçimle uygula; ardından istediğin ayrıntıyı değiştirebilirsin.</p>
                 <div className="theme-grid">
-                  {themePresets.map((preset) => (
-                    <button
-                      key={preset.name}
-                      className={`theme-option ${theme.accent === preset.accent ? "active" : ""}`}
-                      onClick={() => setTheme((current) => ({ ...current, ...preset }))}
-                    >
-                      <span className="theme-swatches"><i style={{ background: preset.accent }} /><i style={{ background: preset.background }} /><i style={{ background: preset.text }} /></span>
-                      <span>{preset.name}</span>
-                      {theme.accent === preset.accent && <Check size={15} />}
-                    </button>
+                  {themePresetOptions.map((preset) => {
+                    const presetTheme = menuThemePresets[preset.id];
+                    const isActive = theme.stylePreset === preset.id;
+                    return (
+                      <button
+                        aria-pressed={isActive}
+                        key={preset.id}
+                        className={`theme-option ${isActive ? "active" : ""}`}
+                        onClick={() => setTheme({ ...presetTheme })}
+                        type="button"
+                      >
+                        <span className="theme-preset-preview" style={{ background: presetTheme.background }}>
+                          <i style={{ background: presetTheme.accent }} />
+                          <b style={{ background: presetTheme.surface }}><i style={{ background: presetTheme.text }} /><i style={{ background: presetTheme.text }} /></b>
+                        </span>
+                        <span className="theme-option-copy"><strong>{preset.label}</strong><small>{preset.description}</small></span>
+                        {isActive && <Check size={15} />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+
+              <section className="form-section">
+                <div className="section-heading"><div><span>Marka kimliği</span><h2>Renkler</h2></div>{theme.stylePreset === "custom" && <div className="theme-custom-badge">Özel</div>}</div>
+                <div className="theme-color-grid">
+                  {themeColorOptions.map((color) => (
+                    <label className="theme-color-control" key={color.id}>
+                      <span>{color.label}</span>
+                      <div>
+                        <input
+                          aria-label={`${color.label} rengini seç`}
+                          type="color"
+                          value={theme[color.id]}
+                          onChange={(event) => updateThemeOption(color.id, event.target.value)}
+                        />
+                        <code>{theme[color.id].toLocaleUpperCase("en-US")}</code>
+                      </div>
+                    </label>
                   ))}
                 </div>
-                <label className="color-field">Vurgu rengi<div><span style={{ background: theme.accent }} /><input type="text" value={theme.accent} onChange={(event) => setTheme({ ...theme, accent: event.target.value })} /></div></label>
               </section>
 
               <section className="form-section">
                 <div className="section-heading"><div><span>Tipografi</span><h2>Yazı karakteri</h2></div></div>
                 <div className="font-grid">
                   {fontOptions.map((font) => (
-                    <button key={font.id} className={`${font.id} ${theme.font === font.id ? "active" : ""}`} onClick={() => setTheme({ ...theme, font: font.id })}>
+                    <button aria-pressed={theme.font === font.id} key={font.id} className={`${font.id} ${theme.font === font.id ? "active" : ""}`} onClick={() => updateThemeOption("font", font.id)} type="button">
                       <strong>{font.sample}</strong><span>{font.label}</span>
                     </button>
                   ))}
@@ -1753,12 +1884,26 @@ export function MenuStudio({
               <section className="form-section">
                 <div className="section-heading"><div><span>Düzen</span><h2>Ürün görünümü</h2></div></div>
                 <div className="layout-grid">
-                  <button className={theme.layout === "cards" ? "active" : ""} onClick={() => setTheme({ ...theme, layout: "cards" })}><LayoutGrid size={22} /><span><strong>Kartlar</strong><small>Rahat ve dengeli</small></span></button>
-                  <button className={theme.layout === "compact" ? "active" : ""} onClick={() => setTheme({ ...theme, layout: "compact" })}><List size={22} /><span><strong>Kompakt</strong><small>Uzun menüler için</small></span></button>
-                  <button className={theme.layout === "tiles" ? "active" : ""} onClick={() => setTheme({ ...theme, layout: "tiles" })}><Grid2X2 size={22} /><span><strong>Izgara</strong><small>İki sütunlu vitrin</small></span></button>
-                  <button className={theme.layout === "showcase" ? "active" : ""} onClick={() => setTheme({ ...theme, layout: "showcase" })}><GalleryVerticalEnd size={22} /><span><strong>Öne çıkan</strong><small>İlk ürünü vurgular</small></span></button>
+                  <button aria-pressed={theme.layout === "cards"} className={theme.layout === "cards" ? "active" : ""} onClick={() => updateThemeOption("layout", "cards")} type="button"><LayoutGrid size={22} /><span><strong>Kartlar</strong><small>Rahat ve dengeli</small></span></button>
+                  <button aria-pressed={theme.layout === "compact"} className={theme.layout === "compact" ? "active" : ""} onClick={() => updateThemeOption("layout", "compact")} type="button"><List size={22} /><span><strong>Kompakt</strong><small>Uzun menüler için</small></span></button>
+                  <button aria-pressed={theme.layout === "tiles"} className={theme.layout === "tiles" ? "active" : ""} onClick={() => updateThemeOption("layout", "tiles")} type="button"><Grid2X2 size={22} /><span><strong>Izgara</strong><small>İki sütunlu vitrin</small></span></button>
+                  <button aria-pressed={theme.layout === "showcase"} className={theme.layout === "showcase" ? "active" : ""} onClick={() => updateThemeOption("layout", "showcase")} type="button"><GalleryVerticalEnd size={22} /><span><strong>Öne çıkan</strong><small>İlk ürünü vurgular</small></span></button>
                 </div>
-                <label className="toggle-row"><span><strong>Ürün açıklamaları</strong><small>Menüde açıklamaları göster</small></span><input type="checkbox" checked={theme.showDescriptions} onChange={(event) => setTheme({ ...theme, showDescriptions: event.target.checked })} /><i /></label>
+                <label className="toggle-row"><span><strong>Ürün açıklamaları</strong><small>Menüde açıklamaları göster</small></span><input type="checkbox" checked={theme.showDescriptions} onChange={(event) => updateThemeOption("showDescriptions", event.target.checked)} /><i /></label>
+              </section>
+
+              <section className="form-section advanced-theme-section">
+                <div className="section-heading"><div><span>İnce ayar</span><h2>Gelişmiş görünüm</h2></div><Sparkles size={17} /></div>
+                <p className="theme-section-description">Menünün karakterini değiştiren ayrıntıları canlı önizlemede karşılaştır.</p>
+                <div className="theme-choice-list">
+                  <ThemeChoiceGroup description="Kartların yüzey etkisi" label="Kart stili" onChange={(value) => updateThemeOption("cardStyle", value)} options={cardStyleOptions} value={theme.cardStyle} />
+                  <ThemeChoiceGroup description="Kart ve görsel köşeleri" label="Köşeler" onChange={(value) => updateThemeOption("cornerStyle", value)} options={cornerStyleOptions} value={theme.cornerStyle} />
+                  <ThemeChoiceGroup description="Ekrandaki içerik aralığı" label="Yoğunluk" onChange={(value) => updateThemeOption("density", value)} options={densityOptions} value={theme.density} />
+                  <ThemeChoiceGroup description="Ürün fotoğraflarının biçimi" label="Görsel oranı" onChange={(value) => updateThemeOption("imageRatio", value)} options={imageRatioOptions} value={theme.imageRatio} />
+                  <ThemeChoiceGroup description="Fiyatın vurgulanma biçimi" label="Fiyat stili" onChange={(value) => updateThemeOption("priceStyle", value)} options={priceStyleOptions} value={theme.priceStyle} />
+                  <ThemeChoiceGroup description="Yatay kategori menüsü" label="Kategori stili" onChange={(value) => updateThemeOption("categoryStyle", value)} options={categoryStyleOptions} value={theme.categoryStyle} />
+                  <ThemeChoiceGroup description="Menünün üst karşılama alanı" label="Kapak alanı" onChange={(value) => updateThemeOption("heroStyle", value)} options={heroStyleOptions} value={theme.heroStyle} />
+                </div>
               </section>
             </div>
           )}
