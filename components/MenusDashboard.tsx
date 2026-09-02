@@ -1,19 +1,14 @@
 "use client";
 
 import {
-  BarChart3,
   BookOpen,
   Check,
-  CircleHelp,
   Copy,
   Eye,
   FilePenLine,
-  LayoutDashboard,
-  LogOut,
   Plus,
   QrCode,
   Search,
-  Settings,
   Trash2,
 } from "lucide-react";
 import Link from "next/link";
@@ -22,6 +17,7 @@ import { useMemo, useState } from "react";
 import type { SessionUser } from "@/lib/auth";
 import type { MenuStatus, StoredMenu } from "@/lib/menus";
 import { DashboardMobileNav } from "@/components/DashboardMobileNav";
+import { DashboardMobileHeader, DashboardSidebar } from "@/components/DashboardSidebar";
 
 type Filter = "all" | MenuStatus;
 
@@ -66,29 +62,10 @@ export function MenusDashboard({ user, initialMenus }: { user: SessionUser; init
 
   return (
     <main className="dashboard-shell">
-      <aside className="dashboard-sidebar">
-        <Link className="dashboard-brand" href="/dashboard"><span><QrCode size={19} /></span><strong>easy<i>qr</i></strong></Link>
-        <nav className="dashboard-nav" aria-label="Dashboard menüsü">
-          <span className="dashboard-nav-label">Çalışma alanı</span>
-          <Link href="/dashboard"><LayoutDashboard size={17} /> Genel bakış</Link>
-          <Link className="active" href="/dashboard/menus"><BookOpen size={17} /> Menülerim <b>{menus.length}</b></Link>
-          <Link href="/dashboard/analytics"><BarChart3 size={17} /> Analitik</Link>
-          <span className="dashboard-nav-label second">Hesap</span>
-          <button disabled><Settings size={17} /> Ayarlar</button>
-          <button disabled><CircleHelp size={17} /> Yardım merkezi</button>
-        </nav>
-        <div className="dashboard-profile">
-          <span className="profile-avatar">{user.name.slice(0, 1).toLocaleUpperCase("tr-TR")}</span>
-          <div><strong>{user.name}</strong><small>{user.email}</small></div>
-          <button onClick={() => void logout()} aria-label="Çıkış yap"><LogOut size={16} /></button>
-        </div>
-      </aside>
+      <DashboardSidebar active="menus" menuCount={menus.length} onLogout={() => void logout()} user={user} />
 
       <section className="dashboard-main menus-dashboard-main">
-        <header className="dashboard-mobile-header">
-          <Link className="dashboard-brand" href="/dashboard"><span><QrCode size={17} /></span><strong>easy<i>qr</i></strong></Link>
-          <Link className="dashboard-mobile-avatar" href="/dashboard">{user.name.slice(0, 1).toLocaleUpperCase("tr-TR")}</Link>
-        </header>
+        <DashboardMobileHeader user={user} />
 
         <div className="dashboard-content menus-page-content">
           <div className="dashboard-heading">

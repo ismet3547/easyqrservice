@@ -6,6 +6,7 @@ Restoran ve kafelerin mevcut PDF veya görsel menülerini yapay zekâ ile okuyup
 
 - JPG, PNG, WEBP ve PDF menü yükleme
 - E-posta ve şifreyle kullanıcı kaydı/girişi
+- Dashboard ayarlarından ad, e-posta ve şifre güncelleme
 - `bcrypt` parola hash’i ve veritabanında tutulan güvenli oturumlar
 - HTTP-only, SameSite oturum çerezi ve giriş denemesi sınırı
 - OpenAI Responses API ile kategori, ürün, açıklama ve fiyat çıkarımı
@@ -86,6 +87,7 @@ npm start          # üretim sunucusu
 - `app/dashboard` ve `components/Dashboard.tsx`: korumalı işletme paneli
 - `app/dashboard/menus` ve `components/MenusDashboard.tsx`: menü arama, filtreleme ve yönetim sayfası
 - `app/dashboard/analytics`, `components/AnalyticsDashboard.tsx` ve `lib/analytics.ts`: günlük açılış trendi ve menü performansı
+- `app/dashboard/settings` ve `components/SettingsDashboard.tsx`: profil ve hesap güvenliği ayarları
 - `app/api/menus/*`: menü oluşturma, okuma, güncelleme, yayınlama ve silme
 - `app/m/[slug]`: herkese açık, kalıcı müşteri menüsü
 - `app/api/extract-menu/route.ts`: dosya doğrulama ve AI tabanlı menü çıkarımı
@@ -121,6 +123,7 @@ Kullanıcılar, oturumlar, taslaklar ve yayınlanan menüler yerel SQLite verita
 - Parolalar 12 maliyet faktörlü `bcrypt` hash’i olarak saklanır.
 - Oturum anahtarının yalnızca SHA-256 özeti veritabanında tutulur; ham anahtar HTTP-only çerezdedir.
 - Kayıt ve giriş endpoint’lerinde aynı-origin kontrolü ve temel deneme sınırı uygulanır.
+- E-posta değişikliği mevcut şifre doğrulaması gerektirir; şifre değişikliğinde diğer cihazlardaki oturumlar kapatılır ve hassas denemeler sınırlandırılır.
 - AI çıktısı, yayınlamadan önce kullanıcı tarafından düzenlenebilir ve kontrol edilebilir.
 - Gizli ürünler herkese açık müşteri bileşenine gönderilmeden önce sunucuda filtrelenir.
 - Alerjenler AI tarafından tahmin edilmez; işletme tarafından doğrulanarak girilir ve müşteri menüsünde çapraz bulaşma uyarısı gösterilir.
