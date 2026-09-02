@@ -188,8 +188,10 @@ const heroStyleOptions: Array<ThemeChoiceOption<MenuHeroStyle>> = [
   { id: "pattern", label: "Desenli" },
 ];
 
+type ThemeColorKey = "accent" | "background" | "surface" | "text";
+
 const themeColorOptions: Array<{
-  id: "accent" | "background" | "surface" | "text";
+  id: ThemeColorKey;
   label: string;
 }> = [
   { id: "accent", label: "Vurgu" },
@@ -400,6 +402,8 @@ export function MenuStudio({
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const editorScrollRef = useRef<HTMLDivElement>(null);
+  const themeColorFrameRef = useRef<number | null>(null);
+  const pendingThemeColorRef = useRef<{ key: ThemeColorKey; value: string } | null>(null);
   const [screen, setScreen] = useState<"upload" | "studio">("upload");
   const [tab, setTab] = useState<StudioEditorTab>("content");
   const [contentSection, setContentSection] = useState<ContentSectionId>("products");
@@ -494,10 +498,38 @@ export function MenuStudio({
     key: Key,
     value: MenuTheme[Key],
   ) => {
+    if (Object.is(theme[key], value)) return;
     setPreviousTheme(null);
     setThemeDesignFeedback((current) => current?.tone === "success" ? null : current);
-    setTheme((current) => ({ ...current, [key]: value, stylePreset: "custom" }));
+    setTheme((current) => Object.is(current[key], value)
+      ? current
+      : { ...current, [key]: value, stylePreset: "custom" });
   };
+
+  const updateThemeColor = (key: ThemeColorKey, value: string) => {
+    if (!/^#[0-9a-f]{6}$/i.test(value) || Object.is(theme[key], value)) return;
+    pendingThemeColorRef.current = { key, value };
+    if (themeColorFrameRef.current !== null) return;
+
+    themeColorFrameRef.current = window.requestAnimationFrame(() => {
+      themeColorFrameRef.current = null;
+      const pendingColor = pendingThemeColorRef.current;
+      pendingThemeColorRef.current = null;
+      if (!pendingColor) return;
+
+      setPreviousTheme(null);
+      setThemeDesignFeedback((current) => current?.tone === "success" ? null : current);
+      setTheme((current) => Object.is(current[pendingColor.key], pendingColor.value)
+        ? current
+        : { ...current, [pendingColor.key]: pendingColor.value, stylePreset: "custom" });
+    });
+  };
+
+  useEffect(() => () => {
+    if (themeColorFrameRef.current !== null) {
+      window.cancelAnimationFrame(themeColorFrameRef.current);
+    }
+  }, []);
 
   useEffect(() => {
     const readHash = async () => {
@@ -2281,7 +2313,7 @@ export function MenuStudio({
                           aria-label={`${color.label} rengini seç`}
                           type="color"
                           value={theme[color.id]}
-                          onChange={(event) => updateThemeOption(color.id, event.target.value)}
+                          onChange={(event) => updateThemeColor(color.id, event.target.value)}
                         />
                         <code>{theme[color.id].toLocaleUpperCase("en-US")}</code>
                       </div>
