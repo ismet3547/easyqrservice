@@ -11,6 +11,7 @@ import {
 
 const themeFonts = ["modern", "editorial", "friendly"] as const;
 const themeLayouts = ["cards", "compact", "tiles", "showcase"] as const;
+const minimumContrastRatio = 4.5;
 
 export type GeneratedThemeDesign = {
   name: string;
@@ -111,6 +112,99 @@ function relativeLuminance(color: string) {
   );
 }
 
+type RgbColor = {
+  blue: number;
+  green: number;
+  red: number;
+};
+
+function hexToRgb(color: string): RgbColor {
+  return {
+    red: Number.parseInt(color.slice(1, 3), 16),
+    green: Number.parseInt(color.slice(3, 5), 16),
+    blue: Number.parseInt(color.slice(5, 7), 16),
+  };
+}
+
+function rgbToHex(color: RgbColor) {
+  const channel = (value: number) => Math.round(value).toString(16).padStart(2, "0");
+  return `#${channel(color.red)}${channel(color.green)}${channel(color.blue)}`;
+}
+
+function mixColors(from: string, to: string, amount: number) {
+  const fromRgb = hexToRgb(from);
+  const toRgb = hexToRgb(to);
+  return rgbToHex({
+    red: fromRgb.red + (toRgb.red - fromRgb.red) * amount,
+    green: fromRgb.green + (toRgb.green - fromRgb.green) * amount,
+    blue: fromRgb.blue + (toRgb.blue - fromRgb.blue) * amount,
+  });
+}
+
+function colorDistance(first: string, second: string) {
+  const firstRgb = hexToRgb(first);
+  const secondRgb = hexToRgb(second);
+  return (
+    (firstRgb.red - secondRgb.red) ** 2 +
+    (firstRgb.green - secondRgb.green) ** 2 +
+    (firstRgb.blue - secondRgb.blue) ** 2
+  );
+}
+
+function hasRequiredContrast(foreground: string, backgrounds: readonly string[]) {
+  return backgrounds.every(
+    (background) => getColorContrastRatio(foreground, background) >= minimumContrastRatio,
+  );
+}
+
+function findClosestAccessibleColor(color: string, backgrounds: readonly string[]) {
+  const normalizedColor = color.toLowerCase();
+  const candidates = new Set<string>([normalizedColor, "#000000", "#ffffff"]);
+
+  for (const target of ["#000000", "#ffffff"] as const) {
+    for (let step = 1; step < 100; step += 1) {
+      candidates.add(mixColors(normalizedColor, target, step / 100));
+    }
+  }
+
+  return [...candidates]
+    .filter((candidate) => hasRequiredContrast(candidate, backgrounds))
+    .sort(
+      (first, second) =>
+        colorDistance(normalizedColor, first) - colorDistance(normalizedColor, second),
+    )[0] ?? normalizedColor;
+}
+
+function findCompatibleSurface(surface: string, background: string, foreground: string) {
+  const normalizedSurface = surface.toLowerCase();
+  if (hasRequiredContrast(foreground, [normalizedSurface])) return normalizedSurface;
+
+  for (let step = 1; step <= 100; step += 1) {
+    const candidate = mixColors(normalizedSurface, background, step / 100);
+    if (hasRequiredContrast(foreground, [candidate])) return candidate;
+  }
+
+  return background;
+}
+
+function repairThemeAccessibility(theme: MenuTheme): MenuTheme {
+  const background = theme.background.toLowerCase();
+  const preferredForeground = getColorContrastRatio("#000000", background) >=
+    getColorContrastRatio("#ffffff", background)
+    ? "#000000"
+    : "#ffffff";
+  const surface = findCompatibleSurface(theme.surface, background, preferredForeground);
+  const readableSurfaces = [background, surface] as const;
+
+  return {
+    ...theme,
+    accent: findClosestAccessibleColor(theme.accent, readableSurfaces),
+    background,
+    surface,
+    text: findClosestAccessibleColor(theme.text, readableSurfaces),
+  };
+}
+
 export function getColorContrastRatio(first: string, second: string) {
   const firstLuminance = relativeLuminance(first);
   const secondLuminance = relativeLuminance(second);
@@ -128,11 +222,14 @@ export function getThemeAccessibilityIssues(theme: MenuTheme) {
   ];
 
   return requiredPairs
-    .filter(([foreground, background]) => getColorContrastRatio(foreground, background) < 4.5)
+    .filter(
+      ([foreground, background]) =>
+        getColorContrastRatio(foreground, background) < minimumContrastRatio,
+    )
     .map(([, , message]) => message);
 }
 
-export function isValidGeneratedThemeDesign(value: unknown): value is GeneratedThemeDesign {
+function hasValidGeneratedThemeDesignStructure(value: unknown): value is GeneratedThemeDesign {
   if (!isRecord(value) || !hasOnlyKeys(value, ["name", "summary", "theme"])) return false;
   if (!isDisplayText(value.name, 2, 48) || !isDisplayText(value.summary, 8, 220)) return false;
   if (!isRecord(value.theme)) return false;
@@ -175,5 +272,38 @@ export function isValidGeneratedThemeDesign(value: unknown): value is GeneratedT
     theme.stylePreset !== "custom"
   ) return false;
 
-  return getThemeAccessibilityIssues(theme as MenuTheme).length === 0;
+  return true;
+}
+
+export function normalizeGeneratedThemeDesign(value: unknown) {
+  if (!hasValidGeneratedThemeDesignStructure(value)) return null;
+
+  const accessibilityIssues = getThemeAccessibilityIssues(value.theme);
+  const theme = accessibilityIssues.length > 0
+    ? repairThemeAccessibility(value.theme)
+    : {
+        ...value.theme,
+        accent: value.theme.accent.toLowerCase(),
+        background: value.theme.background.toLowerCase(),
+        surface: value.theme.surface.toLowerCase(),
+        text: value.theme.text.toLowerCase(),
+      };
+
+  if (getThemeAccessibilityIssues(theme).length > 0) return null;
+
+  return {
+    design: {
+      ...value,
+      theme,
+    } satisfies GeneratedThemeDesign,
+    adjustedForAccessibility: accessibilityIssues.length > 0,
+    accessibilityIssues,
+  };
+}
+
+export function isValidGeneratedThemeDesign(value: unknown): value is GeneratedThemeDesign {
+  return (
+    hasValidGeneratedThemeDesignStructure(value) &&
+    getThemeAccessibilityIssues(value.theme).length === 0
+  );
 }
