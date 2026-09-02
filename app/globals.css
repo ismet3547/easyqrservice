@@ -4600,9 +4600,86 @@ a {
   text-transform: uppercase;
 }
 
+.dashboard-sidebar > .ai-credit-badge {
+  display: grid;
+  min-width: 0;
+  min-height: 91px;
+  margin-top: auto;
+  padding: 12px;
+  grid-template-columns: 36px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px 10px;
+  color: #e6ebe2;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(217, 164, 65, 0.13), transparent 45%),
+    #2c312a;
+  border: 1px solid #42493f;
+  border-radius: 11px;
+}
+
+.ai-credit-icon {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  color: #efb852;
+  background: rgba(217, 164, 65, 0.11);
+  border: 1px solid rgba(217, 164, 65, 0.17);
+  border-radius: 9px;
+}
+
+.ai-credit-badge > div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.ai-credit-badge > div > small {
+  color: #949c91;
+  font-size: 9px;
+  font-weight: 780;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.ai-credit-badge > div > strong {
+  color: #f2f5ef;
+  font-size: 17px;
+  font-weight: 790;
+  letter-spacing: -0.25px;
+}
+
+.ai-credit-badge > div > strong em {
+  color: #b2b9ae;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 680;
+  letter-spacing: 0;
+}
+
+.ai-credit-cost {
+  display: flex;
+  min-width: 0;
+  padding-top: 8px;
+  grid-column: 1 / -1;
+  align-items: center;
+  gap: 5px;
+  overflow: hidden;
+  color: #abb2a7;
+  border-top: 1px solid #3d433a;
+  font-size: 9px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ai-credit-cost svg { flex: 0 0 auto; color: #e57a51; }
+.ai-credit-badge[aria-busy="true"] { opacity: 0.78; }
+.ai-credit-badge.is-error .ai-credit-icon { color: #b7a98d; background: rgba(255, 255, 255, 0.05); border-color: #464b43; }
+
 .dashboard-profile {
   display: grid;
-  margin-top: auto;
+  margin-top: 10px;
   padding: 12px 10px;
   grid-template-columns: 34px minmax(0, 1fr) 26px;
   align-items: center;
@@ -4660,6 +4737,37 @@ a {
 .dashboard-mobile-header {
   display: none;
 }
+
+.dashboard-mobile-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dashboard-mobile-header .ai-credit-badge.compact {
+  display: grid;
+  min-height: 34px;
+  padding: 3px 9px 3px 4px;
+  grid-template-columns: 27px auto;
+  align-items: center;
+  gap: 6px;
+  color: white;
+  background: #30352e;
+  border: 1px solid #42483f;
+  border-radius: 9px;
+}
+
+.dashboard-mobile-header .ai-credit-badge.compact .ai-credit-icon {
+  width: 27px;
+  height: 27px;
+  border: 0;
+  border-radius: 7px;
+}
+
+.dashboard-mobile-header .ai-credit-badge.compact > div { display: block; }
+.dashboard-mobile-header .ai-credit-badge.compact > div > small { display: none; }
+.dashboard-mobile-header .ai-credit-badge.compact > div > strong { font-size: 12px; white-space: nowrap; }
+.dashboard-mobile-header .ai-credit-badge.compact > div > strong em { font-size: 9px; }
 
 .dashboard-mobile-nav {
   display: none;

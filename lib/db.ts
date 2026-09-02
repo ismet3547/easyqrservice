@@ -33,6 +33,35 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS sessions_token_hash_idx ON sessions(token_hash);
   CREATE INDEX IF NOT EXISTS sessions_expires_at_idx ON sessions(expires_at);
 
+  CREATE TABLE IF NOT EXISTS ai_credit_wallets (
+    user_id TEXT PRIMARY KEY,
+    balance INTEGER NOT NULL DEFAULT 0 CHECK (balance >= 0),
+    lifetime_granted INTEGER NOT NULL DEFAULT 0 CHECK (lifetime_granted >= 0),
+    lifetime_spent INTEGER NOT NULL DEFAULT 0 CHECK (lifetime_spent >= 0),
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS ai_credit_transactions (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    kind TEXT NOT NULL CHECK (kind IN ('grant', 'spend', 'refund')),
+    amount INTEGER NOT NULL CHECK (amount <> 0),
+    balance_after INTEGER NOT NULL CHECK (balance_after >= 0),
+    operation TEXT,
+    reference_id TEXT,
+    description TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE UNIQUE INDEX IF NOT EXISTS ai_credit_transactions_user_reference_idx
+    ON ai_credit_transactions(user_id, reference_id)
+    WHERE reference_id IS NOT NULL;
+  CREATE INDEX IF NOT EXISTS ai_credit_transactions_user_created_idx
+    ON ai_credit_transactions(user_id, created_at DESC);
+
   CREATE TABLE IF NOT EXISTS menus (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL,

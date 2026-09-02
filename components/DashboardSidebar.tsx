@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import type { SessionUser } from "@/lib/auth";
+import { AICreditBadge } from "@/components/AICreditBadge";
 
 export type DashboardSection = "analytics" | "menus" | "overview" | "settings";
 
@@ -51,6 +52,8 @@ export function DashboardSidebar({
         </button>
       </nav>
 
+      <AICreditBadge />
+
       <div className="dashboard-profile">
         <span className="profile-avatar">{user.name.slice(0, 1).toLocaleUpperCase("tr-TR")}</span>
         <div><strong>{user.name}</strong><small>{user.email}</small></div>
@@ -68,9 +71,12 @@ export function DashboardMobileHeader({ user }: { user: SessionUser }) {
       <Link className="dashboard-brand" href="/dashboard">
         <span><QrCode size={17} /></span><strong>easy<i>qr</i></strong>
       </Link>
-      <Link className="dashboard-mobile-avatar" href="/dashboard/settings" aria-label="Hesap ayarlarını aç">
-        {user.name.slice(0, 1).toLocaleUpperCase("tr-TR")}
-      </Link>
+      <div className="dashboard-mobile-actions">
+        <AICreditBadge compact />
+        <Link className="dashboard-mobile-avatar" href="/dashboard/settings" aria-label="Hesap ayarlarını aç">
+          {user.name.slice(0, 1).toLocaleUpperCase("tr-TR")}
+        </Link>
+      </div>
     </header>
   );
 }
