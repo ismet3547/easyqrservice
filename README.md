@@ -32,6 +32,7 @@ Restoran ve kafelerin mevcut PDF veya görsel menülerini yapay zekâ ile okuyup
 - Hesap, menü oluşturma, yayınlama ve ilk QR taramasını gerçek veriden izleyen başlangıç rehberi
 - Yeni ve mevcut hesaplara tek seferlik 20 başlangıç kredisi tanımlayan AI kredi cüzdanı
 - Atomik harcama, güvenli iade ve yinelenen istekte ikinci kez ücret kesmeyen kredi işlem defteri
+- Menü bağlamı ve kullanıcının tarifinden erişilebilir Theme Engine tokenları üreten, 4 kredilik AI tasarım asistanı
 - Anlık telefon önizlemesi
 - Tarayıcıda otomatik taslak kaydı
 - Kullanıcı hesabına göre ayrılmış yerel taslaklar
@@ -67,6 +68,7 @@ Gerçek menü analizi için `.env.local` içine sunucu tarafı API anahtarını 
 ```bash
 OPENAI_API_KEY=sk-...
 OPENAI_MODEL=gpt-4.1-mini
+OPENAI_THEME_MODEL=gpt-4.1-mini
 OPENAI_IMAGE_MODEL=gpt-image-1
 ```
 
@@ -78,7 +80,7 @@ DATABASE_PATH=/tam/yol/easyqr.db
 
 `OPENAI_API_KEY` hiçbir zaman `NEXT_PUBLIC_` önekiyle tanımlanmamalıdır. AI görsel asistanı isteğe bağlı çalışır ve OpenAI Images API kullanım kotasını kullanır.
 
-AI sonuçları aynı SQLite veritabanında, model ve işlem sürümünü de içeren SHA-256 anahtarlarla saklanır. Menü analizi ve çeviri kayıtları 30 gün, otomatik ürün görselleri 14 gün geçerlidir. Girdi dosyalarının kendisi saklanmaz; yalnızca içerik özeti ve doğrulanmış AI sonucu tutulur. Süresi dolan veya kapasite sınırını aşan kayıtlar otomatik temizlenir.
+AI sonuçları aynı SQLite veritabanında, model ve işlem sürümünü de içeren SHA-256 anahtarlarla saklanır. Menü analizi, çeviri ve idempotent tema tasarımı kayıtları 30 gün; otomatik ürün görselleri 14 gün geçerlidir. Girdi dosyalarının kendisi saklanmaz; yalnızca içerik özeti ve doğrulanmış AI sonucu tutulur. Süresi dolan veya kapasite sınırını aşan kayıtlar otomatik temizlenir.
 
 ## Komutlar
 
@@ -102,13 +104,15 @@ npm start          # üretim sunucusu
 - `app/m/[slug]`: herkese açık, kalıcı müşteri menüsü
 - `app/api/extract-menu/route.ts`: dosya doğrulama ve AI tabanlı menü çıkarımı
 - `app/api/generate-product-image/route.ts`: kimlik doğrulamalı ve hız sınırlı ürün görseli üretimi
+- `app/api/generate-menu-theme/route.ts`: kredi kullanan, sahiplik kontrollü ve şema doğrulamalı özel tema üretimi
 - `app/api/translate-menu/route.ts`: metin alanlarını toplu ve doğrulanmış biçimde İngilizceye çevirme
 - `app/api/ai-credits/route.ts`: oturum sahibine ait AI bakiyesi, maliyet bilgisi ve son hareketler
 - `app/api/auth/*`: kayıt, giriş, çıkış ve aktif kullanıcı endpoint’leri
 - `app/giris` ve `app/kayit`: kullanıcı erişim ekranları
 - `lib/auth.ts` ve `lib/db.ts`: oturum ve SQLite altyapısı
 - `lib/ai-cache.ts`: süreli, boyut kontrollü ve sürümlü AI sonuç önbelleği
-- `lib/ai-credits.ts`: tek seferlik başlangıç bakiyesi, atomik harcama/iade ve idempotent işlem defteri
+- `lib/ai-credit-config.ts` ve `lib/ai-credits.ts`: kredi maliyetleri, başlangıç bakiyesi, atomik harcama/iade ve idempotent işlem defteri
+- `lib/theme-design.ts`: AI tema şeması, izinli token doğrulaması ve renk kontrastı denetimi
 - `lib/menu-tracking.ts`: kişisel veri saklamadan kaynak, cihaz, dil ve bot sınıflandırması
 - `lib/onboarding.ts`: hesap, ilk menü, yayın ve QR taramasından türetilen başlangıç ilerlemesi
 - `lib/menu.ts` ve `lib/menus.ts`: menü veri modeli, geriye dönük uyumlu Theme Engine 2.0 ve kalıcı menü işlemleri
@@ -123,7 +127,7 @@ Kullanıcılar, oturumlar, taslaklar ve yayınlanan menüler yerel SQLite verita
 2. E-posta doğrulama, şifre sıfırlama ve çoklu işletme desteği
 3. İngilizce dışındaki ek hedef diller ve işletmeye özel dil seçimi
 4. Anonim tekil ziyaretçi ve kampanya dönüşüm analitiği
-5. Kredi cüzdanını kullanan AI tasarım üretimi, ödeme paketleri, ekip rolleri, çoklu şube ve abonelik planları
+5. AI kredi paketleri, ekip rolleri, çoklu şube ve abonelik planları
 
 ## Güvenlik
 
@@ -134,6 +138,7 @@ Kullanıcılar, oturumlar, taslaklar ve yayınlanan menüler yerel SQLite verita
 - Ürün görseli üretimi oturum ve same-origin kontrolü gerektirir; kullanıcı/IP başına saatte 12 istekle sınırlandırılır.
 - Menü çevirisi oturum ve same-origin kontrolü gerektirir; yalnızca metin alanları AI servisine gönderilir ve kullanıcı/IP başına saatte 8 istekle sınırlandırılır.
 - AI kredi bakiyesi yalnızca sunucudaki atomik işlemlerle değişir; kullanıcıya açık API salt okunurdur ve aynı işlem referansı iki kez ücretlendirilemez.
+- AI tema üretimi oturum, same-origin, menü sahipliği, istek boyutu ve kullanıcı/IP hız sınırı kontrollerinden geçer; yalnızca izinli Theme Engine alanları kabul edilir, renk kontrastı doğrulanır ve başarısız üretimde kredi iade edilir.
 - Önbellek anahtarları ham içerik yerine SHA-256 özetidir; model veya prompt sürümü değiştiğinde eski sonuç kullanılmaz.
 - Parolalar 12 maliyet faktörlü `bcrypt` hash’i olarak saklanır.
 - Oturum anahtarının yalnızca SHA-256 özeti veritabanında tutulur; ham anahtar HTTP-only çerezdedir.

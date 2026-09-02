@@ -6,6 +6,7 @@ import {
   Check,
   ChevronDown,
   Clock3,
+  Coins,
   Copy,
   Download,
   Eye,
@@ -34,6 +35,7 @@ import {
   Smartphone,
   Sparkles,
   Trash2,
+  Undo2,
   UploadCloud,
   UserRound,
   X,
@@ -79,11 +81,30 @@ import {
   type PublishedMenu,
 } from "@/lib/menu";
 import { buildMenuTrafficUrl } from "@/lib/menu-tracking";
+import { aiCreditCosts } from "@/lib/ai-credit-config";
+import type { GeneratedThemeDesign } from "@/lib/theme-design";
 import { MenuPreview, PublicMenu } from "@/components/MenuPreview";
 import type { StoredMenu } from "@/lib/menus";
 
 type EditorTab = "content" | "design";
 type AuthUser = { id: string; name: string; email: string; createdAt: string };
+
+type ThemeDesignApiResult = {
+  code?: string;
+  credits?: {
+    balance: number;
+    cost: number;
+    refunded?: boolean;
+  };
+  design?: GeneratedThemeDesign;
+  message?: string;
+};
+
+type ThemeDesignFeedback = {
+  message: string;
+  tone: "error" | "success";
+  title: string;
+};
 
 type EnglishTranslationResult = {
   translation?: {
@@ -169,6 +190,13 @@ const themeColorOptions: Array<{
   { id: "surface", label: "Kartlar" },
   { id: "text", label: "Metin" },
 ];
+
+const themeBriefSuggestions = [
+  "Sıcak ve modern",
+  "Minimal ve premium",
+  "Doğal ve ferah",
+  "Renkli ve enerjik",
+] as const;
 
 function ThemeChoiceGroup<Value extends string>({
   description,
@@ -373,6 +401,13 @@ export function MenuStudio({
   const [generatingItemId, setGeneratingItemId] = useState("");
   const [imageGenerationProgress, setImageGenerationProgress] = useState({ done: 0, total: 0 });
   const [translatingEnglish, setTranslatingEnglish] = useState(false);
+  const [themeBrief, setThemeBrief] = useState("");
+  const [generatingTheme, setGeneratingTheme] = useState(false);
+  const [themeCreditBalance, setThemeCreditBalance] = useState<number | null>(null);
+  const [themeCreditsLoading, setThemeCreditsLoading] = useState(false);
+  const [themeCreditsFailed, setThemeCreditsFailed] = useState(false);
+  const [themeDesignFeedback, setThemeDesignFeedback] = useState<ThemeDesignFeedback | null>(null);
+  const [previousTheme, setPreviousTheme] = useState<MenuTheme | null>(null);
   const totalItemCount = menu.categories.reduce((sum, category) => sum + category.items.length, 0);
   const missingImageCount = menu.categories.reduce(
     (sum, category) =>
@@ -386,11 +421,15 @@ export function MenuStudio({
     englishCoverage.percentage === 100 &&
     menu.translations?.en?.sourceFingerprint === getMenuTranslationFingerprint(menu);
   const businessProfile = getMenuBusinessProfile(menu);
+  const themeCreditsInsufficient = themeCreditBalance !== null &&
+    themeCreditBalance < aiCreditCosts.themeDesign;
 
   const updateThemeOption = <Key extends keyof MenuTheme>(
     key: Key,
     value: MenuTheme[Key],
   ) => {
+    setPreviousTheme(null);
+    setThemeDesignFeedback((current) => current?.tone === "success" ? null : current);
     setTheme((current) => ({ ...current, [key]: value, stylePreset: "custom" }));
   };
 
@@ -459,6 +498,34 @@ export function MenuStudio({
     };
     void loadUser();
   }, []);
+
+  useEffect(() => {
+    if (screen !== "studio" || tab !== "design" || !currentUser) return;
+    const controller = new AbortController();
+    setThemeCreditsLoading(true);
+    setThemeCreditsFailed(false);
+
+    const loadThemeCredits = async () => {
+      try {
+        const response = await fetch("/api/ai-credits", {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        const result = (await response.json()) as {
+          credits?: { balance: number };
+        };
+        if (!response.ok || !result.credits) throw new Error("Kredi bilgisi alınamadı.");
+        setThemeCreditBalance(result.credits.balance);
+      } catch (creditError) {
+        if ((creditError as Error).name !== "AbortError") setThemeCreditsFailed(true);
+      } finally {
+        if (!controller.signal.aborted) setThemeCreditsLoading(false);
+      }
+    };
+
+    void loadThemeCredits();
+    return () => controller.abort();
+  }, [currentUser, screen, tab]);
 
   useEffect(() => {
     if (screen !== "studio" || !currentUser) return;
@@ -1048,6 +1115,105 @@ export function MenuStudio({
       setNotice("Çeviri oluşturulamadı: " + getErrorMessage(translationError));
     } finally {
       setTranslatingEnglish(false);
+    }
+  };
+
+  const generateThemeDesign = async () => {
+    if (generatingTheme) return;
+    if (!currentUser) {
+      goToLogin();
+      return;
+    }
+
+    const brief = themeBrief.replace(/\s+/g, " ").trim();
+    if (brief.length < 3) {
+      setThemeDesignFeedback({
+        tone: "error",
+        title: "Kısa bir yön tarif et",
+        message: "Örneğin “sıcak, modern ve kahve tonlarında” yazabilirsin.",
+      });
+      return;
+    }
+    if (
+      themeCreditBalance !== null &&
+      themeCreditBalance < aiCreditCosts.themeDesign
+    ) {
+      setThemeDesignFeedback({
+        tone: "error",
+        title: "Kredi bakiyesi yetersiz",
+        message: `Bu tasarım için ${aiCreditCosts.themeDesign} kredi gerekiyor.`,
+      });
+      return;
+    }
+
+    setGeneratingTheme(true);
+    setThemeDesignFeedback(null);
+    setThemeBrief(brief);
+
+    try {
+      let menuId = activeMenuId;
+      if (!menuId) {
+        const storedMenu = await persistNewMenu(menu, theme);
+        menuId = storedMenu.id;
+      } else {
+        setSaveStatus("saving");
+        const saveResponse = await fetch(`/api/menus/${menuId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ menu, theme, status: activeMenuStatus }),
+        });
+        let saveResult: { message?: string } = {};
+        try {
+          saveResult = (await saveResponse.json()) as typeof saveResult;
+        } catch {
+          saveResult = {};
+        }
+        if (!saveResponse.ok) {
+          setSaveStatus("error");
+          throw new Error(saveResult.message || "Menü AI tasarımından önce kaydedilemedi.");
+        }
+        setSaveStatus("saved");
+      }
+
+      const response = await fetch("/api/generate-menu-theme", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          brief,
+          menuId,
+          requestId: window.crypto.randomUUID(),
+        }),
+      });
+      let result: ThemeDesignApiResult = {};
+      try {
+        result = (await response.json()) as ThemeDesignApiResult;
+      } catch {
+        result = {};
+      }
+
+      if (result.credits && Number.isFinite(result.credits.balance)) {
+        setThemeCreditBalance(result.credits.balance);
+        setThemeCreditsFailed(false);
+      }
+      if (!response.ok || !result.design) {
+        throw new Error(result.message || "AI tasarımı oluşturulamadı.");
+      }
+
+      setPreviousTheme(theme);
+      setTheme(normalizeMenuTheme(result.design.theme));
+      setThemeDesignFeedback({
+        tone: "success",
+        title: result.design.name,
+        message: result.design.summary,
+      });
+    } catch (designError) {
+      setThemeDesignFeedback({
+        tone: "error",
+        title: "Tasarım oluşturulamadı",
+        message: getErrorMessage(designError),
+      });
+    } finally {
+      setGeneratingTheme(false);
     }
   };
 
@@ -1823,6 +1989,79 @@ export function MenuStudio({
             </div>
           ) : (
             <div className="editor-content design-content">
+              <section className="form-section ai-theme-designer-section">
+                <div className="ai-theme-designer-heading">
+                  <div className="ai-theme-designer-icon"><Sparkles size={19} /></div>
+                  <div><span>AI tasarım asistanı</span><h2>Markana özel görünüm</h2></div>
+                  <div className="ai-theme-credit-cost"><Coins size={13} /> {aiCreditCosts.themeDesign} kredi</div>
+                </div>
+                <p className="ai-theme-designer-description">
+                  İstediğin atmosferi anlat; renkleri ve tüm görünüm ayarlarını menüne göre birlikte hazırlasın.
+                </p>
+                <label className="ai-theme-brief" htmlFor="ai-theme-brief">
+                  <span>Tasarım yönü</span>
+                  <textarea
+                    id="ai-theme-brief"
+                    maxLength={400}
+                    onChange={(event) => setThemeBrief(event.target.value)}
+                    placeholder="Örn. Ahşap tonları kullanan, sıcak ama premium bir kahve dükkânı tasarımı"
+                    rows={3}
+                    value={themeBrief}
+                  />
+                  <small>{themeBrief.length} / 400</small>
+                </label>
+                <div className="ai-theme-suggestions" aria-label="Tasarım yönü önerileri">
+                  {themeBriefSuggestions.map((suggestion) => (
+                    <button
+                      key={suggestion}
+                      onClick={() => setThemeBrief(suggestion)}
+                      type="button"
+                    >{suggestion}</button>
+                  ))}
+                </div>
+                <div className="ai-theme-designer-actions">
+                  <div className={`ai-theme-balance ${themeCreditsInsufficient ? "is-low" : ""}`}>
+                    <Coins size={15} />
+                    <span>
+                      {themeCreditsLoading && themeCreditBalance === null
+                        ? "Bakiye yükleniyor…"
+                        : themeCreditsFailed && themeCreditBalance === null
+                          ? "Bakiye alınamadı"
+                          : `${themeCreditBalance ?? "—"} kredi mevcut`}
+                    </span>
+                  </div>
+                  <button
+                    className="ai-theme-generate-button"
+                    disabled={generatingTheme || themeBrief.trim().length < 3 || themeCreditsInsufficient}
+                    onClick={() => { void generateThemeDesign(); }}
+                    type="button"
+                  >
+                    {generatingTheme
+                      ? <><Loader2 className="auto-image-spinner" size={16} /> Tasarım hazırlanıyor</>
+                      : <><Sparkles size={16} /> Özel tasarım üret</>}
+                  </button>
+                </div>
+                <p className="ai-theme-charge-note">Yalnızca doğrulanmış bir tasarım hazırlandığında kredi düşer.</p>
+                {themeDesignFeedback && (
+                  <div className={`ai-theme-feedback ${themeDesignFeedback.tone}`} aria-live="polite">
+                    <div>
+                      {themeDesignFeedback.tone === "success" ? <Check size={16} /> : <X size={16} />}
+                      <span><strong>{themeDesignFeedback.title}</strong><small>{themeDesignFeedback.message}</small></span>
+                    </div>
+                    {themeDesignFeedback.tone === "success" && previousTheme && (
+                      <button
+                        onClick={() => {
+                          setTheme(previousTheme);
+                          setPreviousTheme(null);
+                          setThemeDesignFeedback(null);
+                        }}
+                        type="button"
+                      ><Undo2 size={14} /> Geri al</button>
+                    )}
+                  </div>
+                )}
+              </section>
+
               <section className="form-section theme-preset-section">
                 <div className="section-heading"><div><span>Hızlı başlangıç</span><h2>Hazır stiller</h2></div></div>
                 <p className="theme-section-description">Renk, tipografi ve görünüm ayarlarını tek seçimle uygula; ardından istediğin ayrıntıyı değiştirebilirsin.</p>
@@ -1835,7 +2074,11 @@ export function MenuStudio({
                         aria-pressed={isActive}
                         key={preset.id}
                         className={`theme-option ${isActive ? "active" : ""}`}
-                        onClick={() => setTheme({ ...presetTheme })}
+                        onClick={() => {
+                          setTheme({ ...presetTheme });
+                          setPreviousTheme(null);
+                          setThemeDesignFeedback((current) => current?.tone === "success" ? null : current);
+                        }}
                         type="button"
                       >
                         <span className="theme-preset-preview" style={{ background: presetTheme.background }}>

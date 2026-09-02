@@ -1,13 +1,13 @@
 import { randomUUID } from "node:crypto";
+import {
+  aiCreditCosts,
+  initialAICreditBalance,
+  type AICreditOperation,
+} from "@/lib/ai-credit-config";
 import { db } from "@/lib/db";
 
-export const initialAICreditBalance = 20;
-
-export const aiCreditCosts = {
-  themeDesign: 4,
-} as const;
-
-export type AICreditOperation = "theme-design";
+export { aiCreditCosts, initialAICreditBalance } from "@/lib/ai-credit-config";
+export type { AICreditOperation } from "@/lib/ai-credit-config";
 export type AICreditTransactionKind = "grant" | "refund" | "spend";
 
 export type AICreditTransaction = {
