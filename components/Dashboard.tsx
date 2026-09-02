@@ -9,10 +9,13 @@ import {
   FilePenLine,
   Plus,
   QrCode,
+  Rocket,
   ScanLine,
   Sparkles,
   Trash2,
   TrendingUp,
+  UserRound,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -21,12 +24,29 @@ import type { SessionUser } from "@/lib/auth";
 import type { StoredMenu } from "@/lib/menus";
 import { DashboardMobileNav } from "@/components/DashboardMobileNav";
 import { DashboardMobileHeader, DashboardSidebar } from "@/components/DashboardSidebar";
+import { getOnboardingProgress, type OnboardingStepId } from "@/lib/onboarding";
 
-export function Dashboard({ user, initialMenus }: { user: SessionUser; initialMenus: StoredMenu[] }) {
+function OnboardingStepIcon({ id }: { id: OnboardingStepId }) {
+  if (id === "account") return <UserRound size={18} />;
+  if (id === "menu") return <BookOpen size={18} />;
+  if (id === "publish") return <Rocket size={18} />;
+  return <ScanLine size={18} />;
+}
+
+export function Dashboard({
+  user,
+  initialMenus,
+  initialWelcome = false,
+}: {
+  user: SessionUser;
+  initialMenus: StoredMenu[];
+  initialWelcome?: boolean;
+}) {
   const router = useRouter();
   const [menus, setMenus] = useState(initialMenus);
   const [copiedId, setCopiedId] = useState("");
   const [deletingId, setDeletingId] = useState("");
+  const [welcomeVisible, setWelcomeVisible] = useState(initialWelcome);
 
   const totalViews = menus.reduce((sum, menu) => sum + menu.viewCount, 0);
   const totalProducts = menus.reduce(
@@ -36,6 +56,13 @@ export function Dashboard({ user, initialMenus }: { user: SessionUser; initialMe
   );
   const publishedCount = menus.filter((menu) => menu.status === "published").length;
   const firstPublishedMenu = menus.find((menu) => menu.status === "published");
+  const onboarding = getOnboardingProgress(menus);
+  const currentOnboardingStepId = onboarding.steps.find((step) => !step.complete)?.id;
+
+  const dismissWelcome = () => {
+    setWelcomeVisible(false);
+    router.replace("/dashboard", { scroll: false });
+  };
 
   const logout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -73,10 +100,48 @@ export function Dashboard({ user, initialMenus }: { user: SessionUser; initialMe
             <div>
               <span className="dashboard-kicker"><Sparkles size={14} /> Kontrol paneli</span>
               <h1>Hoş geldin, {user.name.split(" ")[0]}.</h1>
-              <p>Menülerini yönet, performansını takip et ve yeni deneyimler oluştur.</p>
+              <p>{welcomeVisible ? "İlk QR menünü birlikte hazırlayalım." : "Menülerini yönet, performansını takip et ve yeni deneyimler oluştur."}</p>
             </div>
             <Link className="dashboard-primary" href="/studio?new=1"><Plus size={18} /> Yeni menü oluştur</Link>
           </div>
+
+          {(!onboarding.isComplete || welcomeVisible) && (
+            <section className={`onboarding-journey ${welcomeVisible ? "is-welcome" : ""}`} aria-labelledby="onboarding-title">
+              <div className="onboarding-intro">
+                {welcomeVisible && (
+                  <button className="onboarding-welcome-close" type="button" onClick={dismissWelcome} aria-label="Hoş geldin mesajını kapat">
+                    <X size={16} />
+                  </button>
+                )}
+                <span className="onboarding-kicker"><Sparkles size={14} /> {welcomeVisible ? "Hoş geldin" : "Başlangıç rehberi"}</span>
+                <h2 id="onboarding-title">{welcomeVisible ? "İlk QR menünü birlikte hazırlayalım" : onboarding.nextAction.title}</h2>
+                <p>{welcomeVisible ? "Dört kısa adımda menünü oluştur, yayınla ve ilk taramanı al. Tamamladığın adımlar otomatik işaretlenir." : onboarding.nextAction.description}</p>
+                <div className="onboarding-progress-copy"><strong>{onboarding.percentage}%</strong><span>{onboarding.completedSteps} / {onboarding.totalSteps} adım tamamlandı</span></div>
+                <div
+                  className="onboarding-progress-track"
+                  role="progressbar"
+                  aria-label="QR menü kurulum ilerlemesi"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={onboarding.percentage}
+                ><i style={{ width: `${onboarding.percentage}%` }} /></div>
+                <Link className="onboarding-primary" href={onboarding.nextAction.href}>{onboarding.nextAction.label} <ChevronRight size={17} /></Link>
+              </div>
+
+              <ol className="onboarding-steps" aria-label="QR menü kurulum adımları">
+                {onboarding.steps.map((step, index) => {
+                  const isCurrent = currentOnboardingStepId === step.id;
+                  return (
+                    <li className={`${step.complete ? "complete" : ""} ${isCurrent ? "current" : ""}`} key={step.id} aria-current={isCurrent ? "step" : undefined}>
+                      <div className="onboarding-step-icon">{step.complete ? <Check size={18} /> : <OnboardingStepIcon id={step.id} />}</div>
+                      <div><span>Adım {index + 1}</span><strong>{step.label}</strong><small>{step.description}</small></div>
+                      <b>{step.complete ? "Tamam" : isCurrent ? "Sırada" : "Bekliyor"}</b>
+                    </li>
+                  );
+                })}
+              </ol>
+            </section>
+          )}
 
           <div className="dashboard-stats">
             <article><div className="stat-icon orange"><BookOpen size={19} /></div><span>Toplam menü</span><strong>{menus.length}</strong><small>{publishedCount} tanesi yayında</small></article>
@@ -134,12 +199,12 @@ export function Dashboard({ user, initialMenus }: { user: SessionUser; initialMe
 
             <aside className="dashboard-side-column">
               <section className="dashboard-progress-card">
-                <div className="progress-card-top"><div className="stat-icon orange"><Sparkles size={18} /></div><span>{menus.length > 0 ? "Sıradaki adım" : "Hızlı başlangıç"}</span></div>
-                <h3>{publishedCount > 0 ? "Menünü büyüt" : "QR menünü yayınla"}</h3>
-                <p>{publishedCount > 0 ? "Menü bağlantını sosyal medya profilinde ve Google işletme sayfanda paylaş." : "Ürünlerini kontrol edip QR kodunu masalara yerleştir."}</p>
-                <div className="progress-track"><i style={{ width: publishedCount > 0 ? "100%" : menus.length > 0 ? "66%" : "20%" }} /></div>
-                <small>{publishedCount > 0 ? "Tamamlandı" : menus.length > 0 ? "2 / 3 adım" : "1 / 3 adım"}</small>
-                {firstPublishedMenu && <Link className="dashboard-progress-link" href={`/dashboard/menus/${firstPublishedMenu.id}/qr`}>QR Baskı Merkezi <ChevronRight size={14} /></Link>}
+                <div className="progress-card-top"><div className="stat-icon orange">{onboarding.isComplete ? <TrendingUp size={18} /> : <Sparkles size={18} />}</div><span>{onboarding.isComplete ? "Büyüme zamanı" : "Sıradaki adım"}</span></div>
+                <h3>{onboarding.nextAction.title}</h3>
+                <p>{onboarding.nextAction.description}</p>
+                <div className="progress-track"><i style={{ width: `${onboarding.percentage}%` }} /></div>
+                <small>{onboarding.completedSteps} / {onboarding.totalSteps} adım</small>
+                <Link className="dashboard-progress-link" href={onboarding.nextAction.href}>{onboarding.nextAction.label} <ChevronRight size={14} /></Link>
               </section>
 
               <section className="dashboard-tips">
