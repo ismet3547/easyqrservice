@@ -138,15 +138,69 @@ export type MenuData = {
   };
 };
 
+export const menuThemePresetIds = [
+  "minimal",
+  "bistro",
+  "botanical",
+  "editorial",
+  "dark-luxe",
+  "playful",
+] as const;
+export type MenuThemePresetId = (typeof menuThemePresetIds)[number];
+
+export const menuCardStyles = ["flat", "outlined", "elevated"] as const;
+export type MenuCardStyle = (typeof menuCardStyles)[number];
+
+export const menuCornerStyles = ["square", "soft", "rounded"] as const;
+export type MenuCornerStyle = (typeof menuCornerStyles)[number];
+
+export const menuImageRatios = ["square", "portrait", "landscape"] as const;
+export type MenuImageRatio = (typeof menuImageRatios)[number];
+
+export const menuDensities = ["compact", "comfortable", "airy"] as const;
+export type MenuDensity = (typeof menuDensities)[number];
+
+export const menuPriceStyles = ["plain", "pill", "accent"] as const;
+export type MenuPriceStyle = (typeof menuPriceStyles)[number];
+
+export const menuCategoryStyles = ["pills", "underline", "minimal"] as const;
+export type MenuCategoryStyle = (typeof menuCategoryStyles)[number];
+
+export const menuHeroStyles = ["clean", "tinted", "pattern"] as const;
+export type MenuHeroStyle = (typeof menuHeroStyles)[number];
+
 export type MenuTheme = {
   accent: string;
   background: string;
+  cardStyle: MenuCardStyle;
+  categoryStyle: MenuCategoryStyle;
+  cornerStyle: MenuCornerStyle;
+  density: MenuDensity;
   surface: string;
   text: string;
   font: "modern" | "editorial" | "friendly";
+  heroStyle: MenuHeroStyle;
+  imageRatio: MenuImageRatio;
   layout: "cards" | "compact" | "tiles" | "showcase";
+  priceStyle: MenuPriceStyle;
   showDescriptions: boolean;
+  stylePreset: MenuThemePresetId | "custom";
 };
+
+type MenuThemeV2Fields = Pick<
+  MenuTheme,
+  | "cardStyle"
+  | "categoryStyle"
+  | "cornerStyle"
+  | "density"
+  | "heroStyle"
+  | "imageRatio"
+  | "priceStyle"
+  | "stylePreset"
+>;
+
+export type MenuThemeInput = Omit<MenuTheme, keyof MenuThemeV2Fields> &
+  Partial<MenuThemeV2Fields>;
 
 export type PublishedMenu = {
   menu: MenuData;
@@ -156,12 +210,140 @@ export type PublishedMenu = {
 export const defaultTheme: MenuTheme = {
   accent: "#ea5b2a",
   background: "#f7f2e8",
+  cardStyle: "elevated",
+  categoryStyle: "pills",
+  cornerStyle: "soft",
+  density: "comfortable",
   surface: "#fffdf9",
   text: "#20251f",
   font: "modern",
+  heroStyle: "pattern",
+  imageRatio: "square",
   layout: "cards",
+  priceStyle: "plain",
   showDescriptions: true,
+  stylePreset: "bistro",
 };
+
+export const menuThemePresets: Record<MenuThemePresetId, MenuTheme> = {
+  minimal: {
+    ...defaultTheme,
+    accent: "#343a35",
+    background: "#f4f4f0",
+    cardStyle: "outlined",
+    categoryStyle: "underline",
+    density: "compact",
+    heroStyle: "clean",
+    layout: "compact",
+    surface: "#ffffff",
+    text: "#1f2420",
+    stylePreset: "minimal",
+  },
+  bistro: defaultTheme,
+  botanical: {
+    ...defaultTheme,
+    accent: "#65784e",
+    background: "#f0f1e8",
+    cardStyle: "flat",
+    cornerStyle: "rounded",
+    density: "airy",
+    font: "friendly",
+    heroStyle: "tinted",
+    imageRatio: "portrait",
+    priceStyle: "accent",
+    surface: "#fbfcf6",
+    text: "#283025",
+    stylePreset: "botanical",
+  },
+  editorial: {
+    ...defaultTheme,
+    accent: "#8c3f34",
+    background: "#f3ece1",
+    cardStyle: "outlined",
+    categoryStyle: "minimal",
+    cornerStyle: "square",
+    density: "airy",
+    font: "editorial",
+    heroStyle: "clean",
+    imageRatio: "landscape",
+    layout: "showcase",
+    surface: "#fffaf1",
+    text: "#30251f",
+    stylePreset: "editorial",
+  },
+  "dark-luxe": {
+    ...defaultTheme,
+    accent: "#d9a441",
+    background: "#181916",
+    cardStyle: "elevated",
+    categoryStyle: "underline",
+    font: "editorial",
+    heroStyle: "tinted",
+    imageRatio: "portrait",
+    layout: "showcase",
+    priceStyle: "pill",
+    surface: "#24251f",
+    text: "#f7f2e8",
+    stylePreset: "dark-luxe",
+  },
+  playful: {
+    ...defaultTheme,
+    accent: "#df526f",
+    background: "#fff1d8",
+    cardStyle: "elevated",
+    cornerStyle: "rounded",
+    font: "friendly",
+    heroStyle: "pattern",
+    layout: "tiles",
+    priceStyle: "pill",
+    surface: "#fffaf0",
+    text: "#302b48",
+    stylePreset: "playful",
+  },
+};
+
+export function normalizeMenuTheme(value: unknown): MenuTheme {
+  const theme = value && typeof value === "object" && !Array.isArray(value)
+    ? value as Partial<MenuTheme>
+    : {};
+  const isColor = (color: unknown): color is string =>
+    typeof color === "string" && /^#[0-9a-f]{6}$/i.test(color);
+  const valueOr = <Value extends string>(
+    candidate: unknown,
+    values: readonly Value[],
+    fallback: Value,
+  ): Value => typeof candidate === "string" && values.includes(candidate as Value)
+    ? candidate as Value
+    : fallback;
+
+  return {
+    accent: isColor(theme.accent) ? theme.accent : defaultTheme.accent,
+    background: isColor(theme.background) ? theme.background : defaultTheme.background,
+    cardStyle: valueOr(theme.cardStyle, menuCardStyles, defaultTheme.cardStyle),
+    categoryStyle: valueOr(theme.categoryStyle, menuCategoryStyles, defaultTheme.categoryStyle),
+    cornerStyle: valueOr(theme.cornerStyle, menuCornerStyles, defaultTheme.cornerStyle),
+    density: valueOr(theme.density, menuDensities, defaultTheme.density),
+    surface: isColor(theme.surface) ? theme.surface : defaultTheme.surface,
+    text: isColor(theme.text) ? theme.text : defaultTheme.text,
+    font: valueOr(theme.font, ["modern", "editorial", "friendly"] as const, defaultTheme.font),
+    heroStyle: valueOr(theme.heroStyle, menuHeroStyles, defaultTheme.heroStyle),
+    imageRatio: valueOr(theme.imageRatio, menuImageRatios, defaultTheme.imageRatio),
+    layout: valueOr(
+      theme.layout,
+      ["cards", "compact", "tiles", "showcase"] as const,
+      defaultTheme.layout,
+    ),
+    priceStyle: valueOr(theme.priceStyle, menuPriceStyles, defaultTheme.priceStyle),
+    showDescriptions: typeof theme.showDescriptions === "boolean"
+      ? theme.showDescriptions
+      : defaultTheme.showDescriptions,
+    stylePreset: valueOr(
+      theme.stylePreset,
+      [...menuThemePresetIds, "custom"] as const,
+      "custom",
+    ),
+  };
+}
 
 export const defaultBusinessProfile: MenuBusinessProfile = {
   logo: "",
@@ -368,5 +550,5 @@ export async function decodePublishedMenu(value: string): Promise<PublishedMenu>
   if (!parsed?.menu?.categories || !parsed?.theme?.accent) {
     throw new Error("Eksik menü verisi");
   }
-  return parsed;
+  return { ...parsed, theme: normalizeMenuTheme(parsed.theme) };
 }

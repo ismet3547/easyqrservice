@@ -3,10 +3,20 @@ import { db } from "@/lib/db";
 import type { MenuViewContext } from "@/lib/menu-tracking";
 import {
   menuAllergens,
+  menuCardStyles,
+  menuCategoryStyles,
+  menuCornerStyles,
+  menuDensities,
   menuDietaryTags,
+  menuHeroStyles,
+  menuImageRatios,
+  menuPriceStyles,
+  menuThemePresetIds,
   menuWeekdays,
+  normalizeMenuTheme,
   type MenuData,
   type MenuTheme,
+  type MenuThemeInput,
 } from "@/lib/menu";
 
 export type MenuStatus = "draft" | "published";
@@ -69,7 +79,7 @@ function parseRow(row: MenuRow): StoredMenu {
     slug: row.slug,
     status: row.status,
     menu: JSON.parse(row.content_json) as MenuData,
-    theme: JSON.parse(row.theme_json) as MenuTheme,
+    theme: normalizeMenuTheme(JSON.parse(row.theme_json)),
     viewCount: row.view_count,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -239,18 +249,50 @@ export function isValidMenuData(value: unknown): value is MenuData {
   );
 }
 
-export function isValidMenuTheme(value: unknown): value is MenuTheme {
+export function isValidMenuTheme(value: unknown): value is MenuThemeInput {
   if (!value || typeof value !== "object") return false;
-  const theme = value as Partial<MenuTheme>;
+  const theme = value as Partial<MenuThemeInput>;
   const isColor = (color: unknown) => typeof color === "string" && /^#[0-9a-f]{6}$/i.test(color);
+  const optionalValueIsValid = <Value extends string>(
+    candidate: unknown,
+    values: readonly Value[],
+  ) => candidate === undefined || (
+    typeof candidate === "string" && values.includes(candidate as Value)
+  );
+  const allowedKeys = new Set([
+    "accent",
+    "background",
+    "cardStyle",
+    "categoryStyle",
+    "cornerStyle",
+    "density",
+    "font",
+    "heroStyle",
+    "imageRatio",
+    "layout",
+    "priceStyle",
+    "showDescriptions",
+    "stylePreset",
+    "surface",
+    "text",
+  ]);
   return (
+    Object.keys(theme).every((key) => allowedKeys.has(key)) &&
     isColor(theme.accent) &&
     isColor(theme.background) &&
     isColor(theme.surface) &&
     isColor(theme.text) &&
     ["modern", "editorial", "friendly"].includes(theme.font || "") &&
     ["cards", "compact", "tiles", "showcase"].includes(theme.layout || "") &&
-    typeof theme.showDescriptions === "boolean"
+    typeof theme.showDescriptions === "boolean" &&
+    optionalValueIsValid(theme.cardStyle, menuCardStyles) &&
+    optionalValueIsValid(theme.categoryStyle, menuCategoryStyles) &&
+    optionalValueIsValid(theme.cornerStyle, menuCornerStyles) &&
+    optionalValueIsValid(theme.density, menuDensities) &&
+    optionalValueIsValid(theme.heroStyle, menuHeroStyles) &&
+    optionalValueIsValid(theme.imageRatio, menuImageRatios) &&
+    optionalValueIsValid(theme.priceStyle, menuPriceStyles) &&
+    optionalValueIsValid(theme.stylePreset, [...menuThemePresetIds, "custom"] as const)
   );
 }
 
@@ -268,16 +310,17 @@ export function getUserMenu(userId: string, id: string) {
   return row ? parseRow(row) : null;
 }
 
-export function createUserMenu(userId: string, menu: MenuData, theme: MenuTheme) {
+export function createUserMenu(userId: string, menu: MenuData, theme: MenuThemeInput) {
   const id = randomUUID();
   const now = new Date().toISOString();
   const name = menu.restaurantName.trim() || "İsimsiz menü";
   const slug = uniqueSlug(name);
+  const normalizedTheme = normalizeMenuTheme(theme);
   db.prepare(
     `INSERT INTO menus
       (id, user_id, name, slug, status, content_json, theme_json, created_at, updated_at)
      VALUES (?, ?, ?, ?, 'draft', ?, ?, ?, ?)`,
-  ).run(id, userId, name, slug, JSON.stringify(menu), JSON.stringify(theme), now, now);
+  ).run(id, userId, name, slug, JSON.stringify(menu), JSON.stringify(normalizedTheme), now, now);
   return getUserMenu(userId, id)!;
 }
 
@@ -285,7 +328,7 @@ export function updateUserMenu(
   userId: string,
   id: string,
   menu: MenuData,
-  theme: MenuTheme,
+  theme: MenuThemeInput,
   status?: MenuStatus,
 ) {
   const existing = getUserMenu(userId, id);
@@ -293,6 +336,7 @@ export function updateUserMenu(
 
   const nextStatus = status || existing.status;
   const now = new Date().toISOString();
+  const normalizedTheme = normalizeMenuTheme(theme);
   const publishedAt = nextStatus === "published"
     ? existing.publishedAt || now
     : existing.publishedAt;
@@ -305,7 +349,7 @@ export function updateUserMenu(
     menu.restaurantName.trim() || "İsimsiz menü",
     nextStatus,
     JSON.stringify(menu),
-    JSON.stringify(theme),
+    JSON.stringify(normalizedTheme),
     now,
     publishedAt,
     id,

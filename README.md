@@ -27,7 +27,8 @@ Restoran ve kafelerin mevcut PDF veya görsel menülerini yapay zekâ ile okuyup
 - Vegan, vejetaryen, glutensiz ve acılı filtreleri ile çoklu alerjen dışlama
 - İşletme logosu, adres, telefon, WhatsApp, Instagram ve Google Maps bağlantıları
 - Saat dilimine göre canlı açık/kapalı durumu, haftalık çalışma saatleri ve gece yarısını aşan servis desteği
-- Renk, tipografi, dört farklı ürün düzeni ve açıklama görünürlüğü ayarları
+- Minimal, Modern Bistro, Botanik, Editoryal, Dark Luxe ve Enerjik hazır tasarım stilleri
+- Renk, tipografi ve dört farklı ürün düzeninin yanında kart, köşe, yoğunluk, görsel oranı, fiyat, kategori ve kapak stili ayarları
 - Anlık telefon önizlemesi
 - Tarayıcıda otomatik taslak kaydı
 - Kullanıcı hesabına göre ayrılmış yerel taslaklar
@@ -104,7 +105,7 @@ npm start          # üretim sunucusu
 - `lib/auth.ts` ve `lib/db.ts`: oturum ve SQLite altyapısı
 - `lib/ai-cache.ts`: süreli, boyut kontrollü ve sürümlü AI sonuç önbelleği
 - `lib/menu-tracking.ts`: kişisel veri saklamadan kaynak, cihaz, dil ve bot sınıflandırması
-- `lib/menu.ts` ve `lib/menus.ts`: menü veri modeli ve kalıcı menü işlemleri
+- `lib/menu.ts` ve `lib/menus.ts`: menü veri modeli, geriye dönük uyumlu Theme Engine 2.0 ve kalıcı menü işlemleri
 - `components/MenuPreview.tsx`: iki dilli müşteri menüsü, güvenli iletişim bağlantıları ve canlı çalışma saati hesabı
 - `app/globals.css`: responsive tasarım sistemi
 
@@ -116,7 +117,7 @@ Kullanıcılar, oturumlar, taslaklar ve yayınlanan menüler yerel SQLite verita
 2. E-posta doğrulama, şifre sıfırlama ve çoklu işletme desteği
 3. İngilizce dışındaki ek hedef diller ve işletmeye özel dil seçimi
 4. Anonim tekil ziyaretçi ve kampanya dönüşüm analitiği
-5. Ekip rolleri, çoklu şube ve abonelik planları
+5. Kredi kullanan AI tasarım asistanı, ekip rolleri, çoklu şube ve abonelik planları
 
 ## Güvenlik
 

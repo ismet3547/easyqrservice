@@ -24,6 +24,7 @@ import {
   menuAllergens,
   menuDietaryTags,
   menuWeekdays,
+  normalizeMenuTheme,
   type MenuAllergen,
   type MenuBusinessProfile,
   type MenuDietaryTag,
@@ -336,9 +337,10 @@ function getMapsHref(mapsUrl: string, address: string) {
 }
 
 export function PublicMenu({ menu, theme, initialLanguage = "tr" }: PublicMenuProps) {
+  const resolvedTheme = normalizeMenuTheme(theme);
   return (
-    <main className="public-menu-shell" style={{ background: theme.background }}>
-      <MenuPreview menu={menu} theme={theme} initialLanguage={initialLanguage} />
+    <main className="public-menu-shell" style={{ background: resolvedTheme.background }}>
+      <MenuPreview menu={menu} theme={resolvedTheme} initialLanguage={initialLanguage} />
       <footer className="public-menu-footer">
         <div className="brand compact">
           <span className="brand-mark"><QrCode size={17} /></span>
@@ -351,6 +353,7 @@ export function PublicMenu({ menu, theme, initialLanguage = "tr" }: PublicMenuPr
 }
 
 export function MenuPreview({ menu, theme, framed = false, initialLanguage = "tr" }: MenuPreviewProps) {
+  const resolvedTheme = normalizeMenuTheme(theme);
   const canUseEnglish = hasEnglishMenuTranslation(menu);
   const [language, setLanguage] = useState<MenuLanguage>(
     initialLanguage === "en" && canUseEnglish ? "en" : "tr",
@@ -413,10 +416,10 @@ export function MenuPreview({ menu, theme, framed = false, initialLanguage = "tr
     businessProfile.hoursEnabled,
   );
   const style = {
-    "--menu-accent": theme.accent,
-    "--menu-bg": theme.background,
-    "--menu-surface": theme.surface,
-    "--menu-text": theme.text,
+    "--menu-accent": resolvedTheme.accent,
+    "--menu-bg": resolvedTheme.background,
+    "--menu-surface": resolvedTheme.surface,
+    "--menu-text": resolvedTheme.text,
   } as CSSProperties;
   const visibleCategories = getVisibleMenu(menu).categories;
   const hasAllergenInfo = visibleCategories.some((category) =>
@@ -527,7 +530,7 @@ export function MenuPreview({ menu, theme, framed = false, initialLanguage = "tr
 
   return (
     <div
-      className={`menu-preview font-${theme.font} layout-${theme.layout} ${framed ? "is-framed" : ""}`}
+      className={`menu-preview font-${resolvedTheme.font} layout-${resolvedTheme.layout} card-${resolvedTheme.cardStyle} category-${resolvedTheme.categoryStyle} corners-${resolvedTheme.cornerStyle} density-${resolvedTheme.density} hero-${resolvedTheme.heroStyle} image-${resolvedTheme.imageRatio} price-${resolvedTheme.priceStyle} ${framed ? "is-framed" : ""}`}
       lang={activeLanguage}
       style={style}
     >
@@ -745,7 +748,7 @@ export function MenuPreview({ menu, theme, framed = false, initialLanguage = "tr
                             </div>
                           )}
                         </div>
-                        {theme.showDescriptions && description && <p>{description}</p>}
+                        {resolvedTheme.showDescriptions && description && <p>{description}</p>}
                         {(item.dietaryTags?.length || 0) > 0 && (
                           <div className="menu-dietary-tags" aria-label={copy.dietaryLabels}>
                             {item.dietaryTags?.map((tag) => (
