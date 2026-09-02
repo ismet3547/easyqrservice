@@ -68,6 +68,7 @@ import {
   type MenuWeekday,
   type PublishedMenu,
 } from "@/lib/menu";
+import { buildMenuTrafficUrl } from "@/lib/menu-tracking";
 import { MenuPreview, PublicMenu } from "@/components/MenuPreview";
 import type { StoredMenu } from "@/lib/menus";
 
@@ -285,6 +286,7 @@ export function MenuStudio({
   );
   const englishCoverage = getEnglishTranslationCoverage(menu);
   const hasEnglishTranslation = hasEnglishMenuTranslation(menu);
+  const publishQrUrl = buildMenuTrafficUrl(publishUrl, "qr");
   const englishTranslationCurrent = hasEnglishTranslation &&
     englishCoverage.percentage === 100 &&
     menu.translations?.en?.sourceFingerprint === getMenuTranslationFingerprint(menu);
@@ -1781,7 +1783,7 @@ export function MenuStudio({
             <h2 id="publish-title">QR menün hazır!</h2>
             <p>Müşterilerin kodu okuttuğunda menünün bu sürümünü telefonunda görecek.</p>
             <div className="qr-wrap" id="menu-qr">
-              <QRCodeSVG value={publishUrl} size={184} level="M" marginSize={2} fgColor="#20251f" bgColor="#ffffff" />
+              <QRCodeSVG value={publishQrUrl} size={184} level="M" marginSize={2} fgColor="#20251f" bgColor="#ffffff" />
               <div className="qr-brand"><QrCode size={13} /></div>
             </div>
             <div className="link-box"><span>{publishUrl}</span><button onClick={() => void copyLink()}>{copied ? <Check size={17} /> : <Copy size={17} />}</button></div>

@@ -8,11 +8,15 @@ import {
   type MenuData,
   type MenuLanguage,
 } from "@/lib/menu";
+import { resolveMenuDeviceType, resolveMenuTrafficSource } from "@/lib/menu-tracking";
 import { getPublishedMenu, recordMenuView } from "@/lib/menus";
 
 export const dynamic = "force-dynamic";
 
-type PublicMenuPageProps = { params: Promise<{ slug: string }> };
+type PublicMenuPageProps = {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ src?: string | string[] }>;
+};
 
 function resolveInitialLanguage(
   acceptLanguage: string | null,
@@ -51,17 +55,32 @@ export async function generateMetadata({ params }: PublicMenuPageProps): Promise
   };
 }
 
-export default async function PublicMenuPage({ params }: PublicMenuPageProps) {
+export default async function PublicMenuPage({ params, searchParams }: PublicMenuPageProps) {
   const { slug } = await params;
   const storedMenu = getPublishedMenu(slug);
   if (!storedMenu) notFound();
-  recordMenuView(storedMenu.id);
   const visibleMenu = getVisibleMenu(storedMenu.menu);
-  const requestHeaders = await headers();
+  const [requestHeaders, query] = await Promise.all([headers(), searchParams]);
   const initialLanguage = resolveInitialLanguage(
     requestHeaders.get("accept-language"),
     visibleMenu,
   );
+  const sourceParameter = Array.isArray(query.src) ? query.src[0] : query.src;
+  const requestHost = (requestHeaders.get("x-forwarded-host") || requestHeaders.get("host"))
+    ?.split(",")[0]
+    .trim() || null;
+  recordMenuView(storedMenu.id, {
+    deviceType: resolveMenuDeviceType(
+      requestHeaders.get("user-agent"),
+      requestHeaders.get("sec-ch-ua-mobile"),
+    ),
+    language: initialLanguage,
+    source: resolveMenuTrafficSource(
+      sourceParameter,
+      requestHeaders.get("referer"),
+      requestHost,
+    ),
+  });
   return (
     <PublicMenu
       menu={visibleMenu}

@@ -1,5 +1,6 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { db } from "@/lib/db";
+import type { MenuViewContext } from "@/lib/menu-tracking";
 import {
   menuAllergens,
   menuDietaryTags,
@@ -324,10 +325,27 @@ export function getPublishedMenu(slug: string) {
   return row ? parseRow(row) : null;
 }
 
-export function recordMenuView(id: string) {
+export function recordMenuView(
+  id: string,
+  context: MenuViewContext = {
+    deviceType: "unknown",
+    language: "unknown",
+    source: "unknown",
+  },
+) {
+  if (context.deviceType === "bot") return;
+
   const recordView = db.transaction((menuId: string) => {
-    db.prepare("INSERT INTO menu_views (menu_id, viewed_at) VALUES (?, ?)")
-      .run(menuId, new Date().toISOString());
+    db.prepare(
+      `INSERT INTO menu_views (menu_id, viewed_at, source, device_type, language)
+       VALUES (?, ?, ?, ?, ?)`,
+    ).run(
+      menuId,
+      new Date().toISOString(),
+      context.source,
+      context.deviceType,
+      context.language,
+    );
     db.prepare("UPDATE menus SET view_count = view_count + 1 WHERE id = ?").run(menuId);
   });
   recordView(id);
