@@ -30,6 +30,8 @@ Restoran ve kafelerin mevcut PDF veya görsel menülerini yapay zekâ ile okuyup
 - Minimal, Modern Bistro, Botanik, Editoryal, Dark Luxe ve Enerjik hazır tasarım stilleri
 - Renk, tipografi ve dört farklı ürün düzeninin yanında kart, köşe, yoğunluk, görsel oranı, fiyat, kategori ve kapak stili ayarları
 - Hesap, menü oluşturma, yayınlama ve ilk QR taramasını gerçek veriden izleyen başlangıç rehberi
+- Yeni ve mevcut hesaplara tek seferlik 20 başlangıç kredisi tanımlayan AI kredi cüzdanı
+- Atomik harcama, güvenli iade ve yinelenen istekte ikinci kez ücret kesmeyen kredi işlem defteri
 - Anlık telefon önizlemesi
 - Tarayıcıda otomatik taslak kaydı
 - Kullanıcı hesabına göre ayrılmış yerel taslaklar
@@ -101,10 +103,12 @@ npm start          # üretim sunucusu
 - `app/api/extract-menu/route.ts`: dosya doğrulama ve AI tabanlı menü çıkarımı
 - `app/api/generate-product-image/route.ts`: kimlik doğrulamalı ve hız sınırlı ürün görseli üretimi
 - `app/api/translate-menu/route.ts`: metin alanlarını toplu ve doğrulanmış biçimde İngilizceye çevirme
+- `app/api/ai-credits/route.ts`: oturum sahibine ait AI bakiyesi, maliyet bilgisi ve son hareketler
 - `app/api/auth/*`: kayıt, giriş, çıkış ve aktif kullanıcı endpoint’leri
 - `app/giris` ve `app/kayit`: kullanıcı erişim ekranları
 - `lib/auth.ts` ve `lib/db.ts`: oturum ve SQLite altyapısı
 - `lib/ai-cache.ts`: süreli, boyut kontrollü ve sürümlü AI sonuç önbelleği
+- `lib/ai-credits.ts`: tek seferlik başlangıç bakiyesi, atomik harcama/iade ve idempotent işlem defteri
 - `lib/menu-tracking.ts`: kişisel veri saklamadan kaynak, cihaz, dil ve bot sınıflandırması
 - `lib/onboarding.ts`: hesap, ilk menü, yayın ve QR taramasından türetilen başlangıç ilerlemesi
 - `lib/menu.ts` ve `lib/menus.ts`: menü veri modeli, geriye dönük uyumlu Theme Engine 2.0 ve kalıcı menü işlemleri
@@ -119,7 +123,7 @@ Kullanıcılar, oturumlar, taslaklar ve yayınlanan menüler yerel SQLite verita
 2. E-posta doğrulama, şifre sıfırlama ve çoklu işletme desteği
 3. İngilizce dışındaki ek hedef diller ve işletmeye özel dil seçimi
 4. Anonim tekil ziyaretçi ve kampanya dönüşüm analitiği
-5. Kredi kullanan AI tasarım asistanı, ekip rolleri, çoklu şube ve abonelik planları
+5. Kredi cüzdanını kullanan AI tasarım üretimi, ödeme paketleri, ekip rolleri, çoklu şube ve abonelik planları
 
 ## Güvenlik
 
@@ -129,6 +133,7 @@ Kullanıcılar, oturumlar, taslaklar ve yayınlanan menüler yerel SQLite verita
 - API anahtarı yalnızca sunucu route’unda kullanılır.
 - Ürün görseli üretimi oturum ve same-origin kontrolü gerektirir; kullanıcı/IP başına saatte 12 istekle sınırlandırılır.
 - Menü çevirisi oturum ve same-origin kontrolü gerektirir; yalnızca metin alanları AI servisine gönderilir ve kullanıcı/IP başına saatte 8 istekle sınırlandırılır.
+- AI kredi bakiyesi yalnızca sunucudaki atomik işlemlerle değişir; kullanıcıya açık API salt okunurdur ve aynı işlem referansı iki kez ücretlendirilemez.
 - Önbellek anahtarları ham içerik yerine SHA-256 özetidir; model veya prompt sürümü değiştiğinde eski sonuç kullanılmaz.
 - Parolalar 12 maliyet faktörlü `bcrypt` hash’i olarak saklanır.
 - Oturum anahtarının yalnızca SHA-256 özeti veritabanında tutulur; ham anahtar HTTP-only çerezdedir.
