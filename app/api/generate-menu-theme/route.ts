@@ -17,6 +17,7 @@ import { getUserMenu } from "@/lib/menus";
 import { checkRateLimit, getClientAddress } from "@/lib/rate-limit";
 import {
   isValidGeneratedThemeDesign,
+  normalizeGeneratedThemeDesign,
   themeDesignSchema,
   type GeneratedThemeDesign,
 } from "@/lib/theme-design";
@@ -25,7 +26,7 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const cacheOperation = "menu-theme-design";
-const cacheVersion = "v1";
+const cacheVersion = "v2";
 const cacheTtlMs = 30 * 24 * 60 * 60 * 1000;
 const maximumRequestBytes = 4 * 1024;
 const hourlyThemeDesignLimit = 10;
@@ -292,6 +293,7 @@ export async function POST(request: Request) {
           "Use the menu type, image coverage, item count, and requested direction to choose layout and density.",
           "All four colors must be six-digit hexadecimal colors.",
           "Choose colors so text has at least 4.5:1 contrast against background and surface, and accent has at least 4.5:1 contrast against both background and surface.",
+          "Keep background and surface in the same light or dark family so one readable text color can work on both.",
           "Keep the design readable on a narrow phone screen and set stylePreset to custom.",
           "Write the design name and short summary in Turkish.",
         ].join(" "),
@@ -346,22 +348,37 @@ export async function POST(request: Request) {
     );
   }
 
-  let design: GeneratedThemeDesign;
+  let parsed: unknown;
   try {
-    const parsed: unknown = JSON.parse(extractOutputText(result));
-    if (!isValidGeneratedThemeDesign(parsed)) {
-      throw new Error("Theme design output failed validation.");
-    }
-    design = parsed;
-  } catch (error) {
-    console.error("Theme design output could not be processed.", error);
+    parsed = JSON.parse(extractOutputText(result));
+  } catch {
+    console.warn("Theme design output was not valid JSON.");
     return refundAndRespond(
       {
         code: "INVALID_THEME_DESIGN",
-        message: "Tasarım üretildi ancak okunabilirlik kontrolünü geçemedi. Kredin iade edildi.",
+        message: "AI tasarım yanıtı güvenli biçime uymadı. Kredin iade edildi.",
       },
       502,
     );
+  }
+
+  const normalizedDesign = normalizeGeneratedThemeDesign(parsed);
+  if (!normalizedDesign) {
+    console.warn("Theme design output failed structural validation.");
+    return refundAndRespond(
+      {
+        code: "INVALID_THEME_DESIGN",
+        message: "AI tasarım yanıtı güvenli biçime uymadı. Kredin iade edildi.",
+      },
+      502,
+    );
+  }
+
+  const design: GeneratedThemeDesign = normalizedDesign.design;
+  if (normalizedDesign.adjustedForAccessibility) {
+    console.info("Theme design colors were adjusted for accessibility.", {
+      adjustedPairCount: normalizedDesign.accessibilityIssues.length,
+    });
   }
 
   try {
