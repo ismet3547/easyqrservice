@@ -30,6 +30,7 @@ import {
   Printer,
   QrCode,
   ScanLine,
+  Search,
   Share2,
   Sparkles,
   Trash2,
@@ -86,7 +87,6 @@ import {
   Brand,
   StudioEditorTabs,
   StudioHeader,
-  StudioPanelIntro,
   StudioPreviewDialog,
   StudioPreviewStage,
   StudioSectionNav,
@@ -205,20 +205,22 @@ const themeBriefSuggestions = [
   "Renkli ve enerjik",
 ] as const;
 
-const contentSectionLinks = [
-  { id: "studio-content-basics", label: "Başlık" },
-  { id: "studio-content-business", label: "İşletme" },
-  { id: "studio-content-language", label: "Dil" },
-  { id: "studio-content-products", label: "Ürünler" },
+type ContentSectionId = "products" | "basics" | "business" | "language";
+type DesignSectionId = "presets" | "ai" | "brand" | "layout" | "advanced";
+
+const contentSectionLinks: Array<{ id: ContentSectionId; label: string }> = [
+  { id: "products", label: "Ürünler" },
+  { id: "basics", label: "Başlık" },
+  { id: "business", label: "İşletme" },
+  { id: "language", label: "Dil" },
 ];
 
-const designSectionLinks = [
-  { id: "studio-design-ai", label: "AI tasarım" },
-  { id: "studio-design-presets", label: "Stiller" },
-  { id: "studio-design-colors", label: "Renkler" },
-  { id: "studio-design-type", label: "Yazı" },
-  { id: "studio-design-layout", label: "Yerleşim" },
-  { id: "studio-design-advanced", label: "Gelişmiş" },
+const designSectionLinks: Array<{ id: DesignSectionId; label: string }> = [
+  { id: "presets", label: "Stiller" },
+  { id: "ai", label: "AI tasarım" },
+  { id: "brand", label: "Marka" },
+  { id: "layout", label: "Yerleşim" },
+  { id: "advanced", label: "Gelişmiş" },
 ];
 
 function ThemeChoiceGroup<Value extends string>({
@@ -400,6 +402,11 @@ export function MenuStudio({
   const editorScrollRef = useRef<HTMLDivElement>(null);
   const [screen, setScreen] = useState<"upload" | "studio">("upload");
   const [tab, setTab] = useState<StudioEditorTab>("content");
+  const [contentSection, setContentSection] = useState<ContentSectionId>("products");
+  const [designSection, setDesignSection] = useState<DesignSectionId>("presets");
+  const [productQuery, setProductQuery] = useState("");
+  const [expandedItemId, setExpandedItemId] = useState("");
+  const [categoryOpenState, setCategoryOpenState] = useState<Record<string, boolean>>({});
   const [menu, setMenu] = useState<MenuData>(() => cloneDemoMenu());
   const [theme, setTheme] = useState<MenuTheme>(defaultTheme);
   const [dragging, setDragging] = useState(false);
@@ -438,6 +445,21 @@ export function MenuStudio({
       sum + category.items.filter((item) => !item.image && item.availability !== "hidden").length,
     0,
   );
+  const normalizedProductQuery = productQuery.trim().toLocaleLowerCase("tr-TR");
+  const editorCategories = menu.categories
+    .map((category, categoryIndex) => {
+      const categoryMatches = category.name.toLocaleLowerCase("tr-TR").includes(normalizedProductQuery);
+      const items = category.items
+        .map((item, itemIndex) => ({ item, itemIndex }))
+        .filter(({ item }) => {
+          if (!normalizedProductQuery || categoryMatches) return true;
+          return [item.name, item.description, item.badge, item.price]
+            .some((value) => value.toLocaleLowerCase("tr-TR").includes(normalizedProductQuery));
+        });
+      return { category, categoryIndex, categoryMatches, items };
+    })
+    .filter(({ categoryMatches, items }) => !normalizedProductQuery || categoryMatches || items.length > 0);
+  const filteredItemCount = editorCategories.reduce((sum, category) => sum + category.items.length, 0);
   const englishCoverage = getEnglishTranslationCoverage(menu);
   const hasEnglishTranslation = hasEnglishMenuTranslation(menu);
   const publishQrUrl = buildMenuTrafficUrl(publishUrl, "qr");
@@ -447,18 +469,22 @@ export function MenuStudio({
   const businessProfile = getMenuBusinessProfile(menu);
   const themeCreditsInsufficient = themeCreditBalance !== null &&
     themeCreditBalance < aiCreditCosts.themeDesign;
-  const currentStyleName = theme.stylePreset === "custom"
-    ? "Özel stil"
-    : themePresetOptions.find((option) => option.id === theme.stylePreset)?.label || "Özel stil";
-  const currentLayoutName = {
-    cards: "Kart düzeni",
-    compact: "Kompakt düzen",
-    tiles: "Izgara düzeni",
-    showcase: "Vitrin düzeni",
-  }[theme.layout];
-
   const changeEditorTab = (nextTab: StudioEditorTab) => {
     setTab(nextTab);
+    window.requestAnimationFrame(() => {
+      editorScrollRef.current?.scrollTo({ top: 0, behavior: "auto" });
+    });
+  };
+
+  const changeContentSection = (nextSection: ContentSectionId) => {
+    setContentSection(nextSection);
+    window.requestAnimationFrame(() => {
+      editorScrollRef.current?.scrollTo({ top: 0, behavior: "auto" });
+    });
+  };
+
+  const changeDesignSection = (nextSection: DesignSectionId) => {
+    setDesignSection(nextSection);
     window.requestAnimationFrame(() => {
       editorScrollRef.current?.scrollTo({ top: 0, behavior: "auto" });
     });
@@ -852,6 +878,13 @@ export function MenuStudio({
   };
 
   const addItem = (categoryIndex: number) => {
+    const itemId = createId("urun");
+    const categoryId = menu.categories[categoryIndex]?.id;
+    setProductQuery("");
+    setExpandedItemId(itemId);
+    if (categoryId) {
+      setCategoryOpenState((current) => ({ ...current, [categoryId]: true }));
+    }
     setMenu((current) => ({
       ...current,
       categories: current.categories.map((category, index) =>
@@ -861,7 +894,7 @@ export function MenuStudio({
               items: [
                 ...category.items,
                 {
-                  id: createId("urun"),
+                  id: itemId,
                   name: "Yeni ürün",
                   description: "Ürün açıklaması",
                   price: "0",
@@ -1258,6 +1291,8 @@ export function MenuStudio({
   };
 
   const removeItem = (categoryIndex: number, itemIndex: number) => {
+    const removedItemId = menu.categories[categoryIndex]?.items[itemIndex]?.id;
+    if (removedItemId && removedItemId === expandedItemId) setExpandedItemId("");
     setMenu((current) => ({
       ...current,
       categories: current.categories.map((category, index) =>
@@ -1269,12 +1304,14 @@ export function MenuStudio({
   };
 
   const addCategory = () => {
+    const categoryId = createId("kategori");
+    setCategoryOpenState((current) => ({ ...current, [categoryId]: true }));
     setMenu((current) => ({
       ...current,
       categories: [
         ...current.categories,
         {
-          id: createId("kategori"),
+          id: categoryId,
           name: "Yeni kategori",
           items: [],
         },
@@ -1283,6 +1320,14 @@ export function MenuStudio({
   };
 
   const removeCategory = (categoryIndex: number) => {
+    const removedCategoryId = menu.categories[categoryIndex]?.id;
+    if (removedCategoryId) {
+      setCategoryOpenState((current) => {
+        const next = { ...current };
+        delete next[removedCategoryId];
+        return next;
+      });
+    }
     setMenu((current) => ({
       ...current,
       categories: current.categories.filter((_, index) => index !== categoryIndex),
@@ -1595,25 +1640,23 @@ export function MenuStudio({
               ref={editorScrollRef}
               role="tabpanel"
             >
-              <StudioPanelIntro
-                badges={[
-                  `${menu.categories.length} kategori`,
-                  `${totalItemCount} ürün`,
-                  missingImageCount > 0 ? `${missingImageCount} görsel eksik` : "Görseller hazır",
-                ]}
-                description="Menü bilgilerini, işletme profilini ve ürünlerini tek akışta düzenle. Değişikliklerin otomatik kaydedilir."
-                kicker="İçerik çalışma alanı"
-                title="Menünü düzenle"
+              <StudioSectionNav
+                activeSection={contentSection}
+                label="İçerik bölümleri"
+                onChange={changeContentSection}
+                sections={contentSectionLinks}
               />
-              <StudioSectionNav label="İçerik bölümleri" sections={contentSectionLinks} />
 
-              <section className="form-section" id="studio-content-basics">
+              {contentSection === "basics" && (
+                <section className="form-section studio-tool-panel" id="studio-content-basics">
                 <div className="section-heading"><div><span>İşletme</span><h2>Menü başlığı</h2></div></div>
                 <label className="field-label">İşletme adı<input value={menu.restaurantName} onChange={(event) => setMenu({ ...menu, restaurantName: event.target.value })} /></label>
                 <label className="field-label">Kısa açıklama<input value={menu.subtitle} onChange={(event) => setMenu({ ...menu, subtitle: event.target.value })} /></label>
-              </section>
+                </section>
+              )}
 
-              <section className="form-section business-profile-section" id="studio-content-business">
+              {contentSection === "business" && (
+                <section className="form-section business-profile-section studio-tool-panel" id="studio-content-business">
                 <div className="section-heading">
                   <div><span>İşletme profili</span><h2>Logo, iletişim ve saatler</h2></div>
                   <div className="business-profile-status">İsteğe bağlı</div>
@@ -1777,9 +1820,11 @@ export function MenuStudio({
                     </div>
                   )}
                 </div>
-              </section>
+                </section>
+              )}
 
-              <section className="form-section translation-section" id="studio-content-language">
+              {contentSection === "language" && (
+                <section className="form-section translation-section studio-tool-panel" id="studio-content-language">
                 <div className="section-heading">
                   <div><span>Dil desteği</span><h2>İngilizce menü</h2></div>
                   <div className={`translation-status ${englishTranslationCurrent ? "ready" : hasEnglishTranslation ? "stale" : "empty"}`}>
@@ -1826,9 +1871,11 @@ export function MenuStudio({
                     <small>{englishCoverage.percentage}% çevrildi</small>
                   </div>
                 </div>
-              </section>
+                </section>
+              )}
 
-              <section className="form-section categories-section" id="studio-content-products">
+              {contentSection === "products" && (
+                <section className="form-section categories-section studio-tool-panel" id="studio-content-products">
                 <div className="section-heading">
                   <div><span>İçerik</span><h2>Kategoriler ve ürünler</h2></div>
                   <div className="item-count">{totalItemCount} ürün</div>
@@ -1871,9 +1918,34 @@ export function MenuStudio({
                     </div>
                   )}
                 </div>
+                <div className="product-editor-toolbar">
+                  <label className="product-editor-search">
+                    <Search aria-hidden="true" size={16} />
+                    <input
+                      aria-label="Ürünlerde ara"
+                      onChange={(event) => setProductQuery(event.target.value)}
+                      placeholder="Ürün, kategori veya fiyat ara"
+                      type="search"
+                      value={productQuery}
+                    />
+                  </label>
+                  <span>{normalizedProductQuery ? `${filteredItemCount} sonuç` : `${menu.categories.length} kategori`}</span>
+                </div>
                 <div className="category-list">
-                  {menu.categories.map((category, categoryIndex) => (
-                    <details className="category-editor" key={category.id} open={categoryIndex === 0}>
+                  {editorCategories.map(({ category, categoryIndex, items }) => (
+                    <details
+                      className="category-editor"
+                      id={`studio-category-${category.id}`}
+                      key={`${category.id}-${normalizedProductQuery ? "filtered" : "all"}`}
+                      onToggle={(event) => {
+                        if (normalizedProductQuery) return;
+                        const isOpen = event.currentTarget.open;
+                        setCategoryOpenState((current) => current[category.id] === isOpen
+                          ? current
+                          : { ...current, [category.id]: isOpen });
+                      }}
+                      open={Boolean(normalizedProductQuery) || categoryOpenState[category.id] === true}
+                    >
                       <summary>
                         <ChevronDown className="category-chevron" size={17} />
                         <input
@@ -1889,8 +1961,41 @@ export function MenuStudio({
                         <button aria-label="Kategoriyi sil" onClick={(event) => { event.preventDefault(); removeCategory(categoryIndex); }}><Trash2 size={15} /></button>
                       </summary>
                       <div className="category-items">
-                        {category.items.map((item, itemIndex) => (
-                          <article className={`item-editor availability-${item.availability || "available"}`} key={item.id}>
+                        {items.map(({ item, itemIndex }) => (
+                          <details
+                            className={`item-editor availability-${item.availability || "available"}`}
+                            key={item.id}
+                            onToggle={(event) => {
+                              const isOpen = event.currentTarget.open;
+                              setExpandedItemId((current) => isOpen ? item.id : current === item.id ? "" : current);
+                            }}
+                            open={expandedItemId === item.id}
+                          >
+                            <summary className="item-editor-summary">
+                              <span className={`item-editor-summary-image ${item.image ? "has-image" : ""}`}>
+                                {item.image ? <img src={item.image} alt="" /> : <ImagePlus aria-hidden="true" size={18} />}
+                              </span>
+                              <span className="item-editor-summary-copy">
+                                <strong>{item.name || "İsimsiz ürün"}</strong>
+                                <small>
+                                  {[
+                                    item.availability === "sold-out"
+                                      ? "Tükendi"
+                                      : item.availability === "hidden"
+                                        ? "Gizli"
+                                        : "Satışta",
+                                    item.isCampaign ? "Kampanya" : "",
+                                    item.badge,
+                                  ].filter(Boolean).join(" · ")}
+                                </small>
+                              </span>
+                              <span className="item-editor-summary-price">
+                                {item.isCampaign && item.originalPrice && <del>{item.originalPrice}{menu.currency}</del>}
+                                <strong>{item.price || "0"}{menu.currency}</strong>
+                              </span>
+                              <ChevronDown className="item-editor-chevron" aria-hidden="true" size={16} />
+                            </summary>
+                            <div className="item-editor-body">
                             <div className="item-editor-top">
                               <input aria-label="Ürün adı" className="item-name-input" value={item.name} onChange={(event) => updateItem(categoryIndex, itemIndex, "name", event.target.value)} />
                               <div className="price-input"><input aria-label={item.isCampaign ? "Kampanyalı fiyat" : "Fiyat"} value={item.price} onChange={(event) => updateItem(categoryIndex, itemIndex, "price", event.target.value)} /><span>{menu.currency}</span></div>
@@ -2020,15 +2125,25 @@ export function MenuStudio({
                                 <p>Menüde <del>{item.originalPrice || "475"}{menu.currency}</del> yerine <strong>{item.price || "400"}{menu.currency}</strong> gösterilir.</p>
                               </div>
                             )}
-                          </article>
+                            </div>
+                          </details>
                         ))}
                         <button className="add-row-button" onClick={() => addItem(categoryIndex)}><Plus size={16} /> Ürün ekle</button>
                       </div>
                     </details>
                   ))}
+                  {editorCategories.length === 0 && (
+                    <div className="product-editor-empty">
+                      <Search aria-hidden="true" size={19} />
+                      <strong>Sonuç bulunamadı</strong>
+                      <span>Farklı bir ürün veya kategori adı deneyebilirsin.</span>
+                      <button type="button" onClick={() => setProductQuery("")}>Aramayı temizle</button>
+                    </div>
+                  )}
                 </div>
                 <button className="add-category-button" onClick={addCategory}><Plus size={17} /> Yeni kategori</button>
-              </section>
+                </section>
+              )}
             </div>
           ) : (
             <div
@@ -2038,15 +2153,15 @@ export function MenuStudio({
               ref={editorScrollRef}
               role="tabpanel"
             >
-              <StudioPanelIntro
-                badges={[currentStyleName, currentLayoutName, `${themeCreditBalance ?? "—"} AI kredisi`]}
-                description="Hazır bir stille başla veya AI asistanından markana uygun görünüm oluşturmasını iste; tüm değişiklikleri anında karşılaştır."
-                kicker="Tasarım çalışma alanı"
-                title="Görünümünü oluştur"
+              <StudioSectionNav
+                activeSection={designSection}
+                label="Tasarım bölümleri"
+                onChange={changeDesignSection}
+                sections={designSectionLinks}
               />
-              <StudioSectionNav label="Tasarım bölümleri" sections={designSectionLinks} />
 
-              <section className="form-section ai-theme-designer-section" id="studio-design-ai">
+              {designSection === "ai" && (
+                <section className="form-section ai-theme-designer-section studio-tool-panel" id="studio-design-ai">
                 <div className="ai-theme-designer-heading">
                   <div className="ai-theme-designer-icon"><Sparkles size={19} /></div>
                   <div><span>AI tasarım asistanı</span><h2>Markana özel görünüm</h2></div>
@@ -2117,9 +2232,11 @@ export function MenuStudio({
                     )}
                   </div>
                 )}
-              </section>
+                </section>
+              )}
 
-              <section className="form-section theme-preset-section" id="studio-design-presets">
+              {designSection === "presets" && (
+                <section className="form-section theme-preset-section studio-tool-panel" id="studio-design-presets">
                 <div className="section-heading"><div><span>Hızlı başlangıç</span><h2>Hazır stiller</h2></div></div>
                 <p className="theme-section-description">Renk, tipografi ve görünüm ayarlarını tek seçimle uygula; ardından istediğin ayrıntıyı değiştirebilirsin.</p>
                 <div className="theme-grid">
@@ -2148,9 +2265,12 @@ export function MenuStudio({
                     );
                   })}
                 </div>
-              </section>
+                </section>
+              )}
 
-              <section className="form-section" id="studio-design-colors">
+              {designSection === "brand" && (
+                <>
+                <section className="form-section studio-tool-panel" id="studio-design-colors">
                 <div className="section-heading"><div><span>Marka kimliği</span><h2>Renkler</h2></div>{theme.stylePreset === "custom" && <div className="theme-custom-badge">Özel</div>}</div>
                 <div className="theme-color-grid">
                   {themeColorOptions.map((color) => (
@@ -2168,9 +2288,9 @@ export function MenuStudio({
                     </label>
                   ))}
                 </div>
-              </section>
+                </section>
 
-              <section className="form-section" id="studio-design-type">
+                <section className="form-section" id="studio-design-type">
                 <div className="section-heading"><div><span>Tipografi</span><h2>Yazı karakteri</h2></div></div>
                 <div className="font-grid">
                   {fontOptions.map((font) => (
@@ -2179,9 +2299,12 @@ export function MenuStudio({
                     </button>
                   ))}
                 </div>
-              </section>
+                </section>
+                </>
+              )}
 
-              <section className="form-section" id="studio-design-layout">
+              {designSection === "layout" && (
+                <section className="form-section studio-tool-panel" id="studio-design-layout">
                 <div className="section-heading"><div><span>Düzen</span><h2>Ürün görünümü</h2></div></div>
                 <div className="layout-grid">
                   <button aria-pressed={theme.layout === "cards"} className={theme.layout === "cards" ? "active" : ""} onClick={() => updateThemeOption("layout", "cards")} type="button"><LayoutGrid size={22} /><span><strong>Kartlar</strong><small>Rahat ve dengeli</small></span></button>
@@ -2190,9 +2313,11 @@ export function MenuStudio({
                   <button aria-pressed={theme.layout === "showcase"} className={theme.layout === "showcase" ? "active" : ""} onClick={() => updateThemeOption("layout", "showcase")} type="button"><GalleryVerticalEnd size={22} /><span><strong>Öne çıkan</strong><small>İlk ürünü vurgular</small></span></button>
                 </div>
                 <label className="toggle-row"><span><strong>Ürün açıklamaları</strong><small>Menüde açıklamaları göster</small></span><input type="checkbox" checked={theme.showDescriptions} onChange={(event) => updateThemeOption("showDescriptions", event.target.checked)} /><i /></label>
-              </section>
+                </section>
+              )}
 
-              <section className="form-section advanced-theme-section" id="studio-design-advanced">
+              {designSection === "advanced" && (
+                <section className="form-section advanced-theme-section studio-tool-panel" id="studio-design-advanced">
                 <div className="section-heading"><div><span>İnce ayar</span><h2>Gelişmiş görünüm</h2></div><Sparkles size={17} /></div>
                 <p className="theme-section-description">Menünün karakterini değiştiren ayrıntıları canlı önizlemede karşılaştır.</p>
                 <div className="theme-choice-list">
@@ -2204,7 +2329,8 @@ export function MenuStudio({
                   <ThemeChoiceGroup description="Yatay kategori menüsü" label="Kategori stili" onChange={(value) => updateThemeOption("categoryStyle", value)} options={categoryStyleOptions} value={theme.categoryStyle} />
                   <ThemeChoiceGroup description="Menünün üst karşılama alanı" label="Kapak alanı" onChange={(value) => updateThemeOption("heroStyle", value)} options={heroStyleOptions} value={theme.heroStyle} />
                 </div>
-              </section>
+                </section>
+              )}
             </div>
           )}
         </aside>
