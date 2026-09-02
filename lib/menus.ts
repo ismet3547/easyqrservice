@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import {
   menuAllergens,
   menuDietaryTags,
+  menuWeekdays,
   type MenuData,
   type MenuTheme,
 } from "@/lib/menu";
@@ -116,6 +117,59 @@ function isValidItemEnglishTranslation(value: Record<string, unknown>) {
   );
 }
 
+function isValidBusinessProfile(value: unknown) {
+  if (value === undefined) return true;
+  if (!isRecord(value)) return false;
+
+  const allowedKeys = [
+    "logo",
+    "address",
+    "phone",
+    "whatsapp",
+    "instagram",
+    "mapsUrl",
+    "timezone",
+    "hoursEnabled",
+    "weeklyHours",
+  ];
+  if (Object.keys(value).some((key) => !allowedKeys.includes(key))) return false;
+
+  const logoIsValid = typeof value.logo === "string" && (
+    value.logo === "" || (
+      value.logo.length <= 500_000 &&
+      /^data:image\/(?:jpeg|png|webp);base64,/i.test(value.logo)
+    )
+  );
+  const timePattern = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
+  const weeklyHours = value.weeklyHours;
+  if (
+    !logoIsValid ||
+    typeof value.address !== "string" || value.address.length > 300 ||
+    typeof value.phone !== "string" || value.phone.length > 60 ||
+    typeof value.whatsapp !== "string" || value.whatsapp.length > 120 ||
+    typeof value.instagram !== "string" || value.instagram.length > 120 ||
+    typeof value.mapsUrl !== "string" || value.mapsUrl.length > 500 ||
+    typeof value.timezone !== "string" || value.timezone.length === 0 ||
+    value.timezone.length > 80 || !/^[A-Za-z0-9_+\-/]+$/.test(value.timezone) ||
+    typeof value.hoursEnabled !== "boolean" ||
+    !isRecord(weeklyHours) ||
+    Object.keys(weeklyHours).length !== menuWeekdays.length ||
+    Object.keys(weeklyHours).some((key) => !menuWeekdays.includes(key as (typeof menuWeekdays)[number]))
+  ) return false;
+
+  return menuWeekdays.every((weekday) => {
+    const hours = weeklyHours[weekday];
+    return (
+      isRecord(hours) &&
+      Object.keys(hours).every((key) => ["isOpen", "opensAt", "closesAt"].includes(key)) &&
+      Object.keys(hours).length === 3 &&
+      typeof hours.isOpen === "boolean" &&
+      typeof hours.opensAt === "string" && timePattern.test(hours.opensAt) &&
+      typeof hours.closesAt === "string" && timePattern.test(hours.closesAt)
+    );
+  });
+}
+
 export function isValidMenuData(value: unknown): value is MenuData {
   if (!value || typeof value !== "object") return false;
   const menu = value as Partial<MenuData>;
@@ -123,6 +177,7 @@ export function isValidMenuData(value: unknown): value is MenuData {
     typeof menu.restaurantName !== "string" || menu.restaurantName.length > 120 ||
     typeof menu.subtitle !== "string" || menu.subtitle.length > 240 ||
     typeof menu.currency !== "string" || menu.currency.length > 12 ||
+    !isValidBusinessProfile(menu.businessProfile) ||
     !isEnglishTranslationContainer(menu.translations, isValidMenuEnglishTranslation) ||
     !Array.isArray(menu.categories) ||
     menu.categories.length > 30
@@ -142,7 +197,7 @@ export function isValidMenuData(value: unknown): value is MenuData {
         )
       : 0),
     0,
-  );
+  ) + (typeof menu.businessProfile?.logo === "string" ? menu.businessProfile.logo.length : 0);
   if (totalImageSize > 8_000_000) return false;
 
   return menu.categories.every((category) =>

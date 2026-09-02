@@ -24,6 +24,8 @@ Restoran ve kafelerin mevcut PDF veya görsel menülerini yapay zekâ ile okuyup
 - Türkçe içerik değiştiğinde eski çeviriyi işaretleyen çeviri güncellik kontrolü
 - Ürün, açıklama, kategori, fiyat, etiket ve alerjenlerde Türkçe karakter duyarsız menü araması
 - Vegan, vejetaryen, glutensiz ve acılı filtreleri ile çoklu alerjen dışlama
+- İşletme logosu, adres, telefon, WhatsApp, Instagram ve Google Maps bağlantıları
+- Saat dilimine göre canlı açık/kapalı durumu, haftalık çalışma saatleri ve gece yarısını aşan servis desteği
 - Renk, tipografi, dört farklı ürün düzeni ve açıklama görünürlüğü ayarları
 - Anlık telefon önizlemesi
 - Tarayıcıda otomatik taslak kaydı
@@ -94,6 +96,7 @@ npm start          # üretim sunucusu
 - `lib/auth.ts` ve `lib/db.ts`: oturum ve SQLite altyapısı
 - `lib/ai-cache.ts`: süreli, boyut kontrollü ve sürümlü AI sonuç önbelleği
 - `lib/menu.ts` ve `lib/menus.ts`: menü veri modeli ve kalıcı menü işlemleri
+- `components/MenuPreview.tsx`: iki dilli müşteri menüsü, güvenli iletişim bağlantıları ve canlı çalışma saati hesabı
 - `app/globals.css`: responsive tasarım sistemi
 
 ## MVP notu
@@ -104,7 +107,7 @@ Kullanıcılar, oturumlar, taslaklar ve yayınlanan menüler yerel SQLite verita
 2. E-posta doğrulama, şifre sıfırlama ve çoklu işletme desteği
 3. İngilizce dışındaki ek hedef diller ve işletmeye özel dil seçimi
 4. Trafik kaynağı, cihaz türü ve anonim tekil ziyaretçi analitiği
-5. İşletme profili, ekip rolleri ve abonelik planları
+5. Ekip rolleri, çoklu şube ve abonelik planları
 
 ## Güvenlik
 
@@ -122,4 +125,5 @@ Kullanıcılar, oturumlar, taslaklar ve yayınlanan menüler yerel SQLite verita
 - Gizli ürünler herkese açık müşteri bileşenine gönderilmeden önce sunucuda filtrelenir.
 - Alerjenler AI tarafından tahmin edilmez; işletme tarafından doğrulanarak girilir ve müşteri menüsünde çapraz bulaşma uyarısı gösterilir.
 - Menü araması ve filtreler tamamen tarayıcıda çalışır; arama metni sunucuya gönderilmez. Alerjen filtresi yalnızca işletmenin beyan ettiği verileri esas alır.
+- Müşteri menüsündeki harita, WhatsApp ve Instagram bağlantıları yalnızca izin verilen HTTPS alan adlarına yönlendirilir; çalışma saatleri seçilen saat diliminde tarayıcıda hesaplanır.
 - Üretimde dağıtık rate limiting, PostgreSQL, e-posta doğrulama, kalıcı dosya politikası ve kötü amaçlı dosya taraması eklenmelidir.

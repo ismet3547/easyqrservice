@@ -54,6 +54,35 @@ export const allergenLabelsEn: Record<MenuAllergen, string> = {
 
 export type MenuLanguage = "tr" | "en";
 
+export const menuWeekdays = [
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+  "sunday",
+] as const;
+export type MenuWeekday = (typeof menuWeekdays)[number];
+
+export type MenuBusinessHours = {
+  isOpen: boolean;
+  opensAt: string;
+  closesAt: string;
+};
+
+export type MenuBusinessProfile = {
+  logo: string;
+  address: string;
+  phone: string;
+  whatsapp: string;
+  instagram: string;
+  mapsUrl: string;
+  timezone: string;
+  hoursEnabled: boolean;
+  weeklyHours: Record<MenuWeekday, MenuBusinessHours>;
+};
+
 export type MenuEnglishTranslation = {
   restaurantName: string;
   subtitle: string;
@@ -103,6 +132,7 @@ export type MenuData = {
   subtitle: string;
   currency: string;
   categories: MenuCategory[];
+  businessProfile?: MenuBusinessProfile;
   translations?: {
     en?: MenuEnglishTranslation;
   };
@@ -132,6 +162,43 @@ export const defaultTheme: MenuTheme = {
   layout: "cards",
   showDescriptions: true,
 };
+
+export const defaultBusinessProfile: MenuBusinessProfile = {
+  logo: "",
+  address: "",
+  phone: "",
+  whatsapp: "",
+  instagram: "",
+  mapsUrl: "",
+  timezone: "Europe/Istanbul",
+  hoursEnabled: false,
+  weeklyHours: {
+    monday: { isOpen: true, opensAt: "09:00", closesAt: "22:00" },
+    tuesday: { isOpen: true, opensAt: "09:00", closesAt: "22:00" },
+    wednesday: { isOpen: true, opensAt: "09:00", closesAt: "22:00" },
+    thursday: { isOpen: true, opensAt: "09:00", closesAt: "22:00" },
+    friday: { isOpen: true, opensAt: "09:00", closesAt: "22:00" },
+    saturday: { isOpen: true, opensAt: "09:00", closesAt: "22:00" },
+    sunday: { isOpen: true, opensAt: "09:00", closesAt: "22:00" },
+  },
+};
+
+export function getMenuBusinessProfile(menu: MenuData): MenuBusinessProfile {
+  const storedProfile = menu.businessProfile;
+  return {
+    ...defaultBusinessProfile,
+    ...storedProfile,
+    weeklyHours: Object.fromEntries(
+      menuWeekdays.map((weekday) => [
+        weekday,
+        {
+          ...defaultBusinessProfile.weeklyHours[weekday],
+          ...storedProfile?.weeklyHours?.[weekday],
+        },
+      ]),
+    ) as Record<MenuWeekday, MenuBusinessHours>,
+  };
+}
 
 export const demoMenu: MenuData = {
   restaurantName: "Sade Mutfak",

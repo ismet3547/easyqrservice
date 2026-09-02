@@ -5,6 +5,7 @@ import {
   BadgePercent,
   Check,
   ChevronDown,
+  Clock3,
   Copy,
   Download,
   Eye,
@@ -14,13 +15,17 @@ import {
   Grid2X2,
   ImageOff,
   ImagePlus,
+  Instagram,
   LayoutGrid,
   Leaf,
   Languages,
   List,
   Loader2,
   LogOut,
+  MapPin,
+  MessageCircle,
   Palette,
+  Phone,
   Plus,
   QrCode,
   ScanLine,
@@ -47,15 +52,19 @@ import {
   decodePublishedMenu,
   defaultTheme,
   demoMenu,
+  getMenuBusinessProfile,
   getMenuTranslationFingerprint,
   hasEnglishMenuTranslation,
   menuAllergens,
   menuDietaryTags,
+  menuWeekdays,
   type MenuAllergen,
+  type MenuBusinessProfile,
   type MenuData,
   type MenuDietaryTag,
   type MenuItem,
   type MenuTheme,
+  type MenuWeekday,
   type PublishedMenu,
 } from "@/lib/menu";
 import { MenuPreview, PublicMenu } from "@/components/MenuPreview";
@@ -94,6 +103,26 @@ const fontOptions: Array<{ id: MenuTheme["font"]; label: string; sample: string 
   { id: "editorial", label: "Editoryal", sample: "Aa" },
   { id: "friendly", label: "Samimi", sample: "Aa" },
 ];
+
+const weekdayLabels: Record<MenuWeekday, string> = {
+  monday: "Pazartesi",
+  tuesday: "Salı",
+  wednesday: "Çarşamba",
+  thursday: "Perşembe",
+  friday: "Cuma",
+  saturday: "Cumartesi",
+  sunday: "Pazar",
+};
+
+const timezoneOptions = [
+  { value: "Europe/Istanbul", label: "Türkiye · İstanbul" },
+  { value: "Europe/London", label: "Birleşik Krallık · Londra" },
+  { value: "Europe/Berlin", label: "Orta Avrupa · Berlin" },
+  { value: "Europe/Paris", label: "Orta Avrupa · Paris" },
+  { value: "Asia/Dubai", label: "BAE · Dubai" },
+  { value: "America/New_York", label: "ABD · New York" },
+  { value: "America/Los_Angeles", label: "ABD · Los Angeles" },
+] as const;
 
 function cloneDemoMenu() {
   return JSON.parse(JSON.stringify(demoMenu)) as MenuData;
@@ -151,6 +180,36 @@ async function prepareProductImage(file: File) {
   }
 
   return prepareProductImageSource(await fileToDataUrl(file));
+}
+
+async function prepareBusinessLogo(file: File) {
+  if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+    throw new Error("Logo JPG, PNG veya WEBP olmalı.");
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    throw new Error("Logo 5 MB’tan küçük olmalı.");
+  }
+
+  const image = await loadBrowserImage(await fileToDataUrl(file));
+  const dimensions = [480, 360, 280, 220];
+  const qualities = [0.88, 0.76, 0.64];
+
+  for (const maxDimension of dimensions) {
+    const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+    canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("Logo işlenemedi.");
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+    for (const quality of qualities) {
+      const result = canvas.toDataURL("image/webp", quality);
+      if (result.length <= 500_000) return result;
+    }
+  }
+
+  throw new Error("Logo menü için yeterince küçültülemedi.");
 }
 
 function getErrorMessage(error: unknown) {
@@ -228,6 +287,7 @@ export function MenuStudio({
   const englishTranslationCurrent = hasEnglishTranslation &&
     englishCoverage.percentage === 100 &&
     menu.translations?.en?.sourceFingerprint === getMenuTranslationFingerprint(menu);
+  const businessProfile = getMenuBusinessProfile(menu);
 
   useEffect(() => {
     const readHash = async () => {
@@ -447,6 +507,49 @@ export function MenuStudio({
     void processFile(event.dataTransfer.files?.[0]);
   };
 
+  const updateBusinessProfile = (patch: Partial<MenuBusinessProfile>) => {
+    setMenu((current) => ({
+      ...current,
+      businessProfile: {
+        ...getMenuBusinessProfile(current),
+        ...patch,
+      },
+    }));
+  };
+
+  const updateBusinessHours = (
+    weekday: MenuWeekday,
+    patch: Partial<MenuBusinessProfile["weeklyHours"][MenuWeekday]>,
+  ) => {
+    setMenu((current) => {
+      const currentProfile = getMenuBusinessProfile(current);
+      return {
+        ...current,
+        businessProfile: {
+          ...currentProfile,
+          weeklyHours: {
+            ...currentProfile.weeklyHours,
+            [weekday]: {
+              ...currentProfile.weeklyHours[weekday],
+              ...patch,
+            },
+          },
+        },
+      };
+    });
+  };
+
+  const updateBusinessLogo = async (file?: File) => {
+    if (!file) return;
+    try {
+      const logo = await prepareBusinessLogo(file);
+      updateBusinessProfile({ logo });
+      setNotice("İşletme logosu menü için optimize edildi ve eklendi.");
+    } catch (logoError) {
+      setNotice(`Logo eklenemedi: ${getErrorMessage(logoError)}`);
+    }
+  };
+
   const updateItem = (
     categoryIndex: number,
     itemIndex: number,
@@ -599,7 +702,7 @@ export function MenuStudio({
       (menuTotal, category) =>
         menuTotal + category.items.reduce((categoryTotal, item) => categoryTotal + (item.image?.length || 0), 0),
       0,
-    );
+    ) + (menu.businessProfile?.logo?.length || 0);
     const capacity = Math.max(0, Math.floor((8_000_000 - currentImageSize) / 420_000));
     const queue = missingItems.slice(0, Math.min(6, capacity));
 
@@ -696,7 +799,7 @@ export function MenuStudio({
           0,
         ),
       0,
-    );
+    ) + (menu.businessProfile?.logo?.length || 0);
     if (currentImageSize - (item.image?.length || 0) + 420_000 > 8_000_000) {
       setNotice("Menü görsel depolama sınırına yaklaştı. Önce bazı büyük görselleri kaldır veya değiştir.");
       return;
@@ -1194,6 +1297,172 @@ export function MenuStudio({
                 <div className="section-heading"><div><span>İşletme</span><h2>Menü başlığı</h2></div></div>
                 <label className="field-label">İşletme adı<input value={menu.restaurantName} onChange={(event) => setMenu({ ...menu, restaurantName: event.target.value })} /></label>
                 <label className="field-label">Kısa açıklama<input value={menu.subtitle} onChange={(event) => setMenu({ ...menu, subtitle: event.target.value })} /></label>
+              </section>
+
+              <section className="form-section business-profile-section">
+                <div className="section-heading">
+                  <div><span>İşletme profili</span><h2>Logo, iletişim ve saatler</h2></div>
+                  <div className="business-profile-status">İsteğe bağlı</div>
+                </div>
+                <p className="business-profile-help">
+                  Doldurduğun bilgiler müşteri menüsünde görünür. Boş bıraktığın bağlantılar gizlenir.
+                </p>
+
+                <div className="business-logo-editor">
+                  <div className={`business-logo-preview ${businessProfile.logo ? "has-logo" : ""}`}>
+                    {businessProfile.logo
+                      ? <img src={businessProfile.logo} alt="İşletme logosu önizlemesi" />
+                      : <ImagePlus aria-hidden="true" size={22} />}
+                  </div>
+                  <div className="business-logo-copy">
+                    <strong>İşletme logosu</strong>
+                    <small>Şeffaf PNG kullanabilirsin · otomatik küçültülür</small>
+                  </div>
+                  <div className="business-logo-actions">
+                    <label>
+                      <UploadCloud size={14} /> {businessProfile.logo ? "Değiştir" : "Logo yükle"}
+                      <input
+                        className="sr-only"
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        onChange={(event) => {
+                          const file = event.target.files?.[0];
+                          event.target.value = "";
+                          void updateBusinessLogo(file);
+                        }}
+                      />
+                    </label>
+                    {businessProfile.logo && (
+                      <button
+                        aria-label="İşletme logosunu kaldır"
+                        onClick={() => updateBusinessProfile({ logo: "" })}
+                        type="button"
+                      ><Trash2 size={14} /> Kaldır</button>
+                    )}
+                  </div>
+                </div>
+
+                <label className="field-label business-field-with-icon">
+                  <span><MapPin size={14} /> Adres</span>
+                  <textarea
+                    maxLength={300}
+                    placeholder="Örn. Caferağa Mah. Moda Cad. No: 12, Kadıköy / İstanbul"
+                    rows={3}
+                    value={businessProfile.address}
+                    onChange={(event) => updateBusinessProfile({ address: event.target.value })}
+                  />
+                </label>
+
+                <div className="business-contact-grid">
+                  <label className="field-label business-field-with-icon">
+                    <span><Phone size={14} /> Telefon</span>
+                    <input
+                      maxLength={60}
+                      placeholder="+90 212 000 00 00"
+                      type="tel"
+                      value={businessProfile.phone}
+                      onChange={(event) => updateBusinessProfile({ phone: event.target.value })}
+                    />
+                  </label>
+                  <label className="field-label business-field-with-icon">
+                    <span><MessageCircle size={14} /> WhatsApp</span>
+                    <input
+                      maxLength={120}
+                      placeholder="+90 555 000 00 00"
+                      value={businessProfile.whatsapp}
+                      onChange={(event) => updateBusinessProfile({ whatsapp: event.target.value })}
+                    />
+                  </label>
+                  <label className="field-label business-field-with-icon">
+                    <span><Instagram size={14} /> Instagram</span>
+                    <input
+                      maxLength={120}
+                      placeholder="@kullaniciadi"
+                      value={businessProfile.instagram}
+                      onChange={(event) => updateBusinessProfile({ instagram: event.target.value })}
+                    />
+                  </label>
+                  <label className="field-label business-field-with-icon">
+                    <span><MapPin size={14} /> Google Maps bağlantısı</span>
+                    <input
+                      maxLength={500}
+                      placeholder="https://maps.app.goo.gl/..."
+                      type="url"
+                      value={businessProfile.mapsUrl}
+                      onChange={(event) => updateBusinessProfile({ mapsUrl: event.target.value })}
+                    />
+                  </label>
+                </div>
+
+                <div className="business-hours-card">
+                  <label className="toggle-row business-hours-toggle">
+                    <span>
+                      <strong><Clock3 size={15} /> Çalışma saatleri</strong>
+                      <small>Açık/kapalı durumu müşterinin bulunduğu anda hesaplanır</small>
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={businessProfile.hoursEnabled}
+                      onChange={(event) => updateBusinessProfile({ hoursEnabled: event.target.checked })}
+                    />
+                    <i />
+                  </label>
+
+                  {businessProfile.hoursEnabled && (
+                    <div className="business-hours-settings">
+                      <label className="field-label business-timezone-field">
+                        Saat dilimi
+                        <select
+                          value={businessProfile.timezone}
+                          onChange={(event) => updateBusinessProfile({ timezone: event.target.value })}
+                        >
+                          {timezoneOptions.map((option) => (
+                            <option key={option.value} value={option.value}>{option.label}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <div className="weekly-hours-list">
+                        {menuWeekdays.map((weekday) => {
+                          const hours = businessProfile.weeklyHours[weekday];
+                          return (
+                            <div className={`weekly-hours-row ${hours.isOpen ? "" : "is-closed"}`} key={weekday}>
+                              <label className="weekday-availability">
+                                <input
+                                  checked={hours.isOpen}
+                                  onChange={(event) => updateBusinessHours(weekday, { isOpen: event.target.checked })}
+                                  type="checkbox"
+                                />
+                                <span>{weekdayLabels[weekday]}</span>
+                              </label>
+                              {hours.isOpen ? (
+                                <div className="weekly-time-inputs">
+                                  <input
+                                    aria-label={`${weekdayLabels[weekday]} açılış saati`}
+                                    type="time"
+                                    value={hours.opensAt}
+                                    onChange={(event) => {
+                                      if (event.target.value) updateBusinessHours(weekday, { opensAt: event.target.value });
+                                    }}
+                                  />
+                                  <span>—</span>
+                                  <input
+                                    aria-label={`${weekdayLabels[weekday]} kapanış saati`}
+                                    type="time"
+                                    value={hours.closesAt}
+                                    onChange={(event) => {
+                                      if (event.target.value) updateBusinessHours(weekday, { closesAt: event.target.value });
+                                    }}
+                                  />
+                                </div>
+                              ) : <span className="weekly-closed-label">Kapalı</span>}
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <p className="overnight-hours-note">Gece yarısını aşan saatler desteklenir; örneğin 18:00 — 02:00.</p>
+                    </div>
+                  )}
+                </div>
               </section>
 
               <section className="form-section translation-section">

@@ -1,19 +1,34 @@
 "use client";
 
-import { QrCode, Search, ShieldAlert, X } from "lucide-react";
+import {
+  Clock3,
+  Instagram,
+  MapPin,
+  MessageCircle,
+  Navigation,
+  Phone,
+  QrCode,
+  Search,
+  ShieldAlert,
+  X,
+} from "lucide-react";
 import { useEffect, useState, type CSSProperties } from "react";
 import {
   allergenLabels,
   allergenLabelsEn,
   dietaryTagLabels,
   dietaryTagLabelsEn,
+  getMenuBusinessProfile,
   getVisibleMenu,
   hasEnglishMenuTranslation,
   menuAllergens,
   menuDietaryTags,
+  menuWeekdays,
   type MenuAllergen,
+  type MenuBusinessProfile,
   type MenuDietaryTag,
   type MenuLanguage,
+  type MenuWeekday,
   type PublishedMenu,
 } from "@/lib/menu";
 
@@ -33,7 +48,20 @@ const interfaceText = {
     welcome: "Hoş geldiniz",
     unnamedMenu: "İsimsiz menü",
     openNow: "Şimdi açık",
-    serviceUntil: "Servis 22:30’a kadar",
+    closedNow: "Şu anda kapalı",
+    closesAt: "Kapanış",
+    opensToday: "Bugün açılış",
+    opensTomorrow: "Yarın açılış",
+    nextOpening: "Sonraki açılış",
+    openingHours: "Çalışma saatleri",
+    closedAllDay: "Kapalı",
+    businessDetails: "İşletme bilgileri",
+    address: "Adres",
+    call: "Ara",
+    whatsapp: "WhatsApp",
+    directions: "Yol tarifi",
+    instagram: "Instagram",
+    logoAlt: "işletme logosu",
     categoryNavigation: "Menü kategorileri",
     product: "ürün",
     products: "ürün",
@@ -67,7 +95,20 @@ const interfaceText = {
     welcome: "Welcome",
     unnamedMenu: "Untitled menu",
     openNow: "Open now",
-    serviceUntil: "Service until 10:30 PM",
+    closedNow: "Closed now",
+    closesAt: "Closes",
+    opensToday: "Opens today",
+    opensTomorrow: "Opens tomorrow",
+    nextOpening: "Next opening",
+    openingHours: "Opening hours",
+    closedAllDay: "Closed",
+    businessDetails: "Venue information",
+    address: "Address",
+    call: "Call",
+    whatsapp: "WhatsApp",
+    directions: "Directions",
+    instagram: "Instagram",
+    logoAlt: "venue logo",
     categoryNavigation: "Menu categories",
     product: "item",
     products: "items",
@@ -99,6 +140,38 @@ const interfaceText = {
   },
 } as const;
 
+const weekdayLabels: Record<MenuLanguage, Record<MenuWeekday, string>> = {
+  tr: {
+    monday: "Pazartesi",
+    tuesday: "Salı",
+    wednesday: "Çarşamba",
+    thursday: "Perşembe",
+    friday: "Cuma",
+    saturday: "Cumartesi",
+    sunday: "Pazar",
+  },
+  en: {
+    monday: "Monday",
+    tuesday: "Tuesday",
+    wednesday: "Wednesday",
+    thursday: "Thursday",
+    friday: "Friday",
+    saturday: "Saturday",
+    sunday: "Sunday",
+  },
+};
+
+type OpeningState =
+  | { isOpen: true; closesAt: string }
+  | {
+      isOpen: false;
+      nextOpening?: {
+        dayOffset: number;
+        opensAt: string;
+        weekday: MenuWeekday;
+      };
+    };
+
 function localizedText(source: string, translated: string | undefined, language: MenuLanguage) {
   return language === "en" && typeof translated === "string" ? translated : source;
 }
@@ -111,6 +184,155 @@ function normalizeSearchText(value: string) {
     .replace(/ı/g, "i")
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
+}
+
+function parseMenuTime(value: string) {
+  const match = /^(\d{2}):(\d{2})$/.exec(value);
+  if (!match) return null;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (hours > 23 || minutes > 59) return null;
+  return hours * 60 + minutes;
+}
+
+function getZonedTime(date: Date, timezone: string) {
+  const readParts = (timeZone: string) => new Intl.DateTimeFormat("en-US", {
+    hour: "2-digit",
+    hourCycle: "h23",
+    minute: "2-digit",
+    timeZone,
+    weekday: "long",
+  }).formatToParts(date);
+
+  let parts: Intl.DateTimeFormatPart[];
+  try {
+    parts = readParts(timezone);
+  } catch {
+    parts = readParts("Europe/Istanbul");
+  }
+
+  const weekdayValue = parts.find((part) => part.type === "weekday")?.value.toLowerCase();
+  const weekday = menuWeekdays.includes(weekdayValue as MenuWeekday)
+    ? weekdayValue as MenuWeekday
+    : "monday";
+  const hours = Number(parts.find((part) => part.type === "hour")?.value || 0);
+  const minutes = Number(parts.find((part) => part.type === "minute")?.value || 0);
+  return { minutes: hours * 60 + minutes, weekday };
+}
+
+function getOpeningState(profile: MenuBusinessProfile, date: Date): OpeningState {
+  const zonedTime = getZonedTime(date, profile.timezone);
+  const weekdayIndex = menuWeekdays.indexOf(zonedTime.weekday);
+  const intervals: Array<{
+    closesAt: string;
+    dayOffset: number;
+    end: number;
+    opensAt: string;
+    start: number;
+    weekday: MenuWeekday;
+  }> = [];
+
+  for (let dayOffset = -1; dayOffset <= 7; dayOffset += 1) {
+    const scheduleWeekday = menuWeekdays[
+      (weekdayIndex + dayOffset + menuWeekdays.length) % menuWeekdays.length
+    ];
+    const hours = profile.weeklyHours[scheduleWeekday];
+    const opensAt = parseMenuTime(hours.opensAt);
+    const closesAt = parseMenuTime(hours.closesAt);
+    if (!hours.isOpen || opensAt === null || closesAt === null) continue;
+
+    const start = dayOffset * 24 * 60 + opensAt;
+    let end = dayOffset * 24 * 60 + closesAt;
+    if (end <= start) end += 24 * 60;
+    intervals.push({
+      closesAt: hours.closesAt,
+      dayOffset,
+      end,
+      opensAt: hours.opensAt,
+      start,
+      weekday: scheduleWeekday,
+    });
+  }
+
+  intervals.sort((left, right) => left.start - right.start);
+  const currentInterval = intervals.find((interval) =>
+    interval.start <= zonedTime.minutes && zonedTime.minutes < interval.end,
+  );
+  if (currentInterval) return { isOpen: true, closesAt: currentInterval.closesAt };
+
+  const nextInterval = intervals.find((interval) => interval.start > zonedTime.minutes);
+  return {
+    isOpen: false,
+    nextOpening: nextInterval
+      ? {
+          dayOffset: nextInterval.dayOffset,
+          opensAt: nextInterval.opensAt,
+          weekday: nextInterval.weekday,
+        }
+      : undefined,
+  };
+}
+
+function formatMenuTime(value: string, language: MenuLanguage) {
+  if (language === "tr") return value;
+  const totalMinutes = parseMenuTime(value);
+  if (totalMinutes === null) return value;
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = String(totalMinutes % 60).padStart(2, "0");
+  const displayHour = hours % 12 || 12;
+  return `${displayHour}:${minutes} ${hours >= 12 ? "PM" : "AM"}`;
+}
+
+function getPhoneHref(value: string) {
+  const trimmed = value.trim();
+  const digits = trimmed.replace(/\D/g, "");
+  if (digits.length < 7 || digits.length > 15) return null;
+  return `tel:${trimmed.startsWith("+") ? "+" : ""}${digits}`;
+}
+
+function getSafeHttpsUrl(value: string, allowedHost: (hostname: string) => boolean) {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  try {
+    const url = new URL(/^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`);
+    if (url.protocol !== "https:" || !allowedHost(url.hostname.toLowerCase())) return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+function getWhatsappHref(value: string) {
+  const safeUrl = getSafeHttpsUrl(value, (hostname) =>
+    hostname === "wa.me" || hostname === "whatsapp.com" || hostname.endsWith(".whatsapp.com"),
+  );
+  if (safeUrl) return safeUrl;
+  const digits = value.replace(/\D/g, "");
+  return digits.length >= 7 && digits.length <= 15 ? `https://wa.me/${digits}` : null;
+}
+
+function getInstagramHref(value: string) {
+  const safeUrl = getSafeHttpsUrl(value, (hostname) =>
+    hostname === "instagram.com" || hostname.endsWith(".instagram.com"),
+  );
+  if (safeUrl) return safeUrl;
+  const username = value.trim().replace(/^@/, "");
+  return /^[a-zA-Z0-9._]{1,30}$/.test(username)
+    ? `https://www.instagram.com/${username}/`
+    : null;
+}
+
+function getMapsHref(mapsUrl: string, address: string) {
+  const safeUrl = getSafeHttpsUrl(mapsUrl, (hostname) =>
+    hostname === "google.com" ||
+    hostname.endsWith(".google.com") ||
+    hostname === "goo.gl" ||
+    hostname === "maps.app.goo.gl",
+  );
+  if (safeUrl) return safeUrl;
+  return address.trim()
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address.trim())}`
+    : null;
 }
 
 export function PublicMenu({ menu, theme, initialLanguage = "tr" }: PublicMenuProps) {
@@ -136,6 +358,8 @@ export function MenuPreview({ menu, theme, framed = false, initialLanguage = "tr
   const [searchQuery, setSearchQuery] = useState("");
   const [dietaryFilters, setDietaryFilters] = useState<MenuDietaryTag[]>([]);
   const [excludedAllergens, setExcludedAllergens] = useState<MenuAllergen[]>([]);
+  const [currentTime, setCurrentTime] = useState<Date | null>(null);
+  const businessProfile = getMenuBusinessProfile(menu);
 
   useEffect(() => {
     if (framed || !canUseEnglish) return;
@@ -144,6 +368,14 @@ export function MenuPreview({ menu, theme, framed = false, initialLanguage = "tr
       setLanguage(savedLanguage);
     }
   }, [canUseEnglish, framed]);
+
+  useEffect(() => {
+    if (!businessProfile.hoursEnabled) return;
+    const updateCurrentTime = () => setCurrentTime(new Date());
+    updateCurrentTime();
+    const interval = window.setInterval(updateCurrentTime, 60_000);
+    return () => window.clearInterval(interval);
+  }, [businessProfile.hoursEnabled, businessProfile.timezone]);
 
   const activeLanguage: MenuLanguage = language === "en" && canUseEnglish ? "en" : "tr";
   const copy = interfaceText[activeLanguage];
@@ -154,6 +386,32 @@ export function MenuPreview({ menu, theme, framed = false, initialLanguage = "tr
     activeLanguage,
   );
   const subtitle = localizedText(menu.subtitle, menuTranslation?.subtitle, activeLanguage);
+  const openingState = businessProfile.hoursEnabled && currentTime
+    ? getOpeningState(businessProfile, currentTime)
+    : null;
+  const openingLabel = openingState?.isOpen ? copy.openNow : copy.closedNow;
+  const openingDetail = openingState?.isOpen
+    ? `${copy.closesAt} ${formatMenuTime(openingState.closesAt, activeLanguage)}`
+    : openingState?.nextOpening
+      ? `${openingState.nextOpening.dayOffset === 0
+          ? copy.opensToday
+          : openingState.nextOpening.dayOffset === 1
+            ? copy.opensTomorrow
+            : `${copy.nextOpening} · ${weekdayLabels[activeLanguage][openingState.nextOpening.weekday]}`
+        } ${formatMenuTime(openingState.nextOpening.opensAt, activeLanguage)}`
+      : "";
+  const phoneHref = getPhoneHref(businessProfile.phone);
+  const whatsappHref = getWhatsappHref(businessProfile.whatsapp);
+  const instagramHref = getInstagramHref(businessProfile.instagram);
+  const mapsHref = getMapsHref(businessProfile.mapsUrl, businessProfile.address);
+  const hasBusinessCard = Boolean(
+    businessProfile.address.trim() ||
+    phoneHref ||
+    whatsappHref ||
+    instagramHref ||
+    mapsHref ||
+    businessProfile.hoursEnabled,
+  );
   const style = {
     "--menu-accent": theme.accent,
     "--menu-bg": theme.background,
@@ -292,12 +550,76 @@ export function MenuPreview({ menu, theme, framed = false, initialLanguage = "tr
             >EN</button>
           </div>
         )}
-        <div className="menu-monogram">{restaurantName.trim().charAt(0) || "M"}</div>
+        <div className={`menu-monogram ${businessProfile.logo ? "has-logo" : ""}`}>
+          {businessProfile.logo
+            ? <img src={businessProfile.logo} alt={`${restaurantName || copy.unnamedMenu} ${copy.logoAlt}`} />
+            : restaurantName.trim().charAt(0) || "M"}
+        </div>
         <span className="menu-welcome">{copy.welcome}</span>
         <h1>{restaurantName || copy.unnamedMenu}</h1>
         {subtitle && <p>{subtitle}</p>}
-        <div className="menu-meta"><span><i /> {copy.openNow}</span><span>•</span><span>{copy.serviceUntil}</span></div>
+        {openingState && (
+          <div className={`menu-meta ${openingState.isOpen ? "is-open" : "is-closed"}`} aria-live="polite">
+            <span><i /> {openingLabel}</span>
+            {openingDetail && <><span aria-hidden="true">•</span><span>{openingDetail}</span></>}
+          </div>
+        )}
       </header>
+
+      {hasBusinessCard && (
+        <section className="menu-business-card" aria-label={copy.businessDetails}>
+          {businessProfile.address.trim() && (
+            <div className="menu-business-address">
+              <MapPin aria-hidden="true" size={16} />
+              <span>{businessProfile.address.trim()}</span>
+            </div>
+          )}
+
+          {(phoneHref || whatsappHref || mapsHref || instagramHref) && (
+            <div className="menu-business-actions">
+              {phoneHref && (
+                <a href={phoneHref}><Phone aria-hidden="true" size={15} /> {copy.call}</a>
+              )}
+              {whatsappHref && (
+                <a href={whatsappHref} rel="noreferrer" target="_blank">
+                  <MessageCircle aria-hidden="true" size={15} /> {copy.whatsapp}
+                </a>
+              )}
+              {mapsHref && (
+                <a href={mapsHref} rel="noreferrer" target="_blank">
+                  <Navigation aria-hidden="true" size={15} /> {copy.directions}
+                </a>
+              )}
+              {instagramHref && (
+                <a href={instagramHref} rel="noreferrer" target="_blank">
+                  <Instagram aria-hidden="true" size={15} /> {copy.instagram}
+                </a>
+              )}
+            </div>
+          )}
+
+          {businessProfile.hoursEnabled && (
+            <details className="menu-hours-details">
+              <summary><Clock3 aria-hidden="true" size={15} /> {copy.openingHours}</summary>
+              <div className="menu-hours-list">
+                {menuWeekdays.map((weekday) => {
+                  const hours = businessProfile.weeklyHours[weekday];
+                  return (
+                    <div key={weekday}>
+                      <span>{weekdayLabels[activeLanguage][weekday]}</span>
+                      <strong>
+                        {hours.isOpen
+                          ? `${formatMenuTime(hours.opensAt, activeLanguage)} – ${formatMenuTime(hours.closesAt, activeLanguage)}`
+                          : copy.closedAllDay}
+                      </strong>
+                    </div>
+                  );
+                })}
+              </div>
+            </details>
+          )}
+        </section>
+      )}
 
       {visibleCategories.length > 0 && (
         <section className="menu-discovery" aria-label={copy.filters}>

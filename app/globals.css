@@ -1145,9 +1145,10 @@ a {
 }
 
 .field-label input,
+.field-label select,
+.field-label textarea,
 .color-field input {
   width: 100%;
-  height: 40px;
   padding: 0 12px;
   background: white;
   border: 1px solid #dcdcd6;
@@ -1157,12 +1158,273 @@ a {
   transition: 140ms ease;
 }
 
+.field-label input,
+.field-label select,
+.color-field input {
+  height: 40px;
+}
+
+.field-label textarea {
+  min-height: 78px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
 .field-label input:focus,
+.field-label select:focus,
+.field-label textarea:focus,
 .color-field input:focus,
 .category-editor input:focus,
 .item-editor textarea:focus {
   border-color: rgba(234, 91, 42, 0.7);
   box-shadow: 0 0 0 3px rgba(234, 91, 42, 0.08);
+}
+
+.business-profile-section .section-heading {
+  align-items: center;
+  margin-bottom: 9px;
+}
+
+.business-profile-status {
+  margin: 0;
+  padding: 6px 9px;
+  color: #6e746b;
+  background: #efefeb;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.business-profile-help {
+  margin: 0 0 16px;
+  color: #777d74;
+  font-size: 11.5px;
+  line-height: 1.55;
+}
+
+.business-logo-editor {
+  display: grid;
+  padding: 12px;
+  grid-template-columns: 52px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  background: #f7f6f2;
+  border: 1px solid #e1e0da;
+  border-radius: 10px;
+}
+
+.business-logo-preview {
+  display: grid;
+  width: 52px;
+  height: 52px;
+  overflow: hidden;
+  place-items: center;
+  color: #8c9188;
+  background: white;
+  border: 1px dashed #cfd0c9;
+  border-radius: 12px;
+}
+
+.business-logo-preview.has-logo {
+  padding: 4px;
+  border-style: solid;
+}
+
+.business-logo-preview img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.business-logo-copy {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.business-logo-copy strong {
+  color: #343832;
+  font-size: 12.5px;
+}
+
+.business-logo-copy small {
+  color: #858a81;
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.business-logo-actions {
+  display: grid;
+  gap: 5px;
+}
+
+.business-logo-actions label,
+.business-logo-actions button {
+  display: inline-flex;
+  min-height: 31px;
+  padding: 0 9px;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  color: #5e645b;
+  background: white;
+  border: 1px solid #d9d9d3;
+  border-radius: 7px;
+  font-size: 9.5px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.business-logo-actions label:hover {
+  color: var(--orange);
+  border-color: #e2a68e;
+}
+
+.business-logo-actions button {
+  color: #a14b36;
+}
+
+.business-field-with-icon > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.business-contact-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 10px;
+}
+
+.business-hours-card {
+  margin-top: 17px;
+  padding: 14px;
+  background: #f7f6f2;
+  border: 1px solid #dfded8;
+  border-radius: 11px;
+}
+
+.business-hours-toggle {
+  margin-top: 0;
+  gap: 12px;
+}
+
+.business-hours-toggle strong {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.business-hours-toggle > i {
+  flex: 0 0 auto;
+}
+
+.business-hours-settings {
+  display: grid;
+  margin-top: 14px;
+  padding-top: 2px;
+  gap: 12px;
+  border-top: 1px solid #e0dfd9;
+}
+
+.business-timezone-field {
+  margin-top: 12px;
+}
+
+.field-label select {
+  color: #3c403a;
+  cursor: pointer;
+}
+
+.weekly-hours-list {
+  display: grid;
+  overflow: hidden;
+  background: white;
+  border: 1px solid #dfded8;
+  border-radius: 9px;
+}
+
+.weekly-hours-row {
+  display: grid;
+  min-height: 48px;
+  padding: 7px 9px;
+  grid-template-columns: minmax(100px, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  border-bottom: 1px solid #ecebe6;
+}
+
+.weekly-hours-row:last-child {
+  border-bottom: 0;
+}
+
+.weekly-hours-row.is-closed {
+  background: #fafaf8;
+}
+
+.weekday-availability {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  color: #454a43;
+  font-size: 11px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.weekday-availability input {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+  margin: 0;
+  accent-color: var(--orange);
+}
+
+.weekly-time-inputs {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.weekly-time-inputs input {
+  width: 82px;
+  height: 34px;
+  padding: 0 6px;
+  color: #454a43;
+  background: #fbfaf7;
+  border: 1px solid #dcdbd5;
+  border-radius: 7px;
+  outline: none;
+  font-size: 11px;
+}
+
+.weekly-time-inputs input:focus {
+  border-color: rgba(234, 91, 42, 0.7);
+  box-shadow: 0 0 0 2px rgba(234, 91, 42, 0.08);
+}
+
+.weekly-time-inputs span,
+.weekly-closed-label {
+  color: #949990;
+  font-size: 10px;
+}
+
+.weekly-closed-label {
+  padding-right: 5px;
+  font-weight: 700;
+}
+
+.overnight-hours-note {
+  margin: -2px 1px 0;
+  color: #858a81;
+  font-size: 10px;
+  line-height: 1.45;
 }
 
 .category-list {
@@ -2133,6 +2395,22 @@ a {
   font-style: italic;
 }
 
+.menu-monogram.has-logo {
+  padding: 4px;
+  overflow: hidden;
+  background: var(--menu-surface);
+  border: 1px solid color-mix(in srgb, var(--menu-text), transparent 86%);
+  box-shadow: 0 7px 18px color-mix(in srgb, var(--menu-text), transparent 90%);
+}
+
+.menu-monogram.has-logo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 50%;
+}
+
 .menu-welcome {
   display: block;
   margin-bottom: 7px;
@@ -2184,6 +2462,128 @@ a {
   height: 5px;
   background: #67914b;
   border-radius: 50%;
+}
+
+.menu-meta.is-closed i {
+  background: #b65c45;
+}
+
+.menu-business-card {
+  display: grid;
+  padding: 13px 15px;
+  gap: 10px;
+  color: var(--menu-text);
+  background: color-mix(in srgb, var(--menu-surface), var(--menu-bg) 25%);
+  border-top: 1px solid color-mix(in srgb, var(--menu-text), transparent 90%);
+  font-family: Inter, sans-serif;
+}
+
+.menu-business-address {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  color: color-mix(in srgb, var(--menu-text), transparent 27%);
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.menu-business-address svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+  color: var(--menu-accent);
+}
+
+.menu-business-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.menu-business-actions a {
+  display: inline-flex;
+  min-height: 31px;
+  padding: 0 9px;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  color: color-mix(in srgb, var(--menu-text), transparent 17%);
+  background: var(--menu-surface);
+  border: 1px solid color-mix(in srgb, var(--menu-text), transparent 84%);
+  border-radius: 8px;
+  font-size: 8px;
+  font-weight: 750;
+  line-height: 1;
+  transition: 140ms ease;
+}
+
+.menu-business-actions a:hover {
+  color: var(--menu-bg);
+  background: var(--menu-accent);
+  border-color: var(--menu-accent);
+}
+
+.menu-business-actions a:focus-visible,
+.menu-hours-details summary:focus-visible {
+  outline: 2px solid var(--menu-accent);
+  outline-offset: 2px;
+}
+
+.menu-hours-details {
+  overflow: hidden;
+  background: color-mix(in srgb, var(--menu-surface), transparent 3%);
+  border: 1px solid color-mix(in srgb, var(--menu-text), transparent 86%);
+  border-radius: 9px;
+}
+
+.menu-hours-details summary {
+  display: flex;
+  min-height: 34px;
+  padding: 0 10px;
+  align-items: center;
+  gap: 6px;
+  color: color-mix(in srgb, var(--menu-text), transparent 20%);
+  font-size: 8.5px;
+  font-weight: 800;
+  cursor: pointer;
+  list-style: none;
+}
+
+.menu-hours-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.menu-hours-details summary::after {
+  margin-left: auto;
+  content: "+";
+  color: var(--menu-accent);
+  font-size: 13px;
+}
+
+.menu-hours-details[open] summary::after {
+  content: "−";
+}
+
+.menu-hours-list {
+  display: grid;
+  padding: 2px 10px 9px;
+  gap: 0;
+}
+
+.menu-hours-list > div {
+  display: flex;
+  min-height: 25px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: color-mix(in srgb, var(--menu-text), transparent 36%);
+  border-top: 1px solid color-mix(in srgb, var(--menu-text), transparent 91%);
+  font-size: 7.5px;
+}
+
+.menu-hours-list strong {
+  color: color-mix(in srgb, var(--menu-text), transparent 16%);
+  font-size: inherit;
+  font-weight: 750;
 }
 
 .menu-discovery {
@@ -2894,7 +3294,15 @@ a {
 .public-menu-shell .menu-welcome { font-size: 10px; }
 .public-menu-shell .menu-hero h1 { font-size: 40px; }
 .public-menu-shell .menu-hero > p { font-size: 12px; }
-.public-menu-shell .menu-meta { font-size: 9px; }
+.public-menu-shell .menu-meta { font-size: 10.5px; }
+.public-menu-shell .menu-business-card { padding: 17px 20px; gap: 12px; }
+.public-menu-shell .menu-business-address { gap: 9px; font-size: 12px; }
+.public-menu-shell .menu-business-actions { gap: 8px; }
+.public-menu-shell .menu-business-actions a { min-height: 41px; padding: 0 13px; gap: 7px; font-size: 10.5px; border-radius: 10px; }
+.public-menu-shell .menu-hours-details { border-radius: 11px; }
+.public-menu-shell .menu-hours-details summary { min-height: 43px; padding: 0 13px; font-size: 11px; }
+.public-menu-shell .menu-hours-list { padding: 2px 13px 11px; }
+.public-menu-shell .menu-hours-list > div { min-height: 31px; font-size: 10px; }
 .public-menu-shell .menu-discovery { padding: 17px 20px 14px; gap: 12px; }
 .public-menu-shell .menu-search-box { min-height: 46px; padding-right: 10px; padding-left: 14px; }
 .public-menu-shell .menu-search-box input { font-size: 13px; }
@@ -5165,6 +5573,7 @@ a {
   .editor-content, .notice + .editor-content { height: auto; overflow: visible; padding-bottom: 110px; }
   .preview-stage { display: none; }
   .form-section { padding-right: 16px; padding-left: 16px; }
+  .business-profile-help { font-size: 12px; }
   .translation-assistant { grid-template-columns: 1fr; }
   .translation-button { width: 100%; }
   .auto-image-assistant { grid-template-columns: 1fr; }
@@ -5282,6 +5691,13 @@ a {
   .hero h1 { letter-spacing: -2.5px; }
   .upload-card { min-height: 345px; }
   .theme-grid { grid-template-columns: 1fr; }
+  .business-logo-editor { grid-template-columns: 52px minmax(0, 1fr); }
+  .business-logo-actions { grid-column: 1 / -1; grid-template-columns: 1fr 1fr; }
+  .business-contact-grid { grid-template-columns: 1fr; }
+  .weekly-hours-row { grid-template-columns: 1fr; gap: 7px; }
+  .weekly-time-inputs { padding-left: 23px; }
+  .weekly-time-inputs input { width: auto; min-width: 0; flex: 1; }
+  .weekly-closed-label { padding-left: 23px; }
   .publish-actions { grid-template-columns: 1fr; }
   .item-editor-top { grid-template-columns: minmax(0, 1fr) 70px 28px; }
   .item-image-editor { flex-direction: column; }
@@ -5298,6 +5714,8 @@ a {
   .campaign-editor { grid-template-columns: 21px minmax(0, 1fr); }
   .campaign-editor > p { grid-column: 1 / -1; }
   .public-menu-shell .menu-hero h1 { font-size: 35px; }
+  .public-menu-shell .menu-business-actions { display: grid; grid-template-columns: 1fr 1fr; }
+  .public-menu-shell .menu-business-actions a { padding-right: 8px; padding-left: 8px; }
   .dashboard-stats { grid-template-columns: 1fr; }
   .dashboard-menu-card { grid-template-columns: 1fr; }
   .menu-card-preview { min-height: 120px; }
