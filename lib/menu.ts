@@ -21,6 +21,13 @@ export const dietaryTagLabels: Record<MenuDietaryTag, string> = {
   spicy: "Acılı",
 };
 
+export const dietaryTagLabelsEn: Record<MenuDietaryTag, string> = {
+  vegan: "Vegan",
+  vegetarian: "Vegetarian",
+  "gluten-free": "Gluten-free",
+  spicy: "Spicy",
+};
+
 export const allergenLabels: Record<MenuAllergen, string> = {
   gluten: "Gluten",
   milk: "Süt",
@@ -31,6 +38,36 @@ export const allergenLabels: Record<MenuAllergen, string> = {
   sesame: "Susam",
   fish: "Balık",
   shellfish: "Kabuklu deniz ürünü",
+};
+
+export const allergenLabelsEn: Record<MenuAllergen, string> = {
+  gluten: "Gluten",
+  milk: "Milk",
+  egg: "Egg",
+  nuts: "Tree nuts",
+  peanut: "Peanut",
+  soy: "Soy",
+  sesame: "Sesame",
+  fish: "Fish",
+  shellfish: "Shellfish",
+};
+
+export type MenuLanguage = "tr" | "en";
+
+export type MenuEnglishTranslation = {
+  restaurantName: string;
+  subtitle: string;
+  sourceFingerprint: string;
+};
+
+export type MenuCategoryEnglishTranslation = {
+  name: string;
+};
+
+export type MenuItemEnglishTranslation = {
+  name: string;
+  description: string;
+  badge: string;
 };
 
 export type MenuItemAvailability = "available" | "sold-out" | "hidden";
@@ -47,12 +84,18 @@ export type MenuItem = {
   availability?: MenuItemAvailability;
   dietaryTags?: MenuDietaryTag[];
   allergens?: MenuAllergen[];
+  translations?: {
+    en?: MenuItemEnglishTranslation;
+  };
 };
 
 export type MenuCategory = {
   id: string;
   name: string;
   items: MenuItem[];
+  translations?: {
+    en?: MenuCategoryEnglishTranslation;
+  };
 };
 
 export type MenuData = {
@@ -60,6 +103,9 @@ export type MenuData = {
   subtitle: string;
   currency: string;
   categories: MenuCategory[];
+  translations?: {
+    en?: MenuEnglishTranslation;
+  };
 };
 
 export type MenuTheme = {
@@ -160,6 +206,34 @@ export const demoMenu: MenuData = {
     },
   ],
 };
+
+export function getMenuTranslationFingerprint(menu: MenuData) {
+  const source = JSON.stringify({
+    restaurantName: menu.restaurantName,
+    subtitle: menu.subtitle,
+    categories: menu.categories.map((category) => ({
+      id: category.id,
+      name: category.name,
+      items: category.items.map((item) => ({
+        id: item.id,
+        name: item.name,
+        description: item.description,
+        badge: item.badge,
+      })),
+    })),
+  });
+
+  let hash = 2166136261;
+  for (let index = 0; index < source.length; index += 1) {
+    hash ^= source.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+export function hasEnglishMenuTranslation(menu: MenuData) {
+  return Boolean(menu.translations?.en);
+}
 
 export function getVisibleMenu(menu: MenuData): MenuData {
   return {

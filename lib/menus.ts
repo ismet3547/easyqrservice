@@ -75,6 +75,47 @@ function parseRow(row: MenuRow): StoredMenu {
   };
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function isEnglishTranslationContainer(
+  value: unknown,
+  validateEnglish: (translation: Record<string, unknown>) => boolean,
+) {
+  if (value === undefined) return true;
+  if (!isRecord(value) || Object.keys(value).some((key) => key !== "en")) return false;
+  if (value.en === undefined) return true;
+  return isRecord(value.en) && validateEnglish(value.en);
+}
+
+function isValidMenuEnglishTranslation(value: Record<string, unknown>) {
+  return (
+    Object.keys(value).every((key) => ["restaurantName", "subtitle", "sourceFingerprint"].includes(key)) &&
+    typeof value.restaurantName === "string" && value.restaurantName.length <= 120 &&
+    typeof value.subtitle === "string" && value.subtitle.length <= 240 &&
+    typeof value.sourceFingerprint === "string" && value.sourceFingerprint.length > 0 &&
+    value.sourceFingerprint.length <= 64
+  );
+}
+
+function isValidCategoryEnglishTranslation(value: Record<string, unknown>) {
+  return (
+    Object.keys(value).every((key) => key === "name") &&
+    typeof value.name === "string" &&
+    value.name.length <= 100
+  );
+}
+
+function isValidItemEnglishTranslation(value: Record<string, unknown>) {
+  return (
+    Object.keys(value).every((key) => ["name", "description", "badge"].includes(key)) &&
+    typeof value.name === "string" && value.name.length <= 180 &&
+    typeof value.description === "string" && value.description.length <= 1000 &&
+    typeof value.badge === "string" && value.badge.length <= 40
+  );
+}
+
 export function isValidMenuData(value: unknown): value is MenuData {
   if (!value || typeof value !== "object") return false;
   const menu = value as Partial<MenuData>;
@@ -82,6 +123,7 @@ export function isValidMenuData(value: unknown): value is MenuData {
     typeof menu.restaurantName !== "string" || menu.restaurantName.length > 120 ||
     typeof menu.subtitle !== "string" || menu.subtitle.length > 240 ||
     typeof menu.currency !== "string" || menu.currency.length > 12 ||
+    !isEnglishTranslationContainer(menu.translations, isValidMenuEnglishTranslation) ||
     !Array.isArray(menu.categories) ||
     menu.categories.length > 30
   ) return false;
@@ -107,6 +149,7 @@ export function isValidMenuData(value: unknown): value is MenuData {
     category &&
     typeof category.id === "string" && category.id.length <= 100 &&
     typeof category.name === "string" && category.name.length <= 100 &&
+    isEnglishTranslationContainer(category.translations, isValidCategoryEnglishTranslation) &&
     Array.isArray(category.items) &&
     category.items.length <= 100 &&
     category.items.every((item) =>
@@ -116,6 +159,7 @@ export function isValidMenuData(value: unknown): value is MenuData {
       typeof item.description === "string" && item.description.length <= 1000 &&
       typeof item.price === "string" && item.price.length <= 40 &&
       typeof item.badge === "string" && item.badge.length <= 40 &&
+      isEnglishTranslationContainer(item.translations, isValidItemEnglishTranslation) &&
       (item.originalPrice === undefined ||
         (typeof item.originalPrice === "string" && item.originalPrice.length <= 40)) &&
       (item.isCampaign === undefined || typeof item.isCampaign === "boolean") &&

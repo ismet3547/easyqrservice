@@ -16,6 +16,7 @@ import {
   ImagePlus,
   LayoutGrid,
   Leaf,
+  Languages,
   List,
   Loader2,
   LogOut,
@@ -46,6 +47,8 @@ import {
   decodePublishedMenu,
   defaultTheme,
   demoMenu,
+  getMenuTranslationFingerprint,
+  hasEnglishMenuTranslation,
   menuAllergens,
   menuDietaryTags,
   type MenuAllergen,
@@ -60,6 +63,24 @@ import type { StoredMenu } from "@/lib/menus";
 
 type EditorTab = "content" | "design";
 type AuthUser = { id: string; name: string; email: string; createdAt: string };
+
+type EnglishTranslationResult = {
+  translation?: {
+    restaurantName: string;
+    subtitle: string;
+    categories: Array<{
+      categoryId: string;
+      name: string;
+      items: Array<{
+        itemId: string;
+        name: string;
+        description: string;
+        badge: string;
+      }>;
+    }>;
+  };
+  message?: string;
+};
 
 const themePresets = [
   { name: "Mandarin", accent: "#ea5b2a", background: "#f7f2e8", surface: "#fffdf9", text: "#20251f" },
@@ -136,6 +157,31 @@ function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Beklenmeyen bir sorun oluştu.";
 }
 
+function getEnglishTranslationCoverage(menu: MenuData) {
+  const total = 2 + menu.categories.reduce(
+    (sum, category) => sum + 1 + category.items.length * 3,
+    0,
+  );
+  let translated = 0;
+  if (typeof menu.translations?.en?.restaurantName === "string") translated += 1;
+  if (typeof menu.translations?.en?.subtitle === "string") translated += 1;
+
+  menu.categories.forEach((category) => {
+    if (typeof category.translations?.en?.name === "string") translated += 1;
+    category.items.forEach((item) => {
+      if (typeof item.translations?.en?.name === "string") translated += 1;
+      if (typeof item.translations?.en?.description === "string") translated += 1;
+      if (typeof item.translations?.en?.badge === "string") translated += 1;
+    });
+  });
+
+  return {
+    translated,
+    total,
+    percentage: Math.round((translated / total) * 100),
+  };
+}
+
 export function MenuStudio({
   workspaceMode = false,
   initialUser = null,
@@ -170,12 +216,18 @@ export function MenuStudio({
   const [generatingImages, setGeneratingImages] = useState(false);
   const [generatingItemId, setGeneratingItemId] = useState("");
   const [imageGenerationProgress, setImageGenerationProgress] = useState({ done: 0, total: 0 });
+  const [translatingEnglish, setTranslatingEnglish] = useState(false);
   const totalItemCount = menu.categories.reduce((sum, category) => sum + category.items.length, 0);
   const missingImageCount = menu.categories.reduce(
     (sum, category) =>
       sum + category.items.filter((item) => !item.image && item.availability !== "hidden").length,
     0,
   );
+  const englishCoverage = getEnglishTranslationCoverage(menu);
+  const hasEnglishTranslation = hasEnglishMenuTranslation(menu);
+  const englishTranslationCurrent = hasEnglishTranslation &&
+    englishCoverage.percentage === 100 &&
+    menu.translations?.en?.sourceFingerprint === getMenuTranslationFingerprint(menu);
 
   useEffect(() => {
     const readHash = async () => {
@@ -688,6 +740,94 @@ export function MenuStudio({
     }
   };
 
+  const generateEnglishTranslation = async () => {
+    if (translatingEnglish) return;
+
+    const sourceFingerprint = getMenuTranslationFingerprint(menu);
+    setTranslatingEnglish(true);
+    setNotice("");
+    try {
+      const response = await fetch("/api/translate-menu", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          restaurantName: menu.restaurantName,
+          subtitle: menu.subtitle,
+          categories: menu.categories.map((category) => ({
+            categoryId: category.id,
+            name: category.name,
+            items: category.items.map((item) => ({
+              itemId: item.id,
+              name: item.name,
+              description: item.description,
+              badge: item.badge,
+            })),
+          })),
+        }),
+      });
+
+      let result: EnglishTranslationResult = {};
+      try {
+        result = (await response.json()) as EnglishTranslationResult;
+      } catch {
+        result = {};
+      }
+      if (!response.ok || !result.translation) {
+        throw new Error(result.message || "İngilizce çeviri oluşturulamadı.");
+      }
+
+      const translation = result.translation;
+      const translatedCategories = new Map(
+        translation.categories.map((category) => [category.categoryId, category]),
+      );
+      setMenu((current) => ({
+        ...current,
+        translations: {
+          ...current.translations,
+          en: {
+            restaurantName: translation.restaurantName,
+            subtitle: translation.subtitle,
+            sourceFingerprint,
+          },
+        },
+        categories: current.categories.map((category) => {
+          const translatedCategory = translatedCategories.get(category.id);
+          if (!translatedCategory) return category;
+          const translatedItems = new Map(
+            translatedCategory.items.map((item) => [item.itemId, item]),
+          );
+          return {
+            ...category,
+            translations: {
+              ...category.translations,
+              en: { name: translatedCategory.name },
+            },
+            items: category.items.map((item) => {
+              const translatedItem = translatedItems.get(item.id);
+              if (!translatedItem) return item;
+              return {
+                ...item,
+                translations: {
+                  ...item.translations,
+                  en: {
+                    name: translatedItem.name,
+                    description: translatedItem.description,
+                    badge: translatedItem.badge,
+                  },
+                },
+              };
+            }),
+          };
+        }),
+      }));
+      setNotice("İngilizce çeviri hazır. Yabancı ziyaretçiler menüyü otomatik olarak İngilizce görecek.");
+    } catch (translationError) {
+      setNotice("Çeviri oluşturulamadı: " + getErrorMessage(translationError));
+    } finally {
+      setTranslatingEnglish(false);
+    }
+  };
+
   const removeItem = (categoryIndex: number, itemIndex: number) => {
     setMenu((current) => ({
       ...current,
@@ -1039,6 +1179,55 @@ export function MenuStudio({
                 <div className="section-heading"><div><span>İşletme</span><h2>Menü başlığı</h2></div></div>
                 <label className="field-label">İşletme adı<input value={menu.restaurantName} onChange={(event) => setMenu({ ...menu, restaurantName: event.target.value })} /></label>
                 <label className="field-label">Kısa açıklama<input value={menu.subtitle} onChange={(event) => setMenu({ ...menu, subtitle: event.target.value })} /></label>
+              </section>
+
+              <section className="form-section translation-section">
+                <div className="section-heading">
+                  <div><span>Dil desteği</span><h2>İngilizce menü</h2></div>
+                  <div className={`translation-status ${englishTranslationCurrent ? "ready" : hasEnglishTranslation ? "stale" : "empty"}`}>
+                    {englishTranslationCurrent ? "Güncel" : hasEnglishTranslation ? "Güncelle" : "Hazır değil"}
+                  </div>
+                </div>
+                <div className={`translation-assistant ${englishTranslationCurrent ? "is-ready" : hasEnglishTranslation ? "is-stale" : ""}`} aria-live="polite">
+                  <div className="translation-assistant-copy">
+                    <span className="translation-assistant-icon"><Languages size={18} /></span>
+                    <div>
+                      <strong>
+                        {englishTranslationCurrent
+                          ? "İngilizce çeviri yayına hazır"
+                          : hasEnglishTranslation
+                            ? "Türkçe içerik değişti"
+                            : "Menüyü tek tıkla İngilizceye çevir"}
+                      </strong>
+                      <p>
+                        {englishTranslationCurrent
+                          ? "Tarayıcı dili Türkçe olmayan ziyaretçiler İngilizce menüyü doğrudan görür."
+                          : hasEnglishTranslation
+                            ? "Son değişikliklerin İngilizce menüye yansıması için çeviriyi güncelle."
+                            : "Ürün adları, açıklamalar, kategoriler ve etiketler çevrilir; fiyatlar ile görseller değişmez."}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    className="translation-button"
+                    disabled={translatingEnglish}
+                    onClick={() => { void generateEnglishTranslation(); }}
+                    title="OpenAI kullanım kotanı kullanır"
+                  >
+                    {translatingEnglish ? <Loader2 className="auto-image-spinner" size={16} /> : <Languages size={16} />}
+                    {translatingEnglish
+                      ? "Çevriliyor…"
+                      : englishTranslationCurrent
+                        ? "Çeviriyi yenile"
+                        : hasEnglishTranslation
+                          ? "Çeviriyi güncelle"
+                          : "İngilizceyi oluştur"}
+                  </button>
+                  <div className="translation-progress">
+                    <span aria-hidden="true"><i style={{ width: englishCoverage.percentage + "%" }} /></span>
+                    <small>{englishCoverage.percentage}% çevrildi</small>
+                  </div>
+                </div>
               </section>
 
               <section className="form-section categories-section">

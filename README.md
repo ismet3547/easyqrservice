@@ -17,6 +17,9 @@ Restoran ve kafelerin mevcut PDF veya görsel menülerini yapay zekâ ile okuyup
 - Yaygın alerjen bilgileri ve müşteri menüsünde güvenlik uyarısı
 - Ürün görseli yükleme, tarayıcıda otomatik boyutlandırma ve sıkıştırma
 - Görseli olmayan ürünleri OpenAI ile tek tuşta ve toplu tamamlama
+- Menü başlığı, kategori, ürün, açıklama ve etiketler için tek tuşla İngilizce çeviri
+- QR menüde tarayıcı diline göre otomatik Türkçe/İngilizce açılış ve kalıcı TR/EN seçimi
+- Türkçe içerik değiştiğinde eski çeviriyi işaretleyen çeviri güncellik kontrolü
 - Renk, tipografi, dört farklı ürün düzeni ve açıklama görünürlüğü ayarları
 - Anlık telefon önizlemesi
 - Tarayıcıda otomatik taslak kaydı
@@ -79,6 +82,7 @@ npm start          # üretim sunucusu
 - `app/m/[slug]`: herkese açık, kalıcı müşteri menüsü
 - `app/api/extract-menu/route.ts`: dosya doğrulama ve AI tabanlı menü çıkarımı
 - `app/api/generate-product-image/route.ts`: kimlik doğrulamalı ve hız sınırlı ürün görseli üretimi
+- `app/api/translate-menu/route.ts`: metin alanlarını toplu ve doğrulanmış biçimde İngilizceye çevirme
 - `app/api/auth/*`: kayıt, giriş, çıkış ve aktif kullanıcı endpoint’leri
 - `app/giris` ve `app/kayit`: kullanıcı erişim ekranları
 - `lib/auth.ts` ve `lib/db.ts`: oturum ve SQLite altyapısı
@@ -91,7 +95,7 @@ Kullanıcılar, oturumlar, taslaklar ve yayınlanan menüler yerel SQLite verita
 
 1. Üretim ortamı için PostgreSQL ile işletme, menü, kategori ve ürün tabloları
 2. E-posta doğrulama, şifre sıfırlama ve çoklu işletme desteği
-3. Çoklu dil desteği
+3. İngilizce dışındaki ek hedef diller ve işletmeye özel dil seçimi
 4. Trafik kaynağı, cihaz türü ve anonim tekil ziyaretçi analitiği
 5. İşletme profili, ekip rolleri ve abonelik planları
 
@@ -101,6 +105,7 @@ Kullanıcılar, oturumlar, taslaklar ve yayınlanan menüler yerel SQLite verita
 - Ürün fotoğrafları en fazla 8 MB olarak alınır, en çok 900 px’e küçültülür ve menüye kaydedilmeden önce sıkıştırılır.
 - API anahtarı yalnızca sunucu route’unda kullanılır.
 - Ürün görseli üretimi oturum ve same-origin kontrolü gerektirir; kullanıcı/IP başına saatte 12 istekle sınırlandırılır.
+- Menü çevirisi oturum ve same-origin kontrolü gerektirir; yalnızca metin alanları AI servisine gönderilir ve kullanıcı/IP başına saatte 8 istekle sınırlandırılır.
 - Parolalar 12 maliyet faktörlü `bcrypt` hash’i olarak saklanır.
 - Oturum anahtarının yalnızca SHA-256 özeti veritabanında tutulur; ham anahtar HTTP-only çerezdedir.
 - Kayıt ve giriş endpoint’lerinde aynı-origin kontrolü ve temel deneme sınırı uygulanır.
