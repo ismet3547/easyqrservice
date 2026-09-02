@@ -27,6 +27,7 @@ import {
   Palette,
   Phone,
   Plus,
+  Printer,
   QrCode,
   ScanLine,
   Share2,
@@ -1788,6 +1789,7 @@ export function MenuStudio({
               <button className="primary-button" onClick={downloadQr}><Download size={17} /> QR kodu indir</button>
               <button className="secondary-button" onClick={() => void shareLink()}><Share2 size={17} /> Paylaş</button>
             </div>
+            {activeMenuId && <a className="publish-print-link" href={`/dashboard/menus/${activeMenuId}/qr`}><Printer size={16} /> Masa kartı ve baskı şablonlarını aç</a>}
             <small>Bu kısa bağlantı kalıcıdır. Menüyü editörden güncellediğinde aynı QR kod yeni içeriği göstermeye devam eder.</small>
           </section>
         </div>
