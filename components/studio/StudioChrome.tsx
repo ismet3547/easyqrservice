@@ -24,7 +24,6 @@ type SectionLink = {
 };
 
 const editorTabs: Array<{
-  description: string;
   icon: typeof FileText;
   id: StudioEditorTab;
   label: string;
@@ -32,13 +31,11 @@ const editorTabs: Array<{
   {
     id: "content",
     label: "İçerik",
-    description: "Menü ve işletme",
     icon: FileText,
   },
   {
     id: "design",
     label: "Tasarım",
-    description: "Stil ve görünüm",
     icon: Palette,
   },
 ];
@@ -157,8 +154,8 @@ export function StudioEditorTabs({
             tabIndex={isActive ? 0 : -1}
             type="button"
           >
-            <span className="editor-tab-icon"><Icon size={18} /></span>
-            <span className="editor-tab-copy"><strong>{option.label}</strong><small>{option.description}</small></span>
+            <Icon size={17} />
+            <span>{option.label}</span>
           </button>
         );
       })}
@@ -166,51 +163,28 @@ export function StudioEditorTabs({
   );
 }
 
-export function StudioPanelIntro({
-  badges,
-  description,
-  kicker,
-  title,
-}: {
-  badges: string[];
-  description: string;
-  kicker: string;
-  title: string;
-}) {
-  return (
-    <div className="studio-panel-intro">
-      <div>
-        <span>{kicker}</span>
-        <h1>{title}</h1>
-        <p>{description}</p>
-      </div>
-      <div className="studio-panel-badges" aria-label="Menü özeti">
-        {badges.map((badge) => <span key={badge}>{badge}</span>)}
-      </div>
-    </div>
-  );
-}
-
-export function StudioSectionNav({
+export function StudioSectionNav<SectionId extends string>({
+  activeSection,
   label,
+  onChange,
   sections,
 }: {
+  activeSection: SectionId;
   label: string;
-  sections: SectionLink[];
+  onChange: (section: SectionId) => void;
+  sections: Array<SectionLink & { id: SectionId }>;
 }) {
-  const scrollToSection = (id: string) => {
-    const section = document.getElementById(id);
-    if (!section) return;
-    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    section.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "start" });
-  };
-
   return (
     <nav className="studio-section-nav" aria-label={label}>
-      <span>Bölümler</span>
       <div>
         {sections.map((section) => (
-          <button key={section.id} type="button" onClick={() => scrollToSection(section.id)}>
+          <button
+            aria-pressed={activeSection === section.id}
+            className={activeSection === section.id ? "active" : ""}
+            key={section.id}
+            type="button"
+            onClick={() => onChange(section.id)}
+          >
             {section.label}
           </button>
         ))}
