@@ -35,6 +35,7 @@ export function Dashboard({ user, initialMenus }: { user: SessionUser; initialMe
     0,
   );
   const publishedCount = menus.filter((menu) => menu.status === "published").length;
+  const firstPublishedMenu = menus.find((menu) => menu.status === "published");
 
   const logout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -118,6 +119,7 @@ export function Dashboard({ user, initialMenus }: { user: SessionUser; initialMe
                           <div className="menu-card-meta"><span><Eye size={13} /> {storedMenu.viewCount} görüntülenme</span><span>Güncellendi {new Date(storedMenu.updatedAt).toLocaleDateString("tr-TR", { day: "numeric", month: "short" })}</span></div>
                           <div className="menu-card-actions">
                             <Link href={`/studio?menu=${storedMenu.id}`}><FilePenLine size={15} /> Düzenle</Link>
+                            {storedMenu.status === "published" && <Link className="qr" href={`/dashboard/menus/${storedMenu.id}/qr`}><QrCode size={15} /> QR kodu</Link>}
                             {storedMenu.status === "published" && <a href={`/m/${storedMenu.slug}`} target="_blank" rel="noreferrer"><Eye size={15} /> Görüntüle</a>}
                             {storedMenu.status === "published" && <button onClick={() => void copyMenuLink(storedMenu)}>{copiedId === storedMenu.id ? <Check size={15} /> : <Copy size={15} />} {copiedId === storedMenu.id ? "Kopyalandı" : "Bağlantı"}</button>}
                             <button className="delete-menu-button" disabled={deletingId === storedMenu.id} onClick={() => void deleteMenu(storedMenu)}><Trash2 size={15} /></button>
@@ -137,13 +139,14 @@ export function Dashboard({ user, initialMenus }: { user: SessionUser; initialMe
                 <p>{publishedCount > 0 ? "Menü bağlantını sosyal medya profilinde ve Google işletme sayfanda paylaş." : "Ürünlerini kontrol edip QR kodunu masalara yerleştir."}</p>
                 <div className="progress-track"><i style={{ width: publishedCount > 0 ? "100%" : menus.length > 0 ? "66%" : "20%" }} /></div>
                 <small>{publishedCount > 0 ? "Tamamlandı" : menus.length > 0 ? "2 / 3 adım" : "1 / 3 adım"}</small>
+                {firstPublishedMenu && <Link className="dashboard-progress-link" href={`/dashboard/menus/${firstPublishedMenu.id}/qr`}>QR Baskı Merkezi <ChevronRight size={14} /></Link>}
               </section>
 
               <section className="dashboard-tips">
                 <div className="dashboard-section-heading"><div><span>İpuçları</span><h2>Daha iyi bir menü</h2></div></div>
                 <Link href="/dashboard/menus"><span>01</span><div><strong>Fiyatlarını kontrol et</strong><small>AI çıktısını yayınlamadan önce gözden geçir.</small></div><ChevronRight size={15} /></Link>
                 <Link href="/dashboard/menus"><span>02</span><div><strong>Kısa açıklamalar kullan</strong><small>İki satırı geçmeyen açıklamalar daha kolay okunur.</small></div><ChevronRight size={15} /></Link>
-                <Link href="/dashboard/menus"><span>03</span><div><strong>QR kodunu test et</strong><small>Baskıdan önce farklı telefonlarla okut.</small></div><ChevronRight size={15} /></Link>
+                <Link href={firstPublishedMenu ? `/dashboard/menus/${firstPublishedMenu.id}/qr` : "/dashboard/menus"}><span>03</span><div><strong>QR kodunu test et</strong><small>Baskıdan önce farklı telefonlarla okut.</small></div><ChevronRight size={15} /></Link>
               </section>
             </aside>
           </div>

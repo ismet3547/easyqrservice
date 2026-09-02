@@ -105,6 +105,7 @@ export function MenusDashboard({ user, initialMenus }: { user: SessionUser; init
                       <div className="menus-card-stats"><span><Eye size={14} /><strong>{storedMenu.viewCount}</strong> görüntülenme</span><span>Son güncelleme <strong>{new Date(storedMenu.updatedAt).toLocaleDateString("tr-TR", { day: "numeric", month: "short", year: "numeric" })}</strong></span></div>
                       <div className="menus-card-actions">
                         <Link className="edit" href={`/studio?menu=${storedMenu.id}`}><FilePenLine size={16} /> Düzenle</Link>
+                        {storedMenu.status === "published" && <Link className="qr" href={`/dashboard/menus/${storedMenu.id}/qr`}><QrCode size={16} /> QR kodu</Link>}
                         {storedMenu.status === "published" && <a href={`/m/${storedMenu.slug}`} target="_blank" rel="noreferrer"><Eye size={16} /> Aç</a>}
                         {storedMenu.status === "published" && <button onClick={() => void copyLink(storedMenu)}>{copiedId === storedMenu.id ? <Check size={16} /> : <Copy size={16} />}{copiedId === storedMenu.id ? "Kopyalandı" : "Bağlantı"}</button>}
                         <button className="danger" disabled={deletingId === storedMenu.id} onClick={() => void deleteMenu(storedMenu)} aria-label="Menüyü sil"><Trash2 size={16} /></button>
