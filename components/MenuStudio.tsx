@@ -9,7 +9,6 @@ import {
   Coins,
   Copy,
   Download,
-  Eye,
   EyeOff,
   FileText,
   GalleryVerticalEnd,
@@ -32,7 +31,6 @@ import {
   QrCode,
   ScanLine,
   Share2,
-  Smartphone,
   Sparkles,
   Trash2,
   Undo2,
@@ -83,10 +81,19 @@ import {
 import { buildMenuTrafficUrl } from "@/lib/menu-tracking";
 import { aiCreditCosts } from "@/lib/ai-credit-config";
 import type { GeneratedThemeDesign } from "@/lib/theme-design";
-import { MenuPreview, PublicMenu } from "@/components/MenuPreview";
+import { PublicMenu } from "@/components/MenuPreview";
+import {
+  Brand,
+  StudioEditorTabs,
+  StudioHeader,
+  StudioPanelIntro,
+  StudioPreviewDialog,
+  StudioPreviewStage,
+  StudioSectionNav,
+  type StudioEditorTab,
+} from "@/components/studio/StudioChrome";
 import type { StoredMenu } from "@/lib/menus";
 
-type EditorTab = "content" | "design";
 type AuthUser = { id: string; name: string; email: string; createdAt: string };
 
 type ThemeDesignApiResult = {
@@ -197,6 +204,22 @@ const themeBriefSuggestions = [
   "Doğal ve ferah",
   "Renkli ve enerjik",
 ] as const;
+
+const contentSectionLinks = [
+  { id: "studio-content-basics", label: "Başlık" },
+  { id: "studio-content-business", label: "İşletme" },
+  { id: "studio-content-language", label: "Dil" },
+  { id: "studio-content-products", label: "Ürünler" },
+];
+
+const designSectionLinks = [
+  { id: "studio-design-ai", label: "AI tasarım" },
+  { id: "studio-design-presets", label: "Stiller" },
+  { id: "studio-design-colors", label: "Renkler" },
+  { id: "studio-design-type", label: "Yazı" },
+  { id: "studio-design-layout", label: "Yerleşim" },
+  { id: "studio-design-advanced", label: "Gelişmiş" },
+];
 
 function ThemeChoiceGroup<Value extends string>({
   description,
@@ -374,8 +397,9 @@ export function MenuStudio({
   initialUser?: AuthUser | null;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const editorScrollRef = useRef<HTMLDivElement>(null);
   const [screen, setScreen] = useState<"upload" | "studio">("upload");
-  const [tab, setTab] = useState<EditorTab>("content");
+  const [tab, setTab] = useState<StudioEditorTab>("content");
   const [menu, setMenu] = useState<MenuData>(() => cloneDemoMenu());
   const [theme, setTheme] = useState<MenuTheme>(defaultTheme);
   const [dragging, setDragging] = useState(false);
@@ -423,6 +447,22 @@ export function MenuStudio({
   const businessProfile = getMenuBusinessProfile(menu);
   const themeCreditsInsufficient = themeCreditBalance !== null &&
     themeCreditBalance < aiCreditCosts.themeDesign;
+  const currentStyleName = theme.stylePreset === "custom"
+    ? "Özel stil"
+    : themePresetOptions.find((option) => option.id === theme.stylePreset)?.label || "Özel stil";
+  const currentLayoutName = {
+    cards: "Kart düzeni",
+    compact: "Kompakt düzen",
+    tiles: "Izgara düzeni",
+    showcase: "Vitrin düzeni",
+  }[theme.layout];
+
+  const changeEditorTab = (nextTab: StudioEditorTab) => {
+    setTab(nextTab);
+    window.requestAnimationFrame(() => {
+      editorScrollRef.current?.scrollTo({ top: 0, behavior: "auto" });
+    });
+  };
 
   const updateThemeOption = <Key extends keyof MenuTheme>(
     key: Key,
@@ -1531,46 +1571,49 @@ export function MenuStudio({
 
   return (
     <main className="studio-shell">
-      <header className="studio-header">
-        <div className="studio-header-left">
-          <button className="icon-button" aria-label="Dashboard'a dön" onClick={() => void goToDashboard()}><ArrowLeft size={19} /></button>
-          <Brand compact />
-          <span className="header-divider" />
-          <div className="document-name">
-            <strong>{menu.restaurantName || "İsimsiz menü"}</strong>
-            <span className={`save-state ${saveStatus}`}><span className="saved-dot" /> {saveStatus === "saving" ? "Kaydediliyor…" : saveStatus === "error" ? "Kaydedilemedi" : "Tüm değişiklikler kaydedildi"}</span>
-          </div>
-        </div>
-        <div className="studio-actions">
-          {currentUser && <span className="studio-user"><UserRound size={15} /><span>{currentUser.name}</span></span>}
-          <button className="secondary-button mobile-preview-button" onClick={() => setMobilePreviewOpen(true)}><Eye size={17} /> Önizle</button>
-          <button className="primary-button" onClick={() => void preparePublish()}><QrCode size={17} /> QR menüyü oluştur</button>
-          <button className="icon-button logout-button" aria-label="Çıkış yap" title="Çıkış yap" onClick={() => void logout()}><LogOut size={17} /></button>
-        </div>
-      </header>
+      <StudioHeader
+        documentName={menu.restaurantName}
+        onBack={() => { void goToDashboard(); }}
+        onLogout={() => { void logout(); }}
+        onOpenPreview={() => setMobilePreviewOpen(true)}
+        onPublish={() => { void preparePublish(); }}
+        saveStatus={saveStatus}
+        userName={currentUser?.name}
+      />
 
       <div className="studio-body">
         <aside className="editor-panel">
-          <div className="editor-tabs" role="tablist">
-            <button className={tab === "content" ? "active" : ""} onClick={() => setTab("content")}>
-              <FileText size={17} /> İçerik
-            </button>
-            <button className={tab === "design" ? "active" : ""} onClick={() => setTab("design")}>
-              <Palette size={17} /> Tasarım
-            </button>
-          </div>
+          <StudioEditorTabs activeTab={tab} onChange={changeEditorTab} />
 
           {notice && <div className="notice"><Sparkles size={16} /><span>{notice}</span><button onClick={() => setNotice("")} aria-label="Bildirimi kapat"><X size={14} /></button></div>}
 
           {tab === "content" ? (
-            <div className="editor-content">
-              <section className="form-section">
+            <div
+              aria-labelledby="studio-tab-content"
+              className="editor-content"
+              id="studio-panel-content"
+              ref={editorScrollRef}
+              role="tabpanel"
+            >
+              <StudioPanelIntro
+                badges={[
+                  `${menu.categories.length} kategori`,
+                  `${totalItemCount} ürün`,
+                  missingImageCount > 0 ? `${missingImageCount} görsel eksik` : "Görseller hazır",
+                ]}
+                description="Menü bilgilerini, işletme profilini ve ürünlerini tek akışta düzenle. Değişikliklerin otomatik kaydedilir."
+                kicker="İçerik çalışma alanı"
+                title="Menünü düzenle"
+              />
+              <StudioSectionNav label="İçerik bölümleri" sections={contentSectionLinks} />
+
+              <section className="form-section" id="studio-content-basics">
                 <div className="section-heading"><div><span>İşletme</span><h2>Menü başlığı</h2></div></div>
                 <label className="field-label">İşletme adı<input value={menu.restaurantName} onChange={(event) => setMenu({ ...menu, restaurantName: event.target.value })} /></label>
                 <label className="field-label">Kısa açıklama<input value={menu.subtitle} onChange={(event) => setMenu({ ...menu, subtitle: event.target.value })} /></label>
               </section>
 
-              <section className="form-section business-profile-section">
+              <section className="form-section business-profile-section" id="studio-content-business">
                 <div className="section-heading">
                   <div><span>İşletme profili</span><h2>Logo, iletişim ve saatler</h2></div>
                   <div className="business-profile-status">İsteğe bağlı</div>
@@ -1736,7 +1779,7 @@ export function MenuStudio({
                 </div>
               </section>
 
-              <section className="form-section translation-section">
+              <section className="form-section translation-section" id="studio-content-language">
                 <div className="section-heading">
                   <div><span>Dil desteği</span><h2>İngilizce menü</h2></div>
                   <div className={`translation-status ${englishTranslationCurrent ? "ready" : hasEnglishTranslation ? "stale" : "empty"}`}>
@@ -1785,7 +1828,7 @@ export function MenuStudio({
                 </div>
               </section>
 
-              <section className="form-section categories-section">
+              <section className="form-section categories-section" id="studio-content-products">
                 <div className="section-heading">
                   <div><span>İçerik</span><h2>Kategoriler ve ürünler</h2></div>
                   <div className="item-count">{totalItemCount} ürün</div>
@@ -1988,8 +2031,22 @@ export function MenuStudio({
               </section>
             </div>
           ) : (
-            <div className="editor-content design-content">
-              <section className="form-section ai-theme-designer-section">
+            <div
+              aria-labelledby="studio-tab-design"
+              className="editor-content design-content"
+              id="studio-panel-design"
+              ref={editorScrollRef}
+              role="tabpanel"
+            >
+              <StudioPanelIntro
+                badges={[currentStyleName, currentLayoutName, `${themeCreditBalance ?? "—"} AI kredisi`]}
+                description="Hazır bir stille başla veya AI asistanından markana uygun görünüm oluşturmasını iste; tüm değişiklikleri anında karşılaştır."
+                kicker="Tasarım çalışma alanı"
+                title="Görünümünü oluştur"
+              />
+              <StudioSectionNav label="Tasarım bölümleri" sections={designSectionLinks} />
+
+              <section className="form-section ai-theme-designer-section" id="studio-design-ai">
                 <div className="ai-theme-designer-heading">
                   <div className="ai-theme-designer-icon"><Sparkles size={19} /></div>
                   <div><span>AI tasarım asistanı</span><h2>Markana özel görünüm</h2></div>
@@ -2062,7 +2119,7 @@ export function MenuStudio({
                 )}
               </section>
 
-              <section className="form-section theme-preset-section">
+              <section className="form-section theme-preset-section" id="studio-design-presets">
                 <div className="section-heading"><div><span>Hızlı başlangıç</span><h2>Hazır stiller</h2></div></div>
                 <p className="theme-section-description">Renk, tipografi ve görünüm ayarlarını tek seçimle uygula; ardından istediğin ayrıntıyı değiştirebilirsin.</p>
                 <div className="theme-grid">
@@ -2093,7 +2150,7 @@ export function MenuStudio({
                 </div>
               </section>
 
-              <section className="form-section">
+              <section className="form-section" id="studio-design-colors">
                 <div className="section-heading"><div><span>Marka kimliği</span><h2>Renkler</h2></div>{theme.stylePreset === "custom" && <div className="theme-custom-badge">Özel</div>}</div>
                 <div className="theme-color-grid">
                   {themeColorOptions.map((color) => (
@@ -2113,7 +2170,7 @@ export function MenuStudio({
                 </div>
               </section>
 
-              <section className="form-section">
+              <section className="form-section" id="studio-design-type">
                 <div className="section-heading"><div><span>Tipografi</span><h2>Yazı karakteri</h2></div></div>
                 <div className="font-grid">
                   {fontOptions.map((font) => (
@@ -2124,7 +2181,7 @@ export function MenuStudio({
                 </div>
               </section>
 
-              <section className="form-section">
+              <section className="form-section" id="studio-design-layout">
                 <div className="section-heading"><div><span>Düzen</span><h2>Ürün görünümü</h2></div></div>
                 <div className="layout-grid">
                   <button aria-pressed={theme.layout === "cards"} className={theme.layout === "cards" ? "active" : ""} onClick={() => updateThemeOption("layout", "cards")} type="button"><LayoutGrid size={22} /><span><strong>Kartlar</strong><small>Rahat ve dengeli</small></span></button>
@@ -2135,7 +2192,7 @@ export function MenuStudio({
                 <label className="toggle-row"><span><strong>Ürün açıklamaları</strong><small>Menüde açıklamaları göster</small></span><input type="checkbox" checked={theme.showDescriptions} onChange={(event) => updateThemeOption("showDescriptions", event.target.checked)} /><i /></label>
               </section>
 
-              <section className="form-section advanced-theme-section">
+              <section className="form-section advanced-theme-section" id="studio-design-advanced">
                 <div className="section-heading"><div><span>İnce ayar</span><h2>Gelişmiş görünüm</h2></div><Sparkles size={17} /></div>
                 <p className="theme-section-description">Menünün karakterini değiştiren ayrıntıları canlı önizlemede karşılaştır.</p>
                 <div className="theme-choice-list">
@@ -2152,14 +2209,7 @@ export function MenuStudio({
           )}
         </aside>
 
-        <section className="preview-stage">
-          <div className="preview-toolbar"><span><Smartphone size={16} /> Canlı önizleme</span><div><i /> 390 × 844</div></div>
-          <div className="phone-frame">
-            <div className="phone-speaker" />
-            <div className="phone-screen"><MenuPreview menu={menu} theme={theme} framed /></div>
-          </div>
-          <p className="preview-hint">Değişikliklerin anında önizlemeye yansır.</p>
-        </section>
+        <StudioPreviewStage menu={menu} theme={theme} />
       </div>
 
       {publishOpen && (
@@ -2186,25 +2236,8 @@ export function MenuStudio({
       )}
 
       {mobilePreviewOpen && (
-        <div className="modal-backdrop preview-modal-backdrop" role="presentation" onMouseDown={() => setMobilePreviewOpen(false)}>
-          <section className="mobile-preview-modal" role="dialog" aria-modal="true" aria-label="Mobil menü önizlemesi" onMouseDown={(event) => event.stopPropagation()}>
-            <button className="modal-close" onClick={() => setMobilePreviewOpen(false)} aria-label="Önizlemeyi kapat"><X size={19} /></button>
-            <div className="phone-frame">
-              <div className="phone-speaker" />
-              <div className="phone-screen"><MenuPreview menu={menu} theme={theme} framed /></div>
-            </div>
-          </section>
-        </div>
+        <StudioPreviewDialog menu={menu} onClose={() => setMobilePreviewOpen(false)} theme={theme} />
       )}
     </main>
-  );
-}
-
-function Brand({ compact = false }: { compact?: boolean }) {
-  return (
-    <div className={`brand ${compact ? "compact" : ""}`}>
-      <span className="brand-mark"><QrCode size={compact ? 17 : 20} /></span>
-      <strong>easy<span>qr</span></strong>
-    </div>
   );
 }
