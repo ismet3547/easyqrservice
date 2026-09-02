@@ -55,6 +55,9 @@ db.exec(`
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     menu_id TEXT NOT NULL,
     viewed_at TEXT NOT NULL,
+    source TEXT NOT NULL DEFAULT 'unknown',
+    device_type TEXT NOT NULL DEFAULT 'unknown',
+    language TEXT NOT NULL DEFAULT 'unknown',
     FOREIGN KEY (menu_id) REFERENCES menus(id) ON DELETE CASCADE
   );
 
@@ -76,3 +79,19 @@ db.exec(`
     ON ai_cache(operation, last_accessed_at DESC);
   CREATE INDEX IF NOT EXISTS ai_cache_expires_idx ON ai_cache(expires_at);
 `);
+
+type DatabaseColumn = { name: string };
+const menuViewColumns = new Set(
+  (db.prepare("PRAGMA table_info(menu_views)").all() as DatabaseColumn[])
+    .map((column) => column.name),
+);
+
+if (!menuViewColumns.has("source")) {
+  db.exec("ALTER TABLE menu_views ADD COLUMN source TEXT NOT NULL DEFAULT 'unknown'");
+}
+if (!menuViewColumns.has("device_type")) {
+  db.exec("ALTER TABLE menu_views ADD COLUMN device_type TEXT NOT NULL DEFAULT 'unknown'");
+}
+if (!menuViewColumns.has("language")) {
+  db.exec("ALTER TABLE menu_views ADD COLUMN language TEXT NOT NULL DEFAULT 'unknown'");
+}

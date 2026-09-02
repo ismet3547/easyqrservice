@@ -36,6 +36,9 @@ Restoran ve kafelerin mevcut PDF veya görsel menülerini yapay zekâ ile okuyup
 - Menülerin SQLite veritabanına otomatik kaydı
 - Dashboard’dan menü açma, bağlantı kopyalama ve silme
 - Günlük QR menü açılışlarını gösteren 7, 14 ve 30 günlük analitik ekranı
+- QR kod, doğrudan bağlantı ve sosyal yönlendirmeleri ayıran trafik kaynağı analizi
+- Mobil, tablet ve masaüstü cihazlarla Türkçe/İngilizce menü kullanım dağılımları
+- Ham IP veya tarayıcı bilgisi saklamayan ve bilinen botları saymayan gizlilik odaklı ölçüm
 - Menü bazlı görüntülenme sıralaması ve mobil dashboard navigasyonu
 - QR kod, bağlantı kopyalama, paylaşma ve SVG indirme
 - Yayınlanan menüler için masa kartı, sticker ve poster şablonlu QR Baskı Merkezi
@@ -89,7 +92,7 @@ npm start          # üretim sunucusu
 - `app/dashboard` ve `components/Dashboard.tsx`: korumalı işletme paneli
 - `app/dashboard/menus` ve `components/MenusDashboard.tsx`: menü arama, filtreleme ve yönetim sayfası
 - `app/dashboard/menus/[id]/qr` ve `components/QrCenter.tsx`: QR indirme, paylaşma ve baskı şablonları
-- `app/dashboard/analytics`, `components/AnalyticsDashboard.tsx` ve `lib/analytics.ts`: günlük açılış trendi ve menü performansı
+- `app/dashboard/analytics`, `components/AnalyticsDashboard.tsx` ve `lib/analytics.ts`: günlük açılış trendi, trafik kaynağı, cihaz, dil ve menü performansı
 - `app/dashboard/settings` ve `components/SettingsDashboard.tsx`: profil ve hesap güvenliği ayarları
 - `app/api/menus/*`: menü oluşturma, okuma, güncelleme, yayınlama ve silme
 - `app/m/[slug]`: herkese açık, kalıcı müşteri menüsü
@@ -100,6 +103,7 @@ npm start          # üretim sunucusu
 - `app/giris` ve `app/kayit`: kullanıcı erişim ekranları
 - `lib/auth.ts` ve `lib/db.ts`: oturum ve SQLite altyapısı
 - `lib/ai-cache.ts`: süreli, boyut kontrollü ve sürümlü AI sonuç önbelleği
+- `lib/menu-tracking.ts`: kişisel veri saklamadan kaynak, cihaz, dil ve bot sınıflandırması
 - `lib/menu.ts` ve `lib/menus.ts`: menü veri modeli ve kalıcı menü işlemleri
 - `components/MenuPreview.tsx`: iki dilli müşteri menüsü, güvenli iletişim bağlantıları ve canlı çalışma saati hesabı
 - `app/globals.css`: responsive tasarım sistemi
@@ -111,7 +115,7 @@ Kullanıcılar, oturumlar, taslaklar ve yayınlanan menüler yerel SQLite verita
 1. Üretim ortamı için PostgreSQL ile işletme, menü, kategori ve ürün tabloları
 2. E-posta doğrulama, şifre sıfırlama ve çoklu işletme desteği
 3. İngilizce dışındaki ek hedef diller ve işletmeye özel dil seçimi
-4. Trafik kaynağı, cihaz türü ve anonim tekil ziyaretçi analitiği
+4. Anonim tekil ziyaretçi ve kampanya dönüşüm analitiği
 5. Ekip rolleri, çoklu şube ve abonelik planları
 
 ## Güvenlik
@@ -131,5 +135,6 @@ Kullanıcılar, oturumlar, taslaklar ve yayınlanan menüler yerel SQLite verita
 - Gizli ürünler herkese açık müşteri bileşenine gönderilmeden önce sunucuda filtrelenir.
 - Alerjenler AI tarafından tahmin edilmez; işletme tarafından doğrulanarak girilir ve müşteri menüsünde çapraz bulaşma uyarısı gösterilir.
 - Menü araması ve filtreler tamamen tarayıcıda çalışır; arama metni sunucuya gönderilmez. Alerjen filtresi yalnızca işletmenin beyan ettiği verileri esas alır.
+- Analitik kayıtlarında yalnızca sınıflandırılmış kaynak, cihaz türü ve gösterilen dil tutulur; ham IP, user-agent ve yönlendiren adres saklanmaz. Bilinen bot istekleri görüntülenmeye eklenmez.
 - Müşteri menüsündeki harita, WhatsApp ve Instagram bağlantıları yalnızca izin verilen HTTPS alan adlarına yönlendirilir; çalışma saatleri seçilen saat diliminde tarayıcıda hesaplanır.
 - Üretimde dağıtık rate limiting, PostgreSQL, e-posta doğrulama, kalıcı dosya politikası ve kötü amaçlı dosya taraması eklenmelidir.

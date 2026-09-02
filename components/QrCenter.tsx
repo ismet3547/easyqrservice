@@ -25,6 +25,7 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { DashboardMobileNav } from "@/components/DashboardMobileNav";
 import { DashboardMobileHeader, DashboardSidebar } from "@/components/DashboardSidebar";
 import type { SessionUser } from "@/lib/auth";
+import { buildMenuTrafficUrl } from "@/lib/menu-tracking";
 import type { StoredMenu } from "@/lib/menus";
 
 type PrintTemplate = "poster" | "sticker" | "table";
@@ -100,21 +101,23 @@ async function copyText(value: string) {
 }
 
 function QrArtwork({
+  displayUrl,
   logo,
   menuName,
-  publicUrl,
+  qrUrl,
   source = false,
   subtitle,
   template,
 }: {
+  displayUrl: string;
   logo: string;
   menuName: string;
-  publicUrl: string;
+  qrUrl: string;
   source?: boolean;
   subtitle: string;
   template: PrintTemplate;
 }) {
-  const compactUrl = publicUrl.replace(/^https?:\/\//, "").replace(/\/$/, "");
+  const compactUrl = displayUrl.replace(/^https?:\/\//, "").replace(/\/$/, "");
   return (
     <article className={`qr-artwork ${template}`}>
       <div className="qr-artwork-brand">
@@ -130,7 +133,7 @@ function QrArtwork({
       <h2>{menuName}</h2>
       {subtitle && <p>{subtitle}</p>}
       <div className="qr-artwork-code" data-qr-source={source ? "true" : undefined}>
-        {publicUrl ? (
+        {qrUrl ? (
           <QRCodeSVG
             bgColor="#ffffff"
             fgColor="#20251f"
@@ -138,7 +141,7 @@ function QrArtwork({
             marginSize={2}
             size={232}
             title={`${menuName} dijital menü QR kodu`}
-            value={publicUrl}
+            value={qrUrl}
           />
         ) : (
           <div className="qr-code-placeholder" />
@@ -154,15 +157,17 @@ function QrArtwork({
 }
 
 function PrintSheet({
+  displayUrl,
   logo,
   menuName,
-  publicUrl,
+  qrUrl,
   subtitle,
   template,
 }: {
+  displayUrl: string;
   logo: string;
   menuName: string;
-  publicUrl: string;
+  qrUrl: string;
   subtitle: string;
   template: PrintTemplate;
 }) {
@@ -172,9 +177,10 @@ function PrintSheet({
       {Array.from({ length: copies }, (_, index) => (
         <QrArtwork
           key={index}
+          displayUrl={displayUrl}
           logo={logo}
           menuName={menuName}
-          publicUrl={publicUrl}
+          qrUrl={qrUrl}
           subtitle={subtitle}
           template={template}
         />
@@ -203,6 +209,7 @@ export function QrCenter({
   const logo = storedMenu.menu.businessProfile?.logo || "";
   const artworkStyle = { "--qr-accent": storedMenu.theme.accent } as CSSProperties;
   const selectedTemplate = templateOptions.find((option) => option.id === template)!;
+  const qrUrl = buildMenuTrafficUrl(publicUrl, "qr");
   const isLocalPreview = /^https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(?::|\/)/i.test(publicUrl);
 
   useEffect(() => {
@@ -447,9 +454,10 @@ export function QrCenter({
               </div>
               <div className={`qr-preview-stage ${template}`}>
                 <QrArtwork
+                  displayUrl={publicUrl}
                   logo={logo}
                   menuName={storedMenu.name}
-                  publicUrl={publicUrl}
+                  qrUrl={qrUrl}
                   source
                   subtitle={storedMenu.menu.subtitle}
                   template={template}
@@ -462,9 +470,10 @@ export function QrCenter({
       </section>
 
       <PrintSheet
+        displayUrl={publicUrl}
         logo={logo}
         menuName={storedMenu.name}
-        publicUrl={publicUrl}
+        qrUrl={qrUrl}
         subtitle={storedMenu.menu.subtitle}
         template={template}
       />
