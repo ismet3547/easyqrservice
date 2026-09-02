@@ -1,6 +1,6 @@
 "use client";
 
-import { QrCode } from "lucide-react";
+import { QrCode, Search, ShieldAlert, X } from "lucide-react";
 import { useEffect, useState, type CSSProperties } from "react";
 import {
   allergenLabels,
@@ -9,6 +9,10 @@ import {
   dietaryTagLabelsEn,
   getVisibleMenu,
   hasEnglishMenuTranslation,
+  menuAllergens,
+  menuDietaryTags,
+  type MenuAllergen,
+  type MenuDietaryTag,
   type MenuLanguage,
   type PublishedMenu,
 } from "@/lib/menu";
@@ -47,6 +51,17 @@ const interfaceText = {
     enjoy: "Afiyet olsun",
     vatIncluded: "Fiyatlara KDV dahildir",
     language: "Menü dili",
+    searchLabel: "Menüde ara",
+    searchPlaceholder: "Ürün, kategori veya içerik ara",
+    clearSearch: "Aramayı temizle",
+    filters: "Menü filtreleri",
+    hideAllergens: "Alerjenleri gizle",
+    allergenSelection: "İçeren ürünleri gizle",
+    allergenFilterHint: "Yalnızca işletmenin işaretlediği alerjen bilgilerine göre filtrelenir.",
+    clearFilters: "Temizle",
+    noSearchResults: "Eşleşen ürün bulunamadı",
+    noSearchResultsDescription: "Arama kelimesini veya seçtiğin filtreleri değiştirmeyi dene.",
+    resetSearch: "Arama ve filtreleri temizle",
   },
   en: {
     welcome: "Welcome",
@@ -70,11 +85,32 @@ const interfaceText = {
     enjoy: "Enjoy your meal",
     vatIncluded: "Prices include VAT",
     language: "Menu language",
+    searchLabel: "Search this menu",
+    searchPlaceholder: "Search items, categories or ingredients",
+    clearSearch: "Clear search",
+    filters: "Menu filters",
+    hideAllergens: "Hide allergens",
+    allergenSelection: "Hide items containing",
+    allergenFilterHint: "Filtering uses only the allergen information declared by the venue.",
+    clearFilters: "Clear",
+    noSearchResults: "No matching items found",
+    noSearchResultsDescription: "Try changing your search or selected filters.",
+    resetSearch: "Clear search and filters",
   },
 } as const;
 
 function localizedText(source: string, translated: string | undefined, language: MenuLanguage) {
   return language === "en" && typeof translated === "string" ? translated : source;
+}
+
+function normalizeSearchText(value: string) {
+  return value
+    .toLocaleLowerCase("tr-TR")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/ı/g, "i")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
 }
 
 export function PublicMenu({ menu, theme, initialLanguage = "tr" }: PublicMenuProps) {
@@ -97,6 +133,9 @@ export function MenuPreview({ menu, theme, framed = false, initialLanguage = "tr
   const [language, setLanguage] = useState<MenuLanguage>(
     initialLanguage === "en" && canUseEnglish ? "en" : "tr",
   );
+  const [searchQuery, setSearchQuery] = useState("");
+  const [dietaryFilters, setDietaryFilters] = useState<MenuDietaryTag[]>([]);
+  const [excludedAllergens, setExcludedAllergens] = useState<MenuAllergen[]>([]);
 
   useEffect(() => {
     if (framed || !canUseEnglish) return;
@@ -127,10 +166,105 @@ export function MenuPreview({ menu, theme, framed = false, initialLanguage = "tr
   );
   const dietaryLabels = activeLanguage === "en" ? dietaryTagLabelsEn : dietaryTagLabels;
   const currentAllergenLabels = activeLanguage === "en" ? allergenLabelsEn : allergenLabels;
+  const normalizedQuery = normalizeSearchText(searchQuery);
+  const queryTokens = normalizedQuery ? normalizedQuery.split(" ") : [];
+  const totalItemCount = visibleCategories.reduce(
+    (sum, category) => sum + category.items.length,
+    0,
+  );
+  const availableDietaryTags = menuDietaryTags.filter((tag) =>
+    visibleCategories.some((category) =>
+      category.items.some((item) => item.dietaryTags?.includes(tag)),
+    ),
+  );
+  const availableAllergens = menuAllergens.filter((allergen) =>
+    visibleCategories.some((category) =>
+      category.items.some((item) => item.allergens?.includes(allergen)),
+    ),
+  );
+  const filteredCategories = visibleCategories
+    .map((category) => {
+      const categoryName = localizedText(
+        category.name,
+        category.translations?.en?.name,
+        activeLanguage,
+      );
+      return {
+        ...category,
+        items: category.items.filter((item) => {
+          const itemTranslation = item.translations?.en;
+          const searchableText = normalizeSearchText([
+            category.name,
+            category.translations?.en?.name || "",
+            item.name,
+            itemTranslation?.name || "",
+            item.description,
+            itemTranslation?.description || "",
+            item.badge,
+            itemTranslation?.badge || "",
+            item.price,
+            item.originalPrice || "",
+            item.isCampaign ? copy.campaign : "",
+            item.availability === "sold-out" ? copy.soldOut : "",
+            ...(item.dietaryTags || []).flatMap((tag) => [
+              dietaryTagLabels[tag],
+              dietaryTagLabelsEn[tag],
+            ]),
+            ...(item.allergens || []).flatMap((allergen) => [
+              allergenLabels[allergen],
+              allergenLabelsEn[allergen],
+            ]),
+          ].join(" "));
+          const matchesQuery = queryTokens.every((token) => searchableText.includes(token));
+          const matchesDietaryFilters = dietaryFilters.every((tag) =>
+            item.dietaryTags?.includes(tag),
+          );
+          const containsExcludedAllergen = (item.allergens || []).some((allergen) =>
+            excludedAllergens.includes(allergen),
+          );
+          return matchesQuery && matchesDietaryFilters && !containsExcludedAllergen;
+        }),
+        localizedName: categoryName,
+      };
+    })
+    .filter((category) => category.items.length > 0);
+  const filteredItemCount = filteredCategories.reduce(
+    (sum, category) => sum + category.items.length,
+    0,
+  );
+  const hasActiveDiscovery = Boolean(
+    normalizedQuery || dietaryFilters.length || excludedAllergens.length,
+  );
 
   const changeLanguage = (nextLanguage: MenuLanguage) => {
     setLanguage(nextLanguage);
     if (!framed) window.localStorage.setItem(languagePreferenceKey, nextLanguage);
+  };
+
+  const toggleDietaryFilter = (tag: MenuDietaryTag) => {
+    setDietaryFilters((current) => {
+      if (current.includes(tag)) return current.filter((currentTag) => currentTag !== tag);
+      const withoutConflictingDiet = tag === "vegan"
+        ? current.filter((currentTag) => currentTag !== "vegetarian")
+        : tag === "vegetarian"
+          ? current.filter((currentTag) => currentTag !== "vegan")
+          : current;
+      return [...withoutConflictingDiet, tag];
+    });
+  };
+
+  const toggleExcludedAllergen = (allergen: MenuAllergen) => {
+    setExcludedAllergens((current) =>
+      current.includes(allergen)
+        ? current.filter((currentAllergen) => currentAllergen !== allergen)
+        : [...current, allergen],
+    );
+  };
+
+  const resetDiscovery = () => {
+    setSearchQuery("");
+    setDietaryFilters([]);
+    setExcludedAllergens([]);
   };
 
   return (
@@ -166,33 +300,105 @@ export function MenuPreview({ menu, theme, framed = false, initialLanguage = "tr
       </header>
 
       {visibleCategories.length > 0 && (
+        <section className="menu-discovery" aria-label={copy.filters}>
+          <div className="menu-search-box">
+            <Search aria-hidden="true" size={16} />
+            <input
+              aria-label={copy.searchLabel}
+              autoComplete="off"
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder={copy.searchPlaceholder}
+              spellCheck="false"
+              type="search"
+              value={searchQuery}
+            />
+            {searchQuery && (
+              <button
+                aria-label={copy.clearSearch}
+                className="menu-search-clear"
+                onClick={() => setSearchQuery("")}
+                type="button"
+              ><X size={14} /></button>
+            )}
+          </div>
+
+          {(availableDietaryTags.length > 0 || availableAllergens.length > 0) && (
+            <div className="menu-filter-tools">
+              {availableDietaryTags.map((tag) => (
+                <button
+                  aria-pressed={dietaryFilters.includes(tag)}
+                  className={`menu-filter-chip tag-${tag} ${dietaryFilters.includes(tag) ? "active" : ""}`}
+                  key={tag}
+                  onClick={() => toggleDietaryFilter(tag)}
+                  type="button"
+                >{dietaryLabels[tag]}</button>
+              ))}
+
+              {availableAllergens.length > 0 && (
+                <details className="allergen-filter">
+                  <summary>
+                    <ShieldAlert aria-hidden="true" size={14} />
+                    <span>{copy.hideAllergens}</span>
+                    {excludedAllergens.length > 0 && <b>{excludedAllergens.length}</b>}
+                  </summary>
+                  <div className="allergen-filter-panel">
+                    <div className="allergen-filter-heading">
+                      <strong>{copy.allergenSelection}</strong>
+                      <small>{copy.allergenFilterHint}</small>
+                    </div>
+                    <div className="allergen-filter-grid" role="group" aria-label={copy.hideAllergens}>
+                      {availableAllergens.map((allergen) => (
+                        <label key={allergen}>
+                          <input
+                            checked={excludedAllergens.includes(allergen)}
+                            onChange={() => toggleExcludedAllergen(allergen)}
+                            type="checkbox"
+                          />
+                          <span>{currentAllergenLabels[allergen]}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </details>
+              )}
+            </div>
+          )}
+
+          <div className="menu-filter-summary" aria-live="polite">
+            <span>
+              {activeLanguage === "en"
+                ? `${filteredItemCount} of ${totalItemCount} ${totalItemCount === 1 ? copy.product : copy.products} shown`
+                : `${totalItemCount} üründen ${filteredItemCount} tanesi gösteriliyor`}
+            </span>
+            {hasActiveDiscovery && (
+              <button onClick={resetDiscovery} type="button">{copy.clearFilters}</button>
+            )}
+          </div>
+        </section>
+      )}
+
+      {filteredCategories.length > 0 && (
         <nav className="menu-categories" aria-label={copy.categoryNavigation}>
-          {visibleCategories.map((category, index) => {
-            const categoryName = localizedText(
-              category.name,
-              category.translations?.en?.name,
-              activeLanguage,
-            );
-            return (
-              <a key={category.id} className={index === 0 ? "active" : ""} href={`#${category.id}`}>{categoryName}</a>
-            );
-          })}
+          {filteredCategories.map((category, index) => (
+            <a key={category.id} className={index === 0 ? "active" : ""} href={`#${category.id}`}>{category.localizedName}</a>
+          ))}
         </nav>
       )}
 
       <div className="menu-sections">
-        {visibleCategories.length > 0 ? visibleCategories.map((category) => {
-          const categoryName = localizedText(
-            category.name,
-            category.translations?.en?.name,
-            activeLanguage,
-          );
+        {visibleCategories.length === 0 ? (
+          <div className="menu-empty-state">
+            <span>{copy.updating}</span>
+            <h2>{copy.noProducts}</h2>
+            <p>{copy.noProductsDescription}</p>
+          </div>
+        ) : filteredCategories.length > 0 ? filteredCategories.map((category) => {
           const productLabel = activeLanguage === "en" && category.items.length === 1
             ? copy.product
             : copy.products;
           return (
             <section id={category.id} key={category.id}>
-              <div className="menu-section-heading"><h2>{categoryName}</h2><span>{category.items.length} {productLabel}</span></div>
+              <div className="menu-section-heading"><h2>{category.localizedName}</h2><span>{category.items.length} {productLabel}</span></div>
               <div className="menu-items">
                 {category.items.map((item) => {
                   const soldOut = item.availability === "sold-out";
@@ -243,10 +449,13 @@ export function MenuPreview({ menu, theme, framed = false, initialLanguage = "tr
             </section>
           );
         }) : (
-          <div className="menu-empty-state">
-            <span>{copy.updating}</span>
-            <h2>{copy.noProducts}</h2>
-            <p>{copy.noProductsDescription}</p>
+          <div className="menu-empty-state menu-search-empty">
+            <span>{copy.searchLabel}</span>
+            <h2>{copy.noSearchResults}</h2>
+            <p>{copy.noSearchResultsDescription}</p>
+            <button className="menu-empty-reset" onClick={resetDiscovery} type="button">
+              {copy.resetSearch}
+            </button>
           </div>
         )}
       </div>

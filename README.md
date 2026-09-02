@@ -22,6 +22,8 @@ Restoran ve kafelerin mevcut PDF veya görsel menülerini yapay zekâ ile okuyup
 - Menü başlığı, kategori, ürün, açıklama ve etiketler için tek tuşla İngilizce çeviri
 - QR menüde tarayıcı diline göre otomatik Türkçe/İngilizce açılış ve kalıcı TR/EN seçimi
 - Türkçe içerik değiştiğinde eski çeviriyi işaretleyen çeviri güncellik kontrolü
+- Ürün, açıklama, kategori, fiyat, etiket ve alerjenlerde Türkçe karakter duyarsız menü araması
+- Vegan, vejetaryen, glutensiz ve acılı filtreleri ile çoklu alerjen dışlama
 - Renk, tipografi, dört farklı ürün düzeni ve açıklama görünürlüğü ayarları
 - Anlık telefon önizlemesi
 - Tarayıcıda otomatik taslak kaydı
@@ -119,4 +121,5 @@ Kullanıcılar, oturumlar, taslaklar ve yayınlanan menüler yerel SQLite verita
 - AI çıktısı, yayınlamadan önce kullanıcı tarafından düzenlenebilir ve kontrol edilebilir.
 - Gizli ürünler herkese açık müşteri bileşenine gönderilmeden önce sunucuda filtrelenir.
 - Alerjenler AI tarafından tahmin edilmez; işletme tarafından doğrulanarak girilir ve müşteri menüsünde çapraz bulaşma uyarısı gösterilir.
+- Menü araması ve filtreler tamamen tarayıcıda çalışır; arama metni sunucuya gönderilmez. Alerjen filtresi yalnızca işletmenin beyan ettiği verileri esas alır.
 - Üretimde dağıtık rate limiting, PostgreSQL, e-posta doğrulama, kalıcı dosya politikası ve kötü amaçlı dosya taraması eklenmelidir.

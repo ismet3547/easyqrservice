@@ -2186,6 +2186,217 @@ a {
   border-radius: 50%;
 }
 
+.menu-discovery {
+  display: grid;
+  padding: 13px 15px 11px;
+  gap: 10px;
+  color: var(--menu-text);
+  background: color-mix(in srgb, var(--menu-bg), var(--menu-surface) 28%);
+  border-top: 1px solid color-mix(in srgb, var(--menu-text), transparent 91%);
+  font-family: Inter, sans-serif;
+}
+
+.menu-search-box {
+  display: grid;
+  min-height: 39px;
+  padding: 0 8px 0 12px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  color: color-mix(in srgb, var(--menu-text), transparent 42%);
+  background: color-mix(in srgb, var(--menu-surface), white 3%);
+  border: 1px solid color-mix(in srgb, var(--menu-text), transparent 84%);
+  border-radius: 11px;
+  box-shadow: 0 5px 16px color-mix(in srgb, var(--menu-text), transparent 94%);
+  transition: 150ms ease;
+}
+
+.menu-search-box:focus-within {
+  color: var(--menu-accent);
+  border-color: color-mix(in srgb, var(--menu-accent), transparent 35%);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--menu-accent), transparent 87%);
+}
+
+.menu-search-box input {
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  color: var(--menu-text);
+  background: transparent;
+  border: 0;
+  outline: 0;
+  font: inherit;
+  font-size: 10.5px;
+}
+
+.menu-search-box input::placeholder {
+  color: color-mix(in srgb, var(--menu-text), transparent 54%);
+}
+
+.menu-search-box input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.menu-search-clear {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  place-items: center;
+  color: color-mix(in srgb, var(--menu-text), transparent 35%);
+  background: color-mix(in srgb, var(--menu-text), transparent 92%);
+  border-radius: 50%;
+}
+
+.menu-filter-tools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.menu-filter-chip,
+.allergen-filter summary {
+  display: inline-flex;
+  min-height: 29px;
+  padding: 0 9px;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  color: color-mix(in srgb, var(--menu-text), transparent 30%);
+  background: color-mix(in srgb, var(--menu-surface), transparent 2%);
+  border: 1px solid color-mix(in srgb, var(--menu-text), transparent 84%);
+  border-radius: 999px;
+  font-family: Inter, sans-serif;
+  font-size: 8.5px;
+  font-weight: 750;
+  line-height: 1;
+  cursor: pointer;
+  user-select: none;
+}
+
+.menu-filter-chip:hover,
+.allergen-filter summary:hover {
+  border-color: color-mix(in srgb, var(--menu-accent), transparent 35%);
+}
+
+.menu-filter-chip.active {
+  color: var(--menu-bg);
+  background: var(--menu-accent);
+  border-color: var(--menu-accent);
+  box-shadow: 0 4px 10px color-mix(in srgb, var(--menu-accent), transparent 73%);
+}
+
+.menu-filter-chip:focus-visible,
+.allergen-filter summary:focus-visible,
+.menu-search-clear:focus-visible,
+.menu-filter-summary button:focus-visible,
+.menu-empty-reset:focus-visible {
+  outline: 2px solid var(--menu-accent);
+  outline-offset: 2px;
+}
+
+.allergen-filter {
+  flex: 0 0 auto;
+}
+
+.allergen-filter[open] {
+  flex: 1 0 100%;
+}
+
+.allergen-filter summary {
+  width: max-content;
+  list-style: none;
+}
+
+.allergen-filter summary::-webkit-details-marker {
+  display: none;
+}
+
+.allergen-filter summary b {
+  display: grid;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  place-items: center;
+  color: var(--menu-bg);
+  background: var(--menu-accent);
+  border-radius: 999px;
+  font-size: 7px;
+}
+
+.allergen-filter-panel {
+  display: grid;
+  width: 100%;
+  margin-top: 8px;
+  padding: 12px;
+  gap: 11px;
+  background: color-mix(in srgb, var(--menu-surface), white 2%);
+  border: 1px solid color-mix(in srgb, var(--menu-text), transparent 86%);
+  border-radius: 11px;
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--menu-text), transparent 92%);
+}
+
+.allergen-filter-heading {
+  display: grid;
+  gap: 3px;
+}
+
+.allergen-filter-heading strong {
+  font-size: 10px;
+}
+
+.allergen-filter-heading small {
+  color: color-mix(in srgb, var(--menu-text), transparent 45%);
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+.allergen-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.allergen-filter-grid label {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+  color: color-mix(in srgb, var(--menu-text), transparent 22%);
+  font-size: 9px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.allergen-filter-grid input {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+  margin: 0;
+  accent-color: var(--menu-accent);
+}
+
+.menu-filter-summary {
+  display: flex;
+  min-height: 18px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: color-mix(in srgb, var(--menu-text), transparent 48%);
+  font-size: 8.5px;
+  line-height: 1.35;
+}
+
+.menu-filter-summary button {
+  padding: 2px 0;
+  flex: 0 0 auto;
+  color: var(--menu-accent);
+  background: transparent;
+  font: inherit;
+  font-weight: 800;
+}
+
 .menu-categories {
   position: sticky;
   z-index: 3;
@@ -2597,6 +2808,18 @@ a {
   line-height: 1.5;
 }
 
+.menu-empty-reset {
+  min-height: 31px;
+  margin-top: 5px;
+  padding: 0 12px;
+  color: var(--menu-bg);
+  background: var(--menu-accent);
+  border-radius: 8px;
+  font-family: Inter, sans-serif;
+  font-size: 9px;
+  font-weight: 800;
+}
+
 .menu-allergen-note {
   display: grid;
   margin: 0 16px 22px;
@@ -2672,6 +2895,23 @@ a {
 .public-menu-shell .menu-hero h1 { font-size: 40px; }
 .public-menu-shell .menu-hero > p { font-size: 12px; }
 .public-menu-shell .menu-meta { font-size: 9px; }
+.public-menu-shell .menu-discovery { padding: 17px 20px 14px; gap: 12px; }
+.public-menu-shell .menu-search-box { min-height: 46px; padding-right: 10px; padding-left: 14px; }
+.public-menu-shell .menu-search-box input { font-size: 13px; }
+.public-menu-shell .menu-search-clear { width: 30px; height: 30px; }
+.public-menu-shell .menu-filter-tools { gap: 7px; }
+.public-menu-shell .menu-filter-chip,
+.public-menu-shell .allergen-filter summary { min-height: 34px; padding: 0 11px; font-size: 10px; }
+.public-menu-shell .allergen-filter summary b { min-width: 19px; height: 19px; font-size: 8px; }
+.public-menu-shell .allergen-filter-panel { padding: 14px; }
+.public-menu-shell .allergen-filter-heading strong { font-size: 12px; }
+.public-menu-shell .allergen-filter-heading small { font-size: 9.5px; }
+.public-menu-shell .allergen-filter-grid label { font-size: 10.5px; }
+.public-menu-shell .menu-filter-summary { font-size: 10px; }
+.public-menu-shell .menu-empty-state span { font-size: 8px; }
+.public-menu-shell .menu-empty-state h2 { font-size: 22px; }
+.public-menu-shell .menu-empty-state p { font-size: 11px; }
+.public-menu-shell .menu-empty-reset { min-height: 38px; padding: 0 15px; font-size: 10.5px; }
 .public-menu-shell .menu-categories { padding: 12px 20px; }
 .public-menu-shell .menu-categories a { padding: 9px 15px; font-size: 10px; }
 .public-menu-shell .menu-sections { padding: 30px 22px 45px; gap: 36px; }
