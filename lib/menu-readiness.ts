@@ -11,6 +11,7 @@ export type MenuReadinessTarget = {
   categoryId?: string;
   field?:
     | "restaurant-name"
+    | "currency"
     | "subtitle"
     | "category-name"
     | "item-name"
@@ -124,6 +125,16 @@ export function getMenuReadiness(menu: MenuData): MenuReadinessReport {
       title: "Menü adı eksik",
       description: "Müşterilerin göreceği işletme veya menü adını yaz.",
       target: { section: "basics", field: "restaurant-name" },
+    });
+  }
+
+  if (!isFilled(menu.currency)) {
+    score -= 10;
+    blockers.push({
+      id: "currency",
+      title: "Para birimi eksik",
+      description: "Fiyatların yanında gösterilecek para birimi simgesini veya kodunu yaz.",
+      target: { section: "basics", field: "currency" },
     });
   }
 
