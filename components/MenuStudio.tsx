@@ -1,9 +1,12 @@
 "use client";
 
 import {
+  AlertTriangle,
   ArrowLeft,
+  ArrowRight,
   BadgePercent,
   Check,
+  CheckCircle2,
   ChevronDown,
   Clock3,
   Coins,
@@ -80,6 +83,10 @@ import {
   type PublishedMenu,
 } from "@/lib/menu";
 import { buildMenuTrafficUrl } from "@/lib/menu-tracking";
+import {
+  getMenuReadiness,
+  type MenuReadinessTarget,
+} from "@/lib/menu-readiness";
 import { aiCreditCosts } from "@/lib/ai-credit-config";
 import type { GeneratedThemeDesign } from "@/lib/theme-design";
 import { PublicMenu } from "@/components/MenuPreview";
@@ -402,6 +409,9 @@ export function MenuStudio({
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const editorScrollRef = useRef<HTMLDivElement>(null);
+  const autoSaveTimeoutRef = useRef<number | null>(null);
+  const autoSaveRequestRef = useRef<Promise<void> | null>(null);
+  const publishingRef = useRef(false);
   const themeColorFrameRef = useRef<number | null>(null);
   const pendingThemeColorRef = useRef<{ key: ThemeColorKey; value: string } | null>(null);
   const [screen, setScreen] = useState<"upload" | "studio">("upload");
@@ -418,7 +428,10 @@ export function MenuStudio({
   const [fileName, setFileName] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [publishReviewOpen, setPublishReviewOpen] = useState(false);
+  const [publishError, setPublishError] = useState("");
   const [publishOpen, setPublishOpen] = useState(false);
+  const [publishing, setPublishing] = useState(false);
   const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false);
   const [publishUrl, setPublishUrl] = useState("");
   const [copied, setCopied] = useState(false);
@@ -471,6 +484,7 @@ export function MenuStudio({
     englishCoverage.percentage === 100 &&
     menu.translations?.en?.sourceFingerprint === getMenuTranslationFingerprint(menu);
   const businessProfile = getMenuBusinessProfile(menu);
+  const publishReadiness = getMenuReadiness(menu);
   const themeCreditsInsufficient = themeCreditBalance !== null &&
     themeCreditBalance < aiCreditCosts.themeDesign;
   const changeEditorTab = (nextTab: StudioEditorTab) => {
@@ -637,18 +651,28 @@ export function MenuStudio({
     if (screen !== "studio" || !currentUser || !activeMenuId) return;
     setSaveStatus("saving");
     const timeout = window.setTimeout(async () => {
-      try {
-        const response = await fetch(`/api/menus/${activeMenuId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ menu, theme, status: activeMenuStatus }),
-        });
-        setSaveStatus(response.ok ? "saved" : "error");
-      } catch {
-        setSaveStatus("error");
-      }
+      autoSaveTimeoutRef.current = null;
+      const saveRequest = (async () => {
+        try {
+          const response = await fetch(`/api/menus/${activeMenuId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ menu, theme, status: activeMenuStatus }),
+          });
+          setSaveStatus(response.ok ? "saved" : "error");
+        } catch {
+          setSaveStatus("error");
+        }
+      })();
+      autoSaveRequestRef.current = saveRequest;
+      await saveRequest;
+      if (autoSaveRequestRef.current === saveRequest) autoSaveRequestRef.current = null;
     }, 650);
-    return () => window.clearTimeout(timeout);
+    autoSaveTimeoutRef.current = timeout;
+    return () => {
+      window.clearTimeout(timeout);
+      if (autoSaveTimeoutRef.current === timeout) autoSaveTimeoutRef.current = null;
+    };
   }, [activeMenuId, activeMenuStatus, currentUser, menu, screen, theme]);
 
   const persistNewMenu = async (newMenu: MenuData, newTheme: MenuTheme) => {
@@ -1366,8 +1390,55 @@ export function MenuStudio({
     }));
   };
 
+  const goToReadinessTarget = (target: MenuReadinessTarget) => {
+    setPublishReviewOpen(false);
+    setTab("content");
+    setContentSection(target.section);
+    setProductQuery("");
+    const categoryId = target.categoryId;
+    if (categoryId) {
+      setCategoryOpenState((current) => ({ ...current, [categoryId]: true }));
+    }
+    if (target.itemId) setExpandedItemId(target.itemId);
+
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        const elementId = target.itemId
+          ? `studio-item-${target.itemId}`
+          : target.categoryId
+            ? `studio-category-${target.categoryId}`
+            : `studio-content-${target.section}`;
+        const targetElement = document.getElementById(elementId);
+        targetElement?.scrollIntoView({ behavior: "smooth", block: "center" });
+
+        const fieldElement = target.field
+          ? targetElement?.querySelector<HTMLElement>(`[data-readiness-field="${target.field}"]`)
+          : null;
+        const focusElement = fieldElement?.matches("input, textarea, button")
+          ? fieldElement
+          : fieldElement?.querySelector<HTMLElement>("input:not(.sr-only), textarea, button");
+        focusElement?.focus({ preventScroll: true });
+      });
+    });
+  };
+
   const preparePublish = async () => {
+    if (publishingRef.current) return;
+    if (!publishReadiness.canPublish) {
+      setPublishReviewOpen(true);
+      return;
+    }
+
+    publishingRef.current = true;
+    setPublishError("");
+    setPublishing(true);
     try {
+      if (autoSaveTimeoutRef.current !== null) {
+        window.clearTimeout(autoSaveTimeoutRef.current);
+        autoSaveTimeoutRef.current = null;
+      }
+      await autoSaveRequestRef.current;
+
       let menuId = activeMenuId;
       let menuSlug = activeMenuSlug;
       if (!menuId) {
@@ -1387,11 +1458,17 @@ export function MenuStudio({
       setActiveMenuSlug(menuSlug);
       setSaveStatus("saved");
       setPublishUrl(`${window.location.origin}/m/${menuSlug}`);
+      setPublishReviewOpen(false);
       setPublishOpen(true);
       setCopied(false);
     } catch (publishError) {
-      setNotice(getErrorMessage(publishError));
+      const message = getErrorMessage(publishError);
+      setPublishError(message);
+      setNotice(message);
       setSaveStatus("error");
+    } finally {
+      publishingRef.current = false;
+      setPublishing(false);
     }
   };
 
@@ -1653,7 +1730,10 @@ export function MenuStudio({
         onBack={() => { void goToDashboard(); }}
         onLogout={() => { void logout(); }}
         onOpenPreview={() => setMobilePreviewOpen(true)}
-        onPublish={() => { void preparePublish(); }}
+        onPublish={() => {
+          setPublishError("");
+          setPublishReviewOpen(true);
+        }}
         saveStatus={saveStatus}
         userName={currentUser?.name}
       />
@@ -1682,8 +1762,8 @@ export function MenuStudio({
               {contentSection === "basics" && (
                 <section className="form-section studio-tool-panel" id="studio-content-basics">
                 <div className="section-heading"><div><span>İşletme</span><h2>Menü başlığı</h2></div></div>
-                <label className="field-label">İşletme adı<input value={menu.restaurantName} onChange={(event) => setMenu({ ...menu, restaurantName: event.target.value })} /></label>
-                <label className="field-label">Kısa açıklama<input value={menu.subtitle} onChange={(event) => setMenu({ ...menu, subtitle: event.target.value })} /></label>
+                <label className="field-label">İşletme adı<input data-readiness-field="restaurant-name" value={menu.restaurantName} onChange={(event) => setMenu({ ...menu, restaurantName: event.target.value })} /></label>
+                <label className="field-label">Kısa açıklama<input data-readiness-field="subtitle" value={menu.subtitle} onChange={(event) => setMenu({ ...menu, subtitle: event.target.value })} /></label>
                 </section>
               )}
 
@@ -1982,6 +2062,7 @@ export function MenuStudio({
                         <ChevronDown className="category-chevron" size={17} />
                         <input
                           aria-label="Kategori adı"
+                          data-readiness-field="category-name"
                           value={category.name}
                           onClick={(event) => event.stopPropagation()}
                           onChange={(event) => {
@@ -1996,6 +2077,7 @@ export function MenuStudio({
                         {items.map(({ item, itemIndex }) => (
                           <details
                             className={`item-editor availability-${item.availability || "available"}`}
+                            id={`studio-item-${item.id}`}
                             key={item.id}
                             onToggle={(event) => {
                               const isOpen = event.currentTarget.open;
@@ -2029,18 +2111,18 @@ export function MenuStudio({
                             </summary>
                             <div className="item-editor-body">
                             <div className="item-editor-top">
-                              <input aria-label="Ürün adı" className="item-name-input" value={item.name} onChange={(event) => updateItem(categoryIndex, itemIndex, "name", event.target.value)} />
-                              <div className="price-input"><input aria-label={item.isCampaign ? "Kampanyalı fiyat" : "Fiyat"} value={item.price} onChange={(event) => updateItem(categoryIndex, itemIndex, "price", event.target.value)} /><span>{menu.currency}</span></div>
+                              <input aria-label="Ürün adı" className="item-name-input" data-readiness-field="item-name" value={item.name} onChange={(event) => updateItem(categoryIndex, itemIndex, "name", event.target.value)} />
+                              <div className="price-input"><input aria-label={item.isCampaign ? "Kampanyalı fiyat" : "Fiyat"} data-readiness-field="item-price" value={item.price} onChange={(event) => updateItem(categoryIndex, itemIndex, "price", event.target.value)} /><span>{menu.currency}</span></div>
                               <button aria-label="Ürünü sil" onClick={() => removeItem(categoryIndex, itemIndex)}><Trash2 size={15} /></button>
                             </div>
-                            <textarea aria-label="Ürün açıklaması" rows={2} value={item.description} onChange={(event) => updateItem(categoryIndex, itemIndex, "description", event.target.value)} />
+                            <textarea aria-label="Ürün açıklaması" data-readiness-field="item-description" rows={2} value={item.description} onChange={(event) => updateItem(categoryIndex, itemIndex, "description", event.target.value)} />
                             <div className="item-image-editor">
                               <label className={item.image ? "has-image" : ""}>
                                 {item.image ? <img src={item.image} alt="" /> : <ImagePlus size={18} />}
                                 <span><strong>{item.image ? "Görseli değiştir" : "Ürün görseli ekle"}</strong><small>JPG, PNG veya WEBP · otomatik küçültülür</small></span>
                                 <input className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => { void updateItemImage(categoryIndex, itemIndex, event.target.files?.[0]); event.target.value = ""; }} />
                               </label>
-                              <div className="item-image-actions">
+                              <div className="item-image-actions" data-readiness-field="item-image">
                                 <button
                                   className="item-ai-image-button"
                                   disabled={generatingImages || Boolean(generatingItemId)}
@@ -2153,7 +2235,7 @@ export function MenuStudio({
                             {item.isCampaign && (
                               <div className="campaign-editor">
                                 <BadgePercent size={16} />
-                                <label><span>Eski fiyat</span><div className="price-input"><input aria-label="Kampanya öncesi fiyat" placeholder="475" value={item.originalPrice || ""} onChange={(event) => updateItem(categoryIndex, itemIndex, "originalPrice", event.target.value)} /><span>{menu.currency}</span></div></label>
+                                <label><span>Eski fiyat</span><div className="price-input"><input aria-label="Kampanya öncesi fiyat" data-readiness-field="campaign-price" placeholder="475" value={item.originalPrice || ""} onChange={(event) => updateItem(categoryIndex, itemIndex, "originalPrice", event.target.value)} /><span>{menu.currency}</span></div></label>
                                 <p>Menüde <del>{item.originalPrice || "475"}{menu.currency}</del> yerine <strong>{item.price || "400"}{menu.currency}</strong> gösterilir.</p>
                               </div>
                             )}
@@ -2369,6 +2451,143 @@ export function MenuStudio({
 
         <StudioPreviewStage menu={menu} theme={theme} />
       </div>
+
+      {publishReviewOpen && (
+        <div
+          className="modal-backdrop"
+          role="presentation"
+          onMouseDown={() => { if (!publishing) setPublishReviewOpen(false); }}
+        >
+          <section
+            className="publish-readiness-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="publish-readiness-title"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <button
+              className="modal-close"
+              disabled={publishing}
+              onClick={() => setPublishReviewOpen(false)}
+              aria-label="Pencereyi kapat"
+              type="button"
+            ><X size={19} /></button>
+
+            <div className="readiness-modal-heading">
+              <span className="modal-kicker">Yayın öncesi kontrol</span>
+              <h2 id="publish-readiness-title">QR menünü son kez kontrol et</h2>
+              <p>Zorunlu alanları ve müşteri deneyimini iyileştirecek önerileri tek yerde gör.</p>
+            </div>
+
+            <div className={`readiness-overview ${publishReadiness.canPublish ? "ready" : "blocked"}`}>
+              <div className="readiness-score" aria-label={`Menü kalite puanı ${publishReadiness.score}/100`}>
+                <strong>{publishReadiness.score}</strong>
+                <span>/100</span>
+              </div>
+              <div className="readiness-overview-copy">
+                <span>Menü kalite puanı</span>
+                <strong>{publishReadiness.statusLabel}</strong>
+                <small>
+                  {publishReadiness.canPublish
+                    ? `${publishReadiness.visibleItemCount} görünür ürün yayınlanmaya hazır.`
+                    : `${publishReadiness.blockers.length} zorunlu sorun düzeltilmeli.`}
+                </small>
+                <div className="readiness-meter" aria-hidden="true">
+                  <i style={{ width: `${publishReadiness.score}%` }} />
+                </div>
+              </div>
+            </div>
+
+            {publishReadiness.blockers.length > 0 && (
+              <div className="readiness-issue-section">
+                <div className="readiness-section-heading">
+                  <div><span>Zorunlu</span><strong>Yayından önce düzelt</strong></div>
+                  <small>{publishReadiness.blockers.length} sorun</small>
+                </div>
+                <div className="readiness-issue-list">
+                  {publishReadiness.blockers.map((issue) => (
+                    <article className="readiness-issue blocker" key={issue.id}>
+                      <span className="readiness-issue-icon"><AlertTriangle size={17} /></span>
+                      <span className="readiness-issue-copy">
+                        <strong>{issue.title}</strong>
+                        <small>{issue.description}</small>
+                      </span>
+                      <button onClick={() => goToReadinessTarget(issue.target)} type="button">
+                        Düzelt <ArrowRight size={14} />
+                      </button>
+                    </article>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {publishReadiness.recommendations.length > 0 ? (
+              <div className="readiness-issue-section recommendations">
+                <div className="readiness-section-heading">
+                  <div><span>İyileştirmeler</span><strong>Menünü güçlendir</strong></div>
+                  <small>Yayını engellemez</small>
+                </div>
+                <div className="readiness-issue-list">
+                  {publishReadiness.recommendations.map((issue) => (
+                    <article className="readiness-issue recommendation" key={issue.id}>
+                      <span className="readiness-issue-icon"><Sparkles size={16} /></span>
+                      <span className="readiness-issue-copy">
+                        <strong>{issue.title}</strong>
+                        <small>{issue.description}</small>
+                      </span>
+                      <button onClick={() => goToReadinessTarget(issue.target)} type="button">
+                        Aç <ArrowRight size={14} />
+                      </button>
+                    </article>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="readiness-all-clear">
+                <CheckCircle2 size={20} />
+                <div><strong>Tüm kontroller tamam</strong><small>Menün paylaşmaya hazır görünüyor.</small></div>
+              </div>
+            )}
+
+            {publishError && (
+              <div className="readiness-publish-error" role="alert">
+                <AlertTriangle size={17} />
+                <span><strong>Menü yayınlanamadı</strong><small>{publishError}</small></span>
+              </div>
+            )}
+
+            <div className="readiness-actions">
+              <button
+                className="secondary-button"
+                disabled={publishing}
+                onClick={() => setPublishReviewOpen(false)}
+                type="button"
+              >Düzenlemeye dön</button>
+              {publishReadiness.canPublish ? (
+                <button
+                  className="primary-button"
+                  disabled={publishing}
+                  onClick={() => { void preparePublish(); }}
+                  type="button"
+                >
+                  {publishing
+                    ? <><Loader2 className="auto-image-spinner" size={16} /> Yayınlanıyor…</>
+                    : <><QrCode size={16} /> {activeMenuStatus === "published" ? "Değişiklikleri yayınla" : "Şimdi yayınla"}</>}
+                </button>
+              ) : (
+                <button
+                  className="primary-button"
+                  onClick={() => {
+                    const firstBlocker = publishReadiness.blockers[0];
+                    if (firstBlocker) goToReadinessTarget(firstBlocker.target);
+                  }}
+                  type="button"
+                ><ArrowRight size={16} /> İlk sorunu düzelt</button>
+              )}
+            </div>
+          </section>
+        </div>
+      )}
 
       {publishOpen && (
         <div className="modal-backdrop" role="presentation" onMouseDown={() => setPublishOpen(false)}>

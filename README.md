@@ -47,6 +47,7 @@ Restoran ve kafelerin mevcut PDF veya görsel menülerini yapay zekâ ile okuyup
 - Ham IP veya tarayıcı bilgisi saklamayan ve bilinen botları saymayan gizlilik odaklı ölçüm
 - Menü bazlı görüntülenme sıralaması ve mobil dashboard navigasyonu
 - QR kod, bağlantı kopyalama, paylaşma ve SVG indirme
+- Yayından önce zorunlu hataları engelleyen, kalite puanı ve doğrudan düzeltme bağlantıları sunan menü kontrolü
 - Yayınlanan menüler için masa kartı, sticker ve poster şablonlu QR Baskı Merkezi
 - Yüksek çözünürlüklü PNG, vektörel SVG ve tarayıcıdan A4/PDF çıktısı
 - Kısa ve kalıcı `/m/{slug}` müşteri menüsü
@@ -117,6 +118,7 @@ npm start          # üretim sunucusu
 - `lib/theme-design.ts`: AI tema şeması, izinli token doğrulaması ve renk kontrastı denetimi
 - `lib/menu-tracking.ts`: kişisel veri saklamadan kaynak, cihaz, dil ve bot sınıflandırması
 - `lib/onboarding.ts`: hesap, ilk menü, yayın ve QR taramasından türetilen başlangıç ilerlemesi
+- `lib/menu-readiness.ts`: yayın engelleri, kalite puanı ve iyileştirme önerileri için ortak doğrulama kuralları
 - `lib/menu.ts` ve `lib/menus.ts`: menü veri modeli, geriye dönük uyumlu Theme Engine 2.0 ve kalıcı menü işlemleri
 - `components/MenuPreview.tsx`: iki dilli müşteri menüsü, güvenli iletişim bağlantıları ve canlı çalışma saati hesabı
 - `app/globals.css`: responsive tasarım sistemi
@@ -147,6 +149,7 @@ Kullanıcılar, oturumlar, taslaklar ve yayınlanan menüler yerel SQLite verita
 - Kayıt ve giriş endpoint’lerinde aynı-origin kontrolü ve temel deneme sınırı uygulanır.
 - E-posta değişikliği mevcut şifre doğrulaması gerektirir; şifre değişikliğinde diğer cihazlardaki oturumlar kapatılır ve hassas denemeler sınırlandırılır.
 - AI çıktısı, yayınlamadan önce kullanıcı tarafından düzenlenebilir ve kontrol edilebilir.
+- Boş ad, görünür ürün eksikliği ve geçersiz fiyat gibi yayın engelleri istemciye ek olarak sunucuda da doğrulanır.
 - Gizli ürünler herkese açık müşteri bileşenine gönderilmeden önce sunucuda filtrelenir.
 - Alerjenler AI tarafından tahmin edilmez; işletme tarafından doğrulanarak girilir ve müşteri menüsünde çapraz bulaşma uyarısı gösterilir.
 - Menü araması ve filtreler tamamen tarayıcıda çalışır; arama metni sunucuya gönderilmez. Alerjen filtresi yalnızca işletmenin beyan ettiği verileri esas alır.
