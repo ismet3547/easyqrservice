@@ -51,6 +51,8 @@ export function Brand({ compact = false }: { compact?: boolean }) {
 
 export function StudioHeader({
   documentName,
+  hasUnpublishedChanges,
+  isPublished,
   onBack,
   onLogout,
   onOpenPreview,
@@ -59,6 +61,8 @@ export function StudioHeader({
   userName,
 }: {
   documentName: string;
+  hasUnpublishedChanges: boolean;
+  isPublished: boolean;
   onBack: () => void;
   onLogout: () => void;
   onOpenPreview: () => void;
@@ -70,7 +74,14 @@ export function StudioHeader({
     ? "Kaydediliyor…"
     : saveStatus === "error"
       ? "Kaydedilemedi"
-      : "Tüm değişiklikler kaydedildi";
+      : hasUnpublishedChanges
+        ? "Taslak kaydedildi · yayın bekliyor"
+        : isPublished
+          ? "Canlı sürüm güncel"
+          : "Tüm değişiklikler kaydedildi";
+  const publishLabel = isPublished
+    ? hasUnpublishedChanges ? "Değişiklikleri yayınla" : "QR menüyü aç"
+    : "QR menüyü oluştur";
 
   return (
     <header className="studio-header">
@@ -82,7 +93,7 @@ export function StudioHeader({
         <span className="header-divider" />
         <div className="document-name">
           <strong>{documentName || "İsimsiz menü"}</strong>
-          <span className={`save-state ${saveStatus}`} role="status" aria-live="polite">
+          <span className={`save-state ${saveStatus} ${hasUnpublishedChanges ? "unpublished" : ""}`} role="status" aria-live="polite">
             <span className="saved-dot" /> {saveMessage}
           </span>
         </div>
@@ -96,8 +107,8 @@ export function StudioHeader({
         </button>
         <button className="primary-button studio-publish-button" type="button" onClick={onPublish}>
           <QrCode size={17} />
-          <span className="studio-publish-label-full">QR menüyü oluştur</span>
-          <span className="studio-publish-label-mobile">Yayınla</span>
+          <span className="studio-publish-label-full">{publishLabel}</span>
+          <span className="studio-publish-label-mobile">{isPublished && !hasUnpublishedChanges ? "QR menü" : "Yayınla"}</span>
         </button>
         <button className="icon-button logout-button" type="button" aria-label="Çıkış yap" title="Çıkış yap" onClick={onLogout}>
           <LogOut size={17} />

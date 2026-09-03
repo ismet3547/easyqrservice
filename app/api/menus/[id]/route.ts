@@ -31,7 +31,7 @@ export async function PATCH(request: Request, context: RouteContext) {
   if (!user) return NextResponse.json({ message: "Giriş gerekli." }, { status: 401 });
   const { id } = await context.params;
   const body = (await request.json().catch(() => null)) as
-    | { menu?: unknown; theme?: unknown; status?: string }
+    | { menu?: unknown; publish?: unknown; theme?: unknown; status?: string }
     | null;
   if (!body) return NextResponse.json({ message: "Geçersiz istek." }, { status: 400 });
 
@@ -41,12 +41,22 @@ export async function PATCH(request: Request, context: RouteContext) {
   if (body.status && !["draft", "published"].includes(body.status)) {
     return NextResponse.json({ message: "Geçersiz menü durumu." }, { status: 400 });
   }
+  if (body.publish !== undefined && typeof body.publish !== "boolean") {
+    return NextResponse.json({ message: "Geçersiz yayınlama isteği." }, { status: 400 });
+  }
+  if (body.publish === true && body.status === "draft") {
+    return NextResponse.json({ message: "Yayınlanan menü taslak durumunda olamaz." }, { status: 400 });
+  }
   const existingMenu = getUserMenu(user.id, id);
   if (!existingMenu) {
     return NextResponse.json({ message: "Menü bulunamadı." }, { status: 404 });
   }
-  const nextStatus = (body.status as MenuStatus | undefined) || existingMenu.status;
-  if (nextStatus === "published") {
+  // Backward compatibility: moving a draft to published still creates a
+  // snapshot. Saving an already-published menu never changes the live copy.
+  const shouldPublish = body.publish === true || (
+    body.status === "published" && existingMenu.status !== "published"
+  );
+  if (shouldPublish) {
     const readiness = getMenuReadiness(body.menu);
     if (!readiness.canPublish) {
       return NextResponse.json(
@@ -68,7 +78,10 @@ export async function PATCH(request: Request, context: RouteContext) {
     id,
     body.menu,
     body.theme,
-    body.status as MenuStatus | undefined,
+    {
+      publish: shouldPublish,
+      status: body.status as MenuStatus | undefined,
+    },
   );
   if (!menu) return NextResponse.json({ message: "Menü bulunamadı." }, { status: 404 });
   return NextResponse.json({ menu });

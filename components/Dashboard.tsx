@@ -178,7 +178,11 @@ export function Dashboard({
                         </div>
                         <div className="menu-card-copy">
                           <div className="menu-card-title">
-                            <div><h3>{storedMenu.name}</h3><span className={`status-badge ${storedMenu.status}`}><i /> {storedMenu.status === "published" ? "Yayında" : "Taslak"}</span></div>
+                            <div>
+                              <h3>{storedMenu.name}</h3>
+                              <span className={`status-badge ${storedMenu.status}`}><i /> {storedMenu.status === "published" ? "Yayında" : "Taslak"}</span>
+                              {storedMenu.hasUnpublishedChanges && <span className="status-badge update-pending"><i /> Güncelleme bekliyor</span>}
+                            </div>
                           </div>
                           <p>{storedMenu.menu.categories.length} kategori · {productCount} ürün</p>
                           <div className="menu-card-meta"><span><Eye size={13} /> {storedMenu.viewCount} görüntülenme</span><span>Güncellendi {new Date(storedMenu.updatedAt).toLocaleDateString("tr-TR", { day: "numeric", month: "short" })}</span></div>

@@ -482,6 +482,7 @@ export function MenuStudio({
   const [activeMenuId, setActiveMenuId] = useState("");
   const [activeMenuSlug, setActiveMenuSlug] = useState("");
   const [activeMenuStatus, setActiveMenuStatus] = useState<"draft" | "published">("draft");
+  const [hasUnpublishedChanges, setHasUnpublishedChanges] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "error">("saved");
   const [generatingImages, setGeneratingImages] = useState(false);
   const [generatingItemId, setGeneratingItemId] = useState("");
@@ -626,6 +627,7 @@ export function MenuStudio({
             setActiveMenuId(menuResult.menu.id);
             setActiveMenuSlug(menuResult.menu.slug);
             setActiveMenuStatus(menuResult.menu.status);
+            setHasUnpublishedChanges(menuResult.menu.hasUnpublishedChanges);
             setScreen("studio");
           } else {
             setError("Açmak istediğin menü bulunamadı.");
@@ -701,9 +703,17 @@ export function MenuStudio({
           const response = await fetch(`/api/menus/${activeMenuId}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ menu, theme, status: activeMenuStatus }),
+            body: JSON.stringify({ menu, theme }),
           });
-          setSaveStatus(response.ok ? "saved" : "error");
+          const result = (await response.json().catch(() => null)) as
+            | { menu?: StoredMenu }
+            | null;
+          if (response.ok && result?.menu) {
+            setHasUnpublishedChanges(result.menu.hasUnpublishedChanges);
+            setSaveStatus("saved");
+          } else {
+            setSaveStatus("error");
+          }
         } catch {
           setSaveStatus("error");
         }
@@ -717,7 +727,7 @@ export function MenuStudio({
       window.clearTimeout(timeout);
       if (autoSaveTimeoutRef.current === timeout) autoSaveTimeoutRef.current = null;
     };
-  }, [activeMenuId, activeMenuStatus, currentUser, menu, screen, theme]);
+  }, [activeMenuId, currentUser, menu, screen, theme]);
 
   const persistNewMenu = async (newMenu: MenuData, newTheme: MenuTheme) => {
     const response = await fetch("/api/menus", {
@@ -730,6 +740,7 @@ export function MenuStudio({
     setActiveMenuId(result.menu.id);
     setActiveMenuSlug(result.menu.slug);
     setActiveMenuStatus(result.menu.status);
+    setHasUnpublishedChanges(result.menu.hasUnpublishedChanges);
     window.history.replaceState(null, "", `/studio?menu=${result.menu.id}`);
     return result.menu;
   };
@@ -1384,9 +1395,9 @@ export function MenuStudio({
         const saveResponse = await fetch(`/api/menus/${menuId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ menu, theme, status: activeMenuStatus }),
+          body: JSON.stringify({ menu, theme }),
         });
-        let saveResult: { message?: string } = {};
+        let saveResult: { menu?: StoredMenu; message?: string } = {};
         try {
           saveResult = (await saveResponse.json()) as typeof saveResult;
         } catch {
@@ -1395,6 +1406,9 @@ export function MenuStudio({
         if (!saveResponse.ok) {
           setSaveStatus("error");
           throw new Error(saveResult.message || "Menü AI tasarımından önce kaydedilemedi.");
+        }
+        if (saveResult.menu) {
+          setHasUnpublishedChanges(saveResult.menu.hasUnpublishedChanges);
         }
         setSaveStatus("saved");
       }
@@ -1544,12 +1558,13 @@ export function MenuStudio({
       const response = await fetch(`/api/menus/${menuId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ menu, theme, status: "published" }),
+        body: JSON.stringify({ menu, theme, publish: true, status: "published" }),
       });
       const result = (await response.json()) as { menu?: StoredMenu; message?: string };
       if (!response.ok || !result.menu) throw new Error(result.message || "Menü yayınlanamadı.");
       menuSlug = result.menu.slug;
       setActiveMenuStatus("published");
+      setHasUnpublishedChanges(result.menu.hasUnpublishedChanges);
       setActiveMenuSlug(menuSlug);
       setSaveStatus("saved");
       setPublishUrl(`${window.location.origin}/m/${menuSlug}`);
@@ -1608,7 +1623,7 @@ export function MenuStudio({
       await fetch(`/api/menus/${activeMenuId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ menu, theme, status: activeMenuStatus }),
+        body: JSON.stringify({ menu, theme }),
       }).catch(() => null);
     }
     window.location.href = "/dashboard";
@@ -1961,12 +1976,20 @@ export function MenuStudio({
     <main className="studio-shell">
       <StudioHeader
         documentName={menu.restaurantName}
+        hasUnpublishedChanges={hasUnpublishedChanges}
+        isPublished={activeMenuStatus === "published"}
         onBack={() => { void goToDashboard(); }}
         onLogout={() => { void logout(); }}
         onOpenPreview={() => setMobilePreviewOpen(true)}
         onPublish={() => {
           setPublishError("");
-          setPublishReviewOpen(true);
+          if (activeMenuStatus === "published" && !hasUnpublishedChanges && activeMenuSlug) {
+            setPublishUrl(`${window.location.origin}/m/${activeMenuSlug}`);
+            setPublishOpen(true);
+            setCopied(false);
+          } else {
+            setPublishReviewOpen(true);
+          }
         }}
         saveStatus={saveStatus}
         userName={currentUser?.name}
@@ -2854,7 +2877,7 @@ export function MenuStudio({
               <button className="secondary-button" onClick={() => void shareLink()}><Share2 size={17} /> Paylaş</button>
             </div>
             {activeMenuId && <a className="publish-print-link" href={`/dashboard/menus/${activeMenuId}/qr`}><Printer size={16} /> Masa kartı ve baskı şablonlarını aç</a>}
-            <small>Bu kısa bağlantı kalıcıdır. Menüyü editörden güncellediğinde aynı QR kod yeni içeriği göstermeye devam eder.</small>
+            <small>Bu kısa bağlantı kalıcıdır. Editördeki değişiklikler yalnızca “Yayınla” dediğinde aynı QR koda yansır.</small>
           </section>
         </div>
       )}
