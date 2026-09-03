@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser, isSameOrigin } from "@/lib/auth";
+import { getMenuReadiness } from "@/lib/menu-readiness";
 import {
   deleteUserMenu,
   getUserMenu,
@@ -40,11 +41,26 @@ export async function PATCH(request: Request, context: RouteContext) {
   if (body.status && !["draft", "published"].includes(body.status)) {
     return NextResponse.json({ message: "Geçersiz menü durumu." }, { status: 400 });
   }
-  if (
-    body.status === "published" &&
-    !body.menu.categories.some((category) => category.items.length > 0)
-  ) {
-    return NextResponse.json({ message: "Boş bir menü yayınlanamaz." }, { status: 400 });
+  const existingMenu = getUserMenu(user.id, id);
+  if (!existingMenu) {
+    return NextResponse.json({ message: "Menü bulunamadı." }, { status: 404 });
+  }
+  const nextStatus = (body.status as MenuStatus | undefined) || existingMenu.status;
+  if (nextStatus === "published") {
+    const readiness = getMenuReadiness(body.menu);
+    if (!readiness.canPublish) {
+      return NextResponse.json(
+        {
+          code: "MENU_NOT_READY",
+          message: readiness.blockers[0]?.description || "Menü yayınlanmaya hazır değil.",
+          readiness: {
+            blockerCount: readiness.blockers.length,
+            score: readiness.score,
+          },
+        },
+        { status: 400 },
+      );
+    }
   }
 
   const menu = updateUserMenu(
