@@ -13,6 +13,8 @@ Restoran ve kafelerin mevcut PDF veya görsel menülerini yapay zekâ ile okuyup
 - Aynı menü analizi ve çeviriyi tekrar AI'a göndermeyen kalıcı SQLite önbelleği
 - Otomatik ürün görsellerinde önbellek; kullanıcı tarafından yapılan “yenile” işleminde yeni üretim
 - API anahtarı olmadan deneyimlenebilen, açıkça etiketlenmiş demo modu
+- Restoran, kafe, pastane, fırın, fast food ve otel için hazır içerik/tasarım şablonları ile tamamen boş başlangıç
+- Şablon oluştururken para birimi seçimi ve Studio’dan sonradan para birimi düzenleme
 - Kategori ve ürün ekleme, düzenleme, silme
 - Ürün bazında eski fiyat ve kampanyalı fiyat gösterimi
 - Ürünleri Satışta, Tükendi veya Gizli olarak yönetme
@@ -118,6 +120,7 @@ npm start          # üretim sunucusu
 - `lib/theme-design.ts`: AI tema şeması, izinli token doğrulaması ve renk kontrastı denetimi
 - `lib/menu-tracking.ts`: kişisel veri saklamadan kaynak, cihaz, dil ve bot sınıflandırması
 - `lib/onboarding.ts`: hesap, ilk menü, yayın ve QR taramasından türetilen başlangıç ilerlemesi
+- `lib/menu-starters.ts`: sektör şablonları, örnek kategori/ürünler ve para birimine uyarlanmış başlangıç fiyatları
 - `lib/menu-readiness.ts`: yayın engelleri, kalite puanı ve iyileştirme önerileri için ortak doğrulama kuralları
 - `lib/menu.ts` ve `lib/menus.ts`: menü veri modeli, geriye dönük uyumlu Theme Engine 2.0 ve kalıcı menü işlemleri
 - `components/MenuPreview.tsx`: iki dilli müşteri menüsü, güvenli iletişim bağlantıları ve canlı çalışma saati hesabı

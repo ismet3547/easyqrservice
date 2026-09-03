@@ -5,14 +5,19 @@ import {
   ArrowLeft,
   ArrowRight,
   BadgePercent,
+  BedDouble,
+  CakeSlice,
   Check,
   CheckCircle2,
   ChevronDown,
   Clock3,
   Coins,
+  Coffee,
   Copy,
+  Croissant,
   Download,
   EyeOff,
+  FilePlus2,
   FileText,
   GalleryVerticalEnd,
   Grid2X2,
@@ -34,12 +39,14 @@ import {
   QrCode,
   ScanLine,
   Search,
+  Sandwich,
   Share2,
   Sparkles,
   Trash2,
   Undo2,
   UploadCloud,
   UserRound,
+  Utensils,
   X,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
@@ -83,6 +90,13 @@ import {
   type PublishedMenu,
 } from "@/lib/menu";
 import { buildMenuTrafficUrl } from "@/lib/menu-tracking";
+import {
+  createMenuFromStarter,
+  getMenuStarter,
+  menuStarters,
+  type MenuStarterCurrency,
+  type MenuStarterId,
+} from "@/lib/menu-starters";
 import {
   getMenuReadiness,
   type MenuReadinessTarget,
@@ -213,6 +227,23 @@ const themeBriefSuggestions = [
   "Doğal ve ferah",
   "Renkli ve enerjik",
 ] as const;
+
+const starterIcons: Record<MenuStarterId, typeof FileText> = {
+  restaurant: Utensils,
+  cafe: Coffee,
+  patisserie: CakeSlice,
+  bakery: Croissant,
+  "fast-food": Sandwich,
+  hotel: BedDouble,
+  blank: FilePlus2,
+};
+
+const starterCurrencyOptions: Array<{ label: string; value: MenuStarterCurrency }> = [
+  { value: "₺", label: "₺ Türk lirası" },
+  { value: "$", label: "$ ABD doları" },
+  { value: "€", label: "€ Euro" },
+  { value: "£", label: "£ İngiliz sterlini" },
+];
 
 type ContentSectionId = "products" | "basics" | "business" | "language";
 type DesignSectionId = "presets" | "ai" | "brand" | "layout" | "advanced";
@@ -412,9 +443,16 @@ export function MenuStudio({
   const autoSaveTimeoutRef = useRef<number | null>(null);
   const autoSaveRequestRef = useRef<Promise<void> | null>(null);
   const publishingRef = useRef(false);
+  const creatingStarterRef = useRef(false);
   const themeColorFrameRef = useRef<number | null>(null);
   const pendingThemeColorRef = useRef<{ key: ThemeColorKey; value: string } | null>(null);
   const [screen, setScreen] = useState<"upload" | "studio">("upload");
+  const [starterPickerOpen, setStarterPickerOpen] = useState(false);
+  const [selectedStarterId, setSelectedStarterId] = useState<MenuStarterId>("restaurant");
+  const [starterBusinessName, setStarterBusinessName] = useState("");
+  const [starterCurrency, setStarterCurrency] = useState<MenuStarterCurrency>("₺");
+  const [creatingStarter, setCreatingStarter] = useState(false);
+  const [starterError, setStarterError] = useState("");
   const [tab, setTab] = useState<StudioEditorTab>("content");
   const [contentSection, setContentSection] = useState<ContentSectionId>("products");
   const [designSection, setDesignSection] = useState<DesignSectionId>("presets");
@@ -456,6 +494,12 @@ export function MenuStudio({
   const [themeCreditsFailed, setThemeCreditsFailed] = useState(false);
   const [themeDesignFeedback, setThemeDesignFeedback] = useState<ThemeDesignFeedback | null>(null);
   const [previousTheme, setPreviousTheme] = useState<MenuTheme | null>(null);
+  const selectedStarter = getMenuStarter(selectedStarterId);
+  const SelectedStarterIcon = starterIcons[selectedStarter.id];
+  const selectedStarterItemCount = selectedStarter.categories.reduce(
+    (sum, category) => sum + category.items.length,
+    0,
+  );
   const totalItemCount = menu.categories.reduce((sum, category) => sum + category.items.length, 0);
   const missingImageCount = menu.categories.reduce(
     (sum, category) =>
@@ -717,6 +761,57 @@ export function MenuStudio({
     } catch (persistError) {
       setNotice(getErrorMessage(persistError));
       setSaveStatus("error");
+    }
+  };
+
+  const openStarterPicker = () => {
+    setStarterError("");
+    setStarterPickerOpen(true);
+  };
+
+  const createStarterDraft = async () => {
+    if (creatingStarterRef.current) return;
+    if (!currentUser) {
+      goToLogin();
+      return;
+    }
+
+    const starterMenu = createMenuFromStarter(
+      selectedStarterId,
+      starterBusinessName,
+      starterCurrency,
+    );
+    const starterTheme = { ...menuThemePresets[selectedStarter.themePresetId] };
+    creatingStarterRef.current = true;
+    setCreatingStarter(true);
+    setStarterError("");
+
+    try {
+      await persistNewMenu(starterMenu, starterTheme);
+      setMenu(starterMenu);
+      setTheme(starterTheme);
+      setTab("content");
+      setContentSection("products");
+      setProductQuery("");
+      setExpandedItemId("");
+      setCategoryOpenState(
+        starterMenu.categories[0]
+          ? { [starterMenu.categories[0].id]: true }
+          : {},
+      );
+      setNotice(
+        selectedStarter.id === "blank"
+          ? "Boş taslağın hazır — ilk kategorini ve ürünlerini ekleyebilirsin."
+          : `${selectedStarter.label} şablonu hazır — örnek içerikleri işletmene göre düzenle.`,
+      );
+      setStarterPickerOpen(false);
+      setScreen("studio");
+    } catch (starterCreateError) {
+      setStarterError(getErrorMessage(starterCreateError));
+      setSaveStatus("error");
+    } finally {
+      creatingStarterRef.current = false;
+      setCreatingStarter(false);
     }
   };
 
@@ -1595,10 +1690,13 @@ export function MenuStudio({
             <div className="workspace-manual-card">
               <div className="workspace-manual-icon"><FileText size={27} /></div>
               <span className="workspace-option-label neutral">Alternatif</span>
-              <h2>Örnek menüyle başla</h2>
-              <p>Hazır kategorileri ve ürünleri aç, sonra tüm alanları işletmene göre değiştir.</p>
-              <button className="secondary-button" onClick={() => void openDemo()}><Plus size={17} /> Örnek taslak oluştur</button>
-              <small>Sonrasında tüm ürünleri silebilir veya yenilerini ekleyebilirsin.</small>
+              <h2>Sektör şablonuyla başla</h2>
+              <p>İşletme türünü seç; uygun kategoriler, örnek ürünler ve tasarım stili hazır gelsin.</p>
+              <div className="workspace-starter-chips" aria-label="Şablon örnekleri">
+                <span>Restoran</span><span>Kafe</span><span>Pastane</span><span>+4</span>
+              </div>
+              <button className="secondary-button" onClick={openStarterPicker}><Plus size={17} /> Şablonları görüntüle</button>
+              <small>İstersen tamamen boş bir menüyle de başlayabilirsin.</small>
             </div>
           </div>
 
@@ -1612,6 +1710,142 @@ export function MenuStudio({
             <article><span>3</span><div><strong>QR kodunu yayınla</strong><small>Kalıcı bağlantını paylaş</small></div></article>
           </div>
         </section>
+
+        {starterPickerOpen && (
+          <div
+            className="modal-backdrop starter-picker-backdrop"
+            role="presentation"
+            onMouseDown={() => { if (!creatingStarter) setStarterPickerOpen(false); }}
+          >
+            <section
+              aria-labelledby="starter-picker-title"
+              aria-modal="true"
+              className="starter-picker-modal"
+              onMouseDown={(event) => event.stopPropagation()}
+              role="dialog"
+            >
+              <button
+                aria-label="Şablon seçimini kapat"
+                className="modal-close"
+                disabled={creatingStarter}
+                onClick={() => setStarterPickerOpen(false)}
+                type="button"
+              ><X size={19} /></button>
+
+              <div className="starter-picker-heading">
+                <span><Sparkles size={13} /> Hızlı başlangıç</span>
+                <h2 id="starter-picker-title">İşletmene uygun bir temel seç</h2>
+                <p>Tüm örnek alanları Studio’da değiştirebilir, silebilir veya yenilerini ekleyebilirsin.</p>
+              </div>
+
+              <div className="starter-setup-fields">
+                <label>
+                  <span>İşletme adı <small>İsteğe bağlı</small></span>
+                  <input
+                    autoComplete="organization"
+                    maxLength={80}
+                    onChange={(event) => setStarterBusinessName(event.target.value)}
+                    placeholder={selectedStarter.defaultName}
+                    value={starterBusinessName}
+                  />
+                </label>
+                <label>
+                  <span>Para birimi</span>
+                  <select
+                    aria-label="Menü para birimi"
+                    onChange={(event) => setStarterCurrency(event.target.value as MenuStarterCurrency)}
+                    value={starterCurrency}
+                  >
+                    {starterCurrencyOptions.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <div className="starter-template-grid" role="group" aria-label="Sektör şablonları">
+                {menuStarters.map((starter) => {
+                  const StarterIcon = starterIcons[starter.id];
+                  const itemCount = starter.categories.reduce(
+                    (sum, category) => sum + category.items.length,
+                    0,
+                  );
+                  const selected = selectedStarterId === starter.id;
+                  return (
+                    <button
+                      aria-pressed={selected}
+                      className={selected ? "selected" : ""}
+                      disabled={creatingStarter}
+                      key={starter.id}
+                      onClick={() => {
+                        setSelectedStarterId(starter.id);
+                        setStarterError("");
+                      }}
+                      type="button"
+                    >
+                      <span className="starter-template-icon"><StarterIcon size={19} /></span>
+                      <span className="starter-template-copy">
+                        <strong>{starter.label}</strong>
+                        <small>{starter.description}</small>
+                      </span>
+                      <span className="starter-template-meta">
+                        {starter.id === "blank"
+                          ? "Sıfırdan"
+                          : `${starter.categories.length} kategori · ${itemCount} ürün`}
+                      </span>
+                      {selected && <CheckCircle2 className="starter-template-check" size={17} />}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="starter-selection-summary" aria-live="polite">
+                <span className="starter-selection-icon">
+                  <SelectedStarterIcon size={18} />
+                </span>
+                <div>
+                  <span>Seçili başlangıç</span>
+                  <strong>{selectedStarter.label}</strong>
+                  <small>
+                    {selectedStarter.id === "blank"
+                      ? "Kategori ve ürünleri kendin oluşturacaksın."
+                      : `${selectedStarter.categories.length} kategori ve ${selectedStarterItemCount} örnek ürün eklenecek.`}
+                  </small>
+                </div>
+                {selectedStarter.categories.length > 0 && (
+                  <div className="starter-category-preview">
+                    {selectedStarter.categories.map((category) => <span key={category.name}>{category.name}</span>)}
+                  </div>
+                )}
+              </div>
+
+              {starterError && (
+                <div className="starter-picker-error" role="alert">
+                  <AlertTriangle size={16} /> {starterError}
+                </div>
+              )}
+
+              <div className="starter-picker-actions">
+                <button
+                  className="secondary-button"
+                  disabled={creatingStarter}
+                  onClick={() => setStarterPickerOpen(false)}
+                  type="button"
+                >Vazgeç</button>
+                <button
+                  className="primary-button"
+                  disabled={creatingStarter}
+                  onClick={() => { void createStarterDraft(); }}
+                  type="button"
+                >
+                  {creatingStarter
+                    ? <><Loader2 className="auto-image-spinner" size={16} /> Taslak hazırlanıyor…</>
+                    : <><ArrowRight size={16} /> {selectedStarter.label} ile başla</>}
+                </button>
+              </div>
+            </section>
+          </div>
+        )}
       </main>
     );
   }
@@ -1762,7 +1996,10 @@ export function MenuStudio({
               {contentSection === "basics" && (
                 <section className="form-section studio-tool-panel" id="studio-content-basics">
                 <div className="section-heading"><div><span>İşletme</span><h2>Menü başlığı</h2></div></div>
-                <label className="field-label">İşletme adı<input data-readiness-field="restaurant-name" value={menu.restaurantName} onChange={(event) => setMenu({ ...menu, restaurantName: event.target.value })} /></label>
+                <div className="menu-title-fields">
+                  <label className="field-label">İşletme adı<input data-readiness-field="restaurant-name" value={menu.restaurantName} onChange={(event) => setMenu({ ...menu, restaurantName: event.target.value })} /></label>
+                  <label className="field-label">Para birimi<input data-readiness-field="currency" maxLength={12} placeholder="₺" value={menu.currency} onChange={(event) => setMenu({ ...menu, currency: event.target.value })} /></label>
+                </div>
                 <label className="field-label">Kısa açıklama<input data-readiness-field="subtitle" value={menu.subtitle} onChange={(event) => setMenu({ ...menu, subtitle: event.target.value })} /></label>
                 </section>
               )}
@@ -1998,7 +2235,9 @@ export function MenuStudio({
                     <div>
                       <strong>AI görsel asistanı</strong>
                       <p>
-                        {missingImageCount > 0
+                        {totalItemCount === 0
+                          ? <>Önce ilk ürününü ekle; ardından görselleri tek tuşla hazırlayabilirsin.</>
+                          : missingImageCount > 0
                           ? <>{missingImageCount} üründe görsel eksik. Tek seferde en fazla 6 görsel üretilir; eklediklerin korunur.</>
                           : <>Tüm ürünlerin görseli hazır.</>}
                       </p>
@@ -2246,7 +2485,15 @@ export function MenuStudio({
                       </div>
                     </details>
                   ))}
-                  {editorCategories.length === 0 && (
+                  {menu.categories.length === 0 && !normalizedProductQuery && (
+                    <div className="product-editor-empty">
+                      <FilePlus2 aria-hidden="true" size={19} />
+                      <strong>İlk kategorini oluştur</strong>
+                      <span>Örneğin Kahvaltı, Ana Yemekler veya İçecekler ile başlayabilirsin.</span>
+                      <button type="button" onClick={addCategory}>Kategori ekle</button>
+                    </div>
+                  )}
+                  {editorCategories.length === 0 && Boolean(normalizedProductQuery) && (
                     <div className="product-editor-empty">
                       <Search aria-hidden="true" size={19} />
                       <strong>Sonuç bulunamadı</strong>
