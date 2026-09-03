@@ -101,7 +101,13 @@ export function MenusDashboard({ user, initialMenus }: { user: SessionUser; init
                       <div className="menus-cover-lines"><i style={{ background: storedMenu.theme.accent }} /><i /><i /></div>
                     </div>
                     <div className="menus-card-body">
-                      <div className="menus-card-heading"><div><h2>{storedMenu.name}</h2><p>{storedMenu.menu.categories.length} kategori · {productCount} ürün</p></div><span className={`status-badge ${storedMenu.status}`}><i /> {storedMenu.status === "published" ? "Yayında" : "Taslak"}</span></div>
+                      <div className="menus-card-heading">
+                        <div><h2>{storedMenu.name}</h2><p>{storedMenu.menu.categories.length} kategori · {productCount} ürün</p></div>
+                        <div className="menu-status-stack">
+                          <span className={`status-badge ${storedMenu.status}`}><i /> {storedMenu.status === "published" ? "Yayında" : "Taslak"}</span>
+                          {storedMenu.hasUnpublishedChanges && <span className="status-badge update-pending"><i /> Güncelleme bekliyor</span>}
+                        </div>
+                      </div>
                       <div className="menus-card-stats"><span><Eye size={14} /><strong>{storedMenu.viewCount}</strong> görüntülenme</span><span>Son güncelleme <strong>{new Date(storedMenu.updatedAt).toLocaleDateString("tr-TR", { day: "numeric", month: "short", year: "numeric" })}</strong></span></div>
                       <div className="menus-card-actions">
                         <Link className="edit" href={`/studio?menu=${storedMenu.id}`}><FilePenLine size={16} /> Düzenle</Link>

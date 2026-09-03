@@ -70,6 +70,8 @@ db.exec(`
     status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published')),
     content_json TEXT NOT NULL,
     theme_json TEXT NOT NULL,
+    published_content_json TEXT,
+    published_theme_json TEXT,
     view_count INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
@@ -124,3 +126,25 @@ if (!menuViewColumns.has("device_type")) {
 if (!menuViewColumns.has("language")) {
   db.exec("ALTER TABLE menu_views ADD COLUMN language TEXT NOT NULL DEFAULT 'unknown'");
 }
+
+const menuColumns = new Set(
+  (db.prepare("PRAGMA table_info(menus)").all() as DatabaseColumn[])
+    .map((column) => column.name),
+);
+
+if (!menuColumns.has("published_content_json")) {
+  db.exec("ALTER TABLE menus ADD COLUMN published_content_json TEXT");
+}
+if (!menuColumns.has("published_theme_json")) {
+  db.exec("ALTER TABLE menus ADD COLUMN published_theme_json TEXT");
+}
+
+// Existing live menus become their own initial published snapshot. From this
+// point on content_json/theme_json are the editable working copy.
+db.exec(`
+  UPDATE menus
+  SET published_content_json = content_json,
+      published_theme_json = theme_json
+  WHERE status = 'published'
+    AND (published_content_json IS NULL OR published_theme_json IS NULL)
+`);

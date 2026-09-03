@@ -33,6 +33,7 @@ export type StoredMenu = {
   createdAt: string;
   updatedAt: string;
   publishedAt: string | null;
+  hasUnpublishedChanges: boolean;
 };
 
 type MenuRow = {
@@ -43,6 +44,8 @@ type MenuRow = {
   status: MenuStatus;
   content_json: string;
   theme_json: string;
+  published_content_json: string | null;
+  published_theme_json: string | null;
   view_count: number;
   created_at: string;
   updated_at: string;
@@ -72,6 +75,8 @@ function uniqueSlug(name: string) {
 }
 
 function parseRow(row: MenuRow): StoredMenu {
+  const publishedContent = row.published_content_json || row.content_json;
+  const publishedTheme = row.published_theme_json || row.theme_json;
   return {
     id: row.id,
     userId: row.user_id,
@@ -84,6 +89,23 @@ function parseRow(row: MenuRow): StoredMenu {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     publishedAt: row.published_at,
+    hasUnpublishedChanges: row.status === "published" && (
+      row.content_json !== publishedContent || row.theme_json !== publishedTheme
+    ),
+  };
+}
+
+function parsePublishedRow(row: MenuRow): StoredMenu {
+  const publishedMenu = JSON.parse(row.published_content_json || row.content_json) as MenuData;
+  const publishedTheme = normalizeMenuTheme(
+    JSON.parse(row.published_theme_json || row.theme_json),
+  );
+  return {
+    ...parseRow(row),
+    name: publishedMenu.restaurantName.trim() || "İsimsiz menü",
+    menu: publishedMenu,
+    theme: publishedTheme,
+    hasUnpublishedChanges: false,
   };
 }
 
@@ -329,29 +351,36 @@ export function updateUserMenu(
   id: string,
   menu: MenuData,
   theme: MenuThemeInput,
-  status?: MenuStatus,
+  options: { publish?: boolean; status?: MenuStatus } = {},
 ) {
   const existing = getUserMenu(userId, id);
   if (!existing) return null;
 
-  const nextStatus = status || existing.status;
+  const shouldPublish = options.publish === true;
+  const nextStatus = shouldPublish ? "published" : options.status || existing.status;
   const now = new Date().toISOString();
   const normalizedTheme = normalizeMenuTheme(theme);
-  const publishedAt = nextStatus === "published"
-    ? existing.publishedAt || now
-    : existing.publishedAt;
+  const publishedAt = shouldPublish ? now : existing.publishedAt;
+  const serializedMenu = JSON.stringify(menu);
+  const serializedTheme = JSON.stringify(normalizedTheme);
 
   db.prepare(
     `UPDATE menus
-     SET name = ?, status = ?, content_json = ?, theme_json = ?, updated_at = ?, published_at = ?
+     SET name = ?, status = ?, content_json = ?, theme_json = ?, updated_at = ?, published_at = ?,
+         published_content_json = CASE WHEN ? = 1 THEN ? ELSE published_content_json END,
+         published_theme_json = CASE WHEN ? = 1 THEN ? ELSE published_theme_json END
      WHERE id = ? AND user_id = ?`,
   ).run(
     menu.restaurantName.trim() || "İsimsiz menü",
     nextStatus,
-    JSON.stringify(menu),
-    JSON.stringify(normalizedTheme),
+    serializedMenu,
+    serializedTheme,
     now,
     publishedAt,
+    shouldPublish ? 1 : 0,
+    serializedMenu,
+    shouldPublish ? 1 : 0,
+    serializedTheme,
     id,
     userId,
   );
@@ -366,7 +395,7 @@ export function getPublishedMenu(slug: string) {
   const row = db
     .prepare("SELECT * FROM menus WHERE slug = ? AND status = 'published'")
     .get(slug) as MenuRow | undefined;
-  return row ? parseRow(row) : null;
+  return row ? parsePublishedRow(row) : null;
 }
 
 export function recordMenuView(

@@ -730,6 +730,14 @@ a {
   background: #c35b47;
 }
 
+.save-state.unpublished {
+  color: #9a6a21;
+}
+
+.save-state.unpublished .saved-dot {
+  background: #d29738;
+}
+
 @keyframes save-pulse {
   50% { opacity: 0.35; transform: scale(0.8); }
 }
@@ -6100,6 +6108,7 @@ a {
   display: flex;
   min-width: 0;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
@@ -6122,6 +6131,7 @@ a {
   font-size: 9px;
   font-weight: 780;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .status-badge i { width: 4px; height: 4px; border-radius: 50%; }
@@ -6129,6 +6139,8 @@ a {
 .status-badge.published i { background: #6c914f; }
 .status-badge.draft { color: #8c7453; background: #f7f0e5; }
 .status-badge.draft i { background: #ad895a; }
+.status-badge.update-pending { color: #98651d; background: #fff2d8; }
+.status-badge.update-pending i { background: #d49432; }
 
 .menu-card-title > button {
   display: grid;
@@ -7379,6 +7391,7 @@ a {
 .menus-card-heading > div { min-width: 0; }
 .menus-card-heading h2 { margin: 0; overflow: hidden; font-size: 17px; text-overflow: ellipsis; white-space: nowrap; }
 .menus-card-heading p { margin: 6px 0 0; color: #858a82; font-size: 11px; }
+.menu-status-stack { display: flex; flex: 0 0 auto; align-items: flex-end; flex-direction: column; gap: 5px; }
 
 .menus-card-stats {
   display: grid;

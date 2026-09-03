@@ -39,6 +39,8 @@ Restoran ve kafelerin mevcut PDF veya görsel menülerini yapay zekâ ile okuyup
 - Anlık telefon önizlemesi
 - Tarayıcıda otomatik taslak kaydı
 - Kullanıcı hesabına göre ayrılmış yerel taslaklar
+- Otomatik kaydı canlı QR menüden ayıran güvenli çalışma kopyası ve açık yayınlama akışı
+- Studio ve dashboard üzerinde yayınlanmamış değişiklik göstergesi
 - Korumalı dashboard, ayrı menü yönetim sayfası ve gerçek zamanlı özet metrikler
 - Giriş sonrasında landing page'den tamamen ayrılan korumalı menü oluşturma alanı
 - Menülerin SQLite veritabanına otomatik kaydı
@@ -128,7 +130,7 @@ npm start          # üretim sunucusu
 
 ## MVP notu
 
-Kullanıcılar, oturumlar, taslaklar ve yayınlanan menüler yerel SQLite veritabanında saklanır. Yayınlanan her menü aynı QR kodla güncellenebilen kalıcı bir `/m/{slug}` adresi alır. Üretime geçerken önerilen sonraki adımlar:
+Kullanıcılar, oturumlar, taslaklar ve yayınlanan menüler yerel SQLite veritabanında saklanır. Studio otomatik olarak çalışma kopyasını kaydeder; canlı müşteri menüsü yalnızca açık yayınlama işlemiyle atomik olarak güncellenir. Yayınlanan her menü aynı QR kodla güncellenebilen kalıcı bir `/m/{slug}` adresi alır. Üretime geçerken önerilen sonraki adımlar:
 
 1. Üretim ortamı için PostgreSQL ile işletme, menü, kategori ve ürün tabloları
 2. E-posta doğrulama, şifre sıfırlama ve çoklu işletme desteği
@@ -153,6 +155,7 @@ Kullanıcılar, oturumlar, taslaklar ve yayınlanan menüler yerel SQLite verita
 - E-posta değişikliği mevcut şifre doğrulaması gerektirir; şifre değişikliğinde diğer cihazlardaki oturumlar kapatılır ve hassas denemeler sınırlandırılır.
 - AI çıktısı, yayınlamadan önce kullanıcı tarafından düzenlenebilir ve kontrol edilebilir.
 - Boş ad, görünür ürün eksikliği ve geçersiz fiyat gibi yayın engelleri istemciye ek olarak sunucuda da doğrulanır.
+- Yayındaki bir menünün otomatik kayıtları yalnızca çalışma kopyasını değiştirir; doğrulanmış canlı anlık görüntü açık bir yayın isteği olmadan güncellenemez.
 - Gizli ürünler herkese açık müşteri bileşenine gönderilmeden önce sunucuda filtrelenir.
 - Alerjenler AI tarafından tahmin edilmez; işletme tarafından doğrulanarak girilir ve müşteri menüsünde çapraz bulaşma uyarısı gösterilir.
 - Menü araması ve filtreler tamamen tarayıcıda çalışır; arama metni sunucuya gönderilmez. Alerjen filtresi yalnızca işletmenin beyan ettiği verileri esas alır.
