@@ -79,10 +79,10 @@ export function getOnboardingProgress(menus: readonly StoredMenu[]): OnboardingP
     };
   } else if (!hasPublishedMenu) {
     nextAction = {
-      description: "Ürünlerini ve fiyatlarını son kez kontrol edip kalıcı bağlantını yayınla.",
-      href: `/studio?menu=${firstMenu.id}&onboarding=1`,
-      label: "Taslağı aç",
-      title: "Taslağını yayınla",
+      description: "Seçili taslak Studio’da açılacak ve yayın öncesi kontrol doğrudan gösterilecek.",
+      href: `/studio?menu=${firstMenu.id}&onboarding=1&publish=1`,
+      label: "Yayınlama kontrolünü aç",
+      title: `“${firstMenu.name}” taslağını yayınla`,
     };
   } else if (!hasFirstScan) {
     nextAction = {

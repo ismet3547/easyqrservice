@@ -6199,6 +6199,8 @@ a {
 
 .menu-card-actions a:hover,
 .menu-card-actions button:hover { color: var(--orange); border-color: #ecc8b8; }
+.menu-card-actions .publish-draft { color: white; background: var(--orange); border-color: var(--orange); }
+.menu-card-actions .publish-draft:hover { color: white; background: #d94e20; border-color: #d94e20; }
 .menu-card-actions .qr { color: #56733f; background: #f1f6ed; border-color: #d7e4ce; }
 .menu-card-actions .qr:hover { color: #425f2e; background: #e9f2e2; border-color: #bdd2ad; }
 .menu-card-actions .delete-menu-button { margin-left: auto; padding: 0 7px; color: #a65a4b; }
@@ -7433,6 +7435,8 @@ a {
 .menus-card-actions button:hover { color: var(--orange); border-color: #ebc9ba; }
 .menus-card-actions .edit { color: white; background: #2e342d; border-color: #2e342d; }
 .menus-card-actions .edit:hover { color: white; background: #41493f; }
+.menus-card-actions .edit.publish-draft { background: var(--orange); border-color: var(--orange); }
+.menus-card-actions .edit.publish-draft:hover { background: #d94e20; border-color: #d94e20; }
 .menus-card-actions .qr { color: #56733f; background: #f1f6ed; border-color: #d7e4ce; }
 .menus-card-actions .qr:hover { color: #425f2e; background: #e9f2e2; border-color: #bdd2ad; }
 .menus-card-actions .danger { width: 35px; margin-left: auto; padding: 0; justify-content: center; color: #a65445; }

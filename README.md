@@ -32,6 +32,7 @@ Restoran ve kafelerin mevcut PDF veya görsel menülerini yapay zekâ ile okuyup
 - Minimal, Modern Bistro, Botanik, Editoryal, Dark Luxe ve Enerjik hazır tasarım stilleri
 - Renk, tipografi ve dört farklı ürün düzeninin yanında kart, köşe, yoğunluk, görsel oranı, fiyat, kategori ve kapak stili ayarları
 - Hesap, menü oluşturma, yayınlama ve ilk QR taramasını gerçek veriden izleyen başlangıç rehberi
+- Dashboard’dan seçili taslağın yayın kontrolünü tek tıkla açan yönlendirme
 - Yeni ve mevcut hesaplara tek seferlik 20 başlangıç kredisi tanımlayan AI kredi cüzdanı
 - Atomik harcama, güvenli iade ve yinelenen istekte ikinci kez ücret kesmeyen kredi işlem defteri
 - Menü bağlamı ve kullanıcının tarifinden erişilebilir Theme Engine tokenları üreten, 4 kredilik AI tasarım asistanı
