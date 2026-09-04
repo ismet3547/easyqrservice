@@ -85,6 +85,8 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS menu_views (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     menu_id TEXT NOT NULL,
+    visit_id TEXT UNIQUE,
+    visitor_hash TEXT,
     viewed_at TEXT NOT NULL,
     source TEXT NOT NULL DEFAULT 'unknown',
     device_type TEXT NOT NULL DEFAULT 'unknown',
@@ -126,6 +128,54 @@ if (!menuViewColumns.has("device_type")) {
 if (!menuViewColumns.has("language")) {
   db.exec("ALTER TABLE menu_views ADD COLUMN language TEXT NOT NULL DEFAULT 'unknown'");
 }
+if (!menuViewColumns.has("visit_id")) {
+  db.exec("ALTER TABLE menu_views ADD COLUMN visit_id TEXT");
+}
+if (!menuViewColumns.has("visitor_hash")) {
+  db.exec("ALTER TABLE menu_views ADD COLUMN visitor_hash TEXT");
+}
+
+// Historical views receive opaque IDs so the same indexes and joins work for
+// both migrated databases and fresh installations.
+db.exec(`
+  UPDATE menu_views
+  SET visit_id = lower(hex(randomblob(16)))
+  WHERE visit_id IS NULL;
+
+  CREATE UNIQUE INDEX IF NOT EXISTS menu_views_visit_id_idx ON menu_views(visit_id);
+  CREATE INDEX IF NOT EXISTS menu_views_visitor_hash_idx
+    ON menu_views(visitor_hash, viewed_at DESC)
+    WHERE visitor_hash IS NOT NULL;
+
+  CREATE TABLE IF NOT EXISTS menu_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    menu_id TEXT NOT NULL,
+    visit_id TEXT NOT NULL,
+    event_type TEXT NOT NULL,
+    category_id TEXT,
+    item_id TEXT,
+    event_value TEXT,
+    result_count INTEGER,
+    dedupe_key TEXT,
+    occurred_at TEXT NOT NULL,
+    FOREIGN KEY (menu_id) REFERENCES menus(id) ON DELETE CASCADE,
+    FOREIGN KEY (visit_id) REFERENCES menu_views(visit_id) ON DELETE CASCADE
+  );
+
+  CREATE INDEX IF NOT EXISTS menu_events_menu_occurred_idx
+    ON menu_events(menu_id, occurred_at DESC);
+  CREATE INDEX IF NOT EXISTS menu_events_menu_type_occurred_idx
+    ON menu_events(menu_id, event_type, occurred_at DESC);
+  CREATE INDEX IF NOT EXISTS menu_events_item_occurred_idx
+    ON menu_events(menu_id, item_id, occurred_at DESC)
+    WHERE item_id IS NOT NULL;
+  CREATE INDEX IF NOT EXISTS menu_events_category_occurred_idx
+    ON menu_events(menu_id, category_id, occurred_at DESC)
+    WHERE category_id IS NOT NULL;
+  CREATE UNIQUE INDEX IF NOT EXISTS menu_events_visit_dedupe_idx
+    ON menu_events(visit_id, dedupe_key)
+    WHERE dedupe_key IS NOT NULL;
+`);
 
 const menuColumns = new Set(
   (db.prepare("PRAGMA table_info(menus)").all() as DatabaseColumn[])
