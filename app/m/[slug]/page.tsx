@@ -69,7 +69,7 @@ export default async function PublicMenuPage({ params, searchParams }: PublicMen
   const requestHost = (requestHeaders.get("x-forwarded-host") || requestHeaders.get("host"))
     ?.split(",")[0]
     .trim() || null;
-  recordMenuView(storedMenu.id, {
+  const analyticsVisitId = recordMenuView(storedMenu.id, {
     deviceType: resolveMenuDeviceType(
       requestHeaders.get("user-agent"),
       requestHeaders.get("sec-ch-ua-mobile"),
@@ -86,6 +86,7 @@ export default async function PublicMenuPage({ params, searchParams }: PublicMen
       menu={visibleMenu}
       theme={storedMenu.theme}
       initialLanguage={initialLanguage}
+      analyticsVisitId={analyticsVisitId || undefined}
     />
   );
 }

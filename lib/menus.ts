@@ -406,14 +406,17 @@ export function recordMenuView(
     source: "unknown",
   },
 ) {
-  if (context.deviceType === "bot") return;
+  if (context.deviceType === "bot") return null;
+  const visitId = randomUUID();
 
-  const recordView = db.transaction((menuId: string) => {
+  const recordView = db.transaction((menuId: string, currentVisitId: string) => {
     db.prepare(
-      `INSERT INTO menu_views (menu_id, viewed_at, source, device_type, language)
-       VALUES (?, ?, ?, ?, ?)`,
+      `INSERT INTO menu_views
+        (menu_id, visit_id, viewed_at, source, device_type, language)
+       VALUES (?, ?, ?, ?, ?, ?)`,
     ).run(
       menuId,
+      currentVisitId,
       new Date().toISOString(),
       context.source,
       context.deviceType,
@@ -421,5 +424,6 @@ export function recordMenuView(
     );
     db.prepare("UPDATE menus SET view_count = view_count + 1 WHERE id = ?").run(menuId);
   });
-  recordView(id);
+  recordView(id, visitId);
+  return visitId;
 }

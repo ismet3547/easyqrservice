@@ -51,6 +51,8 @@ Restoran ve kafelerin mevcut PDF veya görsel menülerini yapay zekâ ile okuyup
 - Günlük QR menü açılışlarını gösteren 7, 14 ve 30 günlük analitik ekranı
 - QR kod, doğrudan bağlantı ve sosyal yönlendirmeleri ayıran trafik kaynağı analizi
 - Mobil, tablet ve masaüstü cihazlarla Türkçe/İngilizce menü kullanım dağılımları
+- Oturumla bağlı ürün/kategori görünürlüğü, kampanya gösterimi, arama, dil ve iletişim etkileşimi olayları
+- Ham ziyaretçi kimliğini saklamadan tekil ve tekrar gelen ziyaretçi ölçümüne hazır anonim SHA-256 eşleştirme
 - Ham IP veya tarayıcı bilgisi saklamayan ve bilinen botları saymayan gizlilik odaklı ölçüm
 - Menü bazlı görüntülenme sıralaması ve mobil dashboard navigasyonu
 - QR kod, bağlantı kopyalama, paylaşma ve SVG indirme
@@ -117,6 +119,7 @@ npm start          # üretim sunucusu
 - `app/api/generate-menu-theme/route.ts`: kredi kullanan, sahiplik kontrollü ve şema doğrulamalı özel tema üretimi
 - `app/api/translate-menu/route.ts`: metin alanlarını toplu ve doğrulanmış biçimde İngilizceye çevirme
 - `app/api/ai-credits/route.ts`: oturum sahibine ait AI bakiyesi, maliyet bilgisi ve son hareketler
+- `app/api/menu-events/route.ts`: herkese açık menüler için aynı-origin, boyut ve hız sınırlı olay toplama endpoint’i
 - `app/api/auth/*`: kayıt, giriş, çıkış ve aktif kullanıcı endpoint’leri
 - `app/giris` ve `app/kayit`: kullanıcı erişim ekranları
 - `lib/auth.ts` ve `lib/db.ts`: oturum ve SQLite altyapısı
@@ -124,6 +127,7 @@ npm start          # üretim sunucusu
 - `lib/ai-credit-config.ts` ve `lib/ai-credits.ts`: kredi maliyetleri, başlangıç bakiyesi, atomik harcama/iade ve idempotent işlem defteri
 - `lib/theme-design.ts`: AI tema şeması, izinli token doğrulaması ve renk kontrastı denetimi
 - `lib/menu-tracking.ts`: kişisel veri saklamadan kaynak, cihaz, dil ve bot sınıflandırması
+- `lib/menu-events.ts`: menü oturumunu, yayınlanmış içerik kimliklerini ve tekrar gönderimleri doğrulayan olay kayıt katmanı
 - `lib/onboarding.ts`: hesap, ilk menü, yayın ve QR taramasından türetilen başlangıç ilerlemesi
 - `lib/menu-starters.ts`: sektör şablonları, örnek kategori/ürünler ve para birimine uyarlanmış başlangıç fiyatları
 - `lib/menu-readiness.ts`: yayın engelleri, kalite puanı ve iyileştirme önerileri için ortak doğrulama kuralları
@@ -138,7 +142,7 @@ Kullanıcılar, oturumlar, taslaklar ve yayınlanan menüler yerel SQLite verita
 1. Üretim ortamı için PostgreSQL ile işletme, menü, kategori ve ürün tabloları
 2. E-posta doğrulama, şifre sıfırlama ve çoklu işletme desteği
 3. İngilizce dışındaki ek hedef diller ve işletmeye özel dil seçimi
-4. Anonim tekil ziyaretçi ve kampanya dönüşüm analitiği
+4. Kampanya tıklaması ve doğrulanmış dönüşüm analitiği
 5. AI kredi paketleri, ekip rolleri, çoklu şube ve abonelik planları
 
 ## Güvenlik
@@ -161,7 +165,7 @@ Kullanıcılar, oturumlar, taslaklar ve yayınlanan menüler yerel SQLite verita
 - Yayındaki bir menünün otomatik kayıtları yalnızca çalışma kopyasını değiştirir; doğrulanmış canlı anlık görüntü açık bir yayın isteği olmadan güncellenemez.
 - Gizli ürünler herkese açık müşteri bileşenine gönderilmeden önce sunucuda filtrelenir.
 - Alerjenler AI tarafından tahmin edilmez; işletme tarafından doğrulanarak girilir ve müşteri menüsünde çapraz bulaşma uyarısı gösterilir.
-- Menü araması ve filtreler tamamen tarayıcıda çalışır; arama metni sunucuya gönderilmez. Alerjen filtresi yalnızca işletmenin beyan ettiği verileri esas alır.
-- Analitik kayıtlarında yalnızca sınıflandırılmış kaynak, cihaz türü ve gösterilen dil tutulur; ham IP, user-agent ve yönlendiren adres saklanmaz. Bilinen bot istekleri görüntülenmeye eklenmez.
+- Menü araması ve filtreler tarayıcıda çalışır. En az iki karakterli aramalar, sonuç sayısıyla birlikte analitik için 80 karakterle sınırlandırılarak aynı-origin endpoint’ine gönderilir; alerjen filtresi yalnızca işletmenin beyan ettiği verileri esas alır.
+- Analitik kayıtlarında sınıflandırılmış kaynak, cihaz türü, gösterilen dil ve doğrulanmış menü etkileşimleri tutulur. Anonim tarayıcı kimliği yalnızca SHA-256 özeti olarak saklanır; ham IP, user-agent ve yönlendiren adres saklanmaz. Bilinen bot istekleri görüntülenmeye eklenmez.
 - Müşteri menüsündeki harita, WhatsApp ve Instagram bağlantıları yalnızca izin verilen HTTPS alan adlarına yönlendirilir; çalışma saatleri seçilen saat diliminde tarayıcıda hesaplanır.
 - Üretimde dağıtık rate limiting, PostgreSQL, e-posta doğrulama, kalıcı dosya politikası ve kötü amaçlı dosya taraması eklenmelidir.

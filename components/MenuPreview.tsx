@@ -12,7 +12,8 @@ import {
   ShieldAlert,
   X,
 } from "lucide-react";
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useMenuEventTracking } from "@/components/useMenuEventTracking";
 import {
   allergenLabels,
   allergenLabelsEn,
@@ -34,10 +35,12 @@ import {
 } from "@/lib/menu";
 
 type PublicMenuProps = PublishedMenu & {
+  analyticsVisitId?: string;
   initialLanguage?: MenuLanguage;
 };
 
 type MenuPreviewProps = PublishedMenu & {
+  analyticsVisitId?: string;
   framed?: boolean;
   initialLanguage?: MenuLanguage;
 };
@@ -336,11 +339,21 @@ function getMapsHref(mapsUrl: string, address: string) {
     : null;
 }
 
-export function PublicMenu({ menu, theme, initialLanguage = "tr" }: PublicMenuProps) {
+export function PublicMenu({
+  analyticsVisitId,
+  menu,
+  theme,
+  initialLanguage = "tr",
+}: PublicMenuProps) {
   const resolvedTheme = normalizeMenuTheme(theme);
   return (
     <main className="public-menu-shell" style={{ background: resolvedTheme.background }}>
-      <MenuPreview menu={menu} theme={resolvedTheme} initialLanguage={initialLanguage} />
+      <MenuPreview
+        analyticsVisitId={analyticsVisitId}
+        menu={menu}
+        theme={resolvedTheme}
+        initialLanguage={initialLanguage}
+      />
       <footer className="public-menu-footer">
         <div className="brand compact">
           <span className="brand-mark"><QrCode size={17} /></span>
@@ -352,9 +365,19 @@ export function PublicMenu({ menu, theme, initialLanguage = "tr" }: PublicMenuPr
   );
 }
 
-export function MenuPreview({ menu, theme, framed = false, initialLanguage = "tr" }: MenuPreviewProps) {
+export function MenuPreview({
+  analyticsVisitId,
+  menu,
+  theme,
+  framed = false,
+  initialLanguage = "tr",
+}: MenuPreviewProps) {
   const resolvedTheme = normalizeMenuTheme(theme);
   const canUseEnglish = hasEnglishMenuTranslation(menu);
+  const previewRef = useRef<HTMLDivElement>(null);
+  const seenVisibilityEventsRef = useRef(new Set<string>());
+  const lastTrackedSearchRef = useRef("");
+  const trackEvent = useMenuEventTracking(framed ? undefined : analyticsVisitId);
   const [language, setLanguage] = useState<MenuLanguage>(
     initialLanguage === "en" && canUseEnglish ? "en" : "tr",
   );
@@ -496,8 +519,70 @@ export function MenuPreview({ menu, theme, framed = false, initialLanguage = "tr
   const hasActiveDiscovery = Boolean(
     normalizedQuery || dietaryFilters.length || excludedAllergens.length,
   );
+  const visibilitySignature = filteredCategories
+    .map((category) => `${category.id}:${category.items.map((item) => item.id).join(",")}`)
+    .join("|");
+
+  useEffect(() => {
+    if (!analyticsVisitId || framed || !previewRef.current) return;
+    if (typeof IntersectionObserver === "undefined") return;
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+        const element = entry.target as HTMLElement;
+        const categoryId = element.dataset.analyticsCategoryId;
+        const itemId = element.dataset.analyticsItemId;
+
+        if (itemId && categoryId && entry.intersectionRatio >= 0.55) {
+          const productKey = `product:${categoryId}:${itemId}`;
+          if (!seenVisibilityEventsRef.current.has(productKey)) {
+            seenVisibilityEventsRef.current.add(productKey);
+            trackEvent({ type: "product_view", categoryId, itemId });
+            if (element.dataset.analyticsCampaign === "true") {
+              trackEvent({ type: "campaign_view", categoryId, itemId });
+            }
+          }
+          observer.unobserve(element);
+          return;
+        }
+
+        if (categoryId && entry.intersectionRatio >= 0.35) {
+          const categoryKey = `category:${categoryId}`;
+          if (!seenVisibilityEventsRef.current.has(categoryKey)) {
+            seenVisibilityEventsRef.current.add(categoryKey);
+            trackEvent({ type: "category_view", categoryId });
+          }
+          observer.unobserve(element);
+        }
+      });
+    }, { threshold: [0.35, 0.55] });
+
+    const preview = previewRef.current;
+    preview.querySelectorAll<HTMLElement>(
+      "[data-analytics-category-id], [data-analytics-item-id]",
+    ).forEach((element) => observer.observe(element));
+    return () => observer.disconnect();
+  }, [analyticsVisitId, framed, trackEvent, visibilitySignature]);
+
+  useEffect(() => {
+    if (!analyticsVisitId || framed) return;
+    const term = searchQuery.replace(/\s+/g, " ").trim().slice(0, 80);
+    if (normalizeSearchText(term).length < 2) return;
+
+    const timer = window.setTimeout(() => {
+      const searchKey = `${normalizeSearchText(term)}:${filteredItemCount}`;
+      if (lastTrackedSearchRef.current === searchKey) return;
+      lastTrackedSearchRef.current = searchKey;
+      trackEvent({ type: "search", value: term, resultCount: filteredItemCount });
+    }, 800);
+    return () => window.clearTimeout(timer);
+  }, [analyticsVisitId, filteredItemCount, framed, searchQuery, trackEvent]);
 
   const changeLanguage = (nextLanguage: MenuLanguage) => {
+    if (nextLanguage !== activeLanguage) {
+      trackEvent({ type: "language_change", value: nextLanguage });
+    }
     setLanguage(nextLanguage);
     if (!framed) window.localStorage.setItem(languagePreferenceKey, nextLanguage);
   };
@@ -532,6 +617,7 @@ export function MenuPreview({ menu, theme, framed = false, initialLanguage = "tr
     <div
       className={`menu-preview font-${resolvedTheme.font} layout-${resolvedTheme.layout} card-${resolvedTheme.cardStyle} category-${resolvedTheme.categoryStyle} corners-${resolvedTheme.cornerStyle} density-${resolvedTheme.density} hero-${resolvedTheme.heroStyle} image-${resolvedTheme.imageRatio} price-${resolvedTheme.priceStyle} ${framed ? "is-framed" : ""}`}
       lang={activeLanguage}
+      ref={previewRef}
       style={style}
     >
       <header className="menu-hero">
@@ -581,20 +667,38 @@ export function MenuPreview({ menu, theme, framed = false, initialLanguage = "tr
           {(phoneHref || whatsappHref || mapsHref || instagramHref) && (
             <div className="menu-business-actions">
               {phoneHref && (
-                <a href={phoneHref}><Phone aria-hidden="true" size={15} /> {copy.call}</a>
+                <a
+                  href={phoneHref}
+                  onClick={() => trackEvent({ type: "contact_click", value: "phone" })}
+                ><Phone aria-hidden="true" size={15} /> {copy.call}</a>
               )}
               {whatsappHref && (
-                <a href={whatsappHref} rel="noreferrer" target="_blank">
+                <a
+                  href={whatsappHref}
+                  onClick={() => trackEvent({ type: "contact_click", value: "whatsapp" })}
+                  rel="noreferrer"
+                  target="_blank"
+                >
                   <MessageCircle aria-hidden="true" size={15} /> {copy.whatsapp}
                 </a>
               )}
               {mapsHref && (
-                <a href={mapsHref} rel="noreferrer" target="_blank">
+                <a
+                  href={mapsHref}
+                  onClick={() => trackEvent({ type: "contact_click", value: "directions" })}
+                  rel="noreferrer"
+                  target="_blank"
+                >
                   <Navigation aria-hidden="true" size={15} /> {copy.directions}
                 </a>
               )}
               {instagramHref && (
-                <a href={instagramHref} rel="noreferrer" target="_blank">
+                <a
+                  href={instagramHref}
+                  onClick={() => trackEvent({ type: "contact_click", value: "instagram" })}
+                  rel="noreferrer"
+                  target="_blank"
+                >
                   <Instagram aria-hidden="true" size={15} /> {copy.instagram}
                 </a>
               )}
@@ -722,7 +826,11 @@ export function MenuPreview({ menu, theme, framed = false, initialLanguage = "tr
             ? copy.product
             : copy.products;
           return (
-            <section id={category.id} key={category.id}>
+            <section
+              data-analytics-category-id={category.id}
+              id={category.id}
+              key={category.id}
+            >
               <div className="menu-section-heading"><h2>{category.localizedName}</h2><span>{category.items.length} {productLabel}</span></div>
               <div className="menu-items">
                 {category.items.map((item) => {
@@ -735,6 +843,9 @@ export function MenuPreview({ menu, theme, framed = false, initialLanguage = "tr
                     <article
                       className={`menu-item ${item.image ? "has-image" : ""} ${soldOut ? "is-sold-out" : ""}`}
                       aria-disabled={soldOut}
+                      data-analytics-campaign={item.isCampaign ? "true" : undefined}
+                      data-analytics-category-id={category.id}
+                      data-analytics-item-id={item.id}
                       key={item.id}
                     >
                       {item.image && <div className="menu-item-image"><img src={item.image} alt={itemName || copy.productImage} /></div>}
