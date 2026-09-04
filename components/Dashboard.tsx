@@ -168,6 +168,8 @@ export function Dashboard({
                 <div className="dashboard-menu-list">
                   {menus.map((storedMenu) => {
                     const productCount = storedMenu.menu.categories.reduce((sum, category) => sum + category.items.length, 0);
+                    const needsPublishing = storedMenu.status === "draft" || storedMenu.hasUnpublishedChanges;
+                    const studioHref = `/studio?menu=${storedMenu.id}${needsPublishing ? "&publish=1" : ""}`;
                     return (
                       <article className="dashboard-menu-card" key={storedMenu.id}>
                         <div className="menu-card-preview" style={{ background: storedMenu.theme.background, color: storedMenu.theme.text }}>
@@ -187,7 +189,14 @@ export function Dashboard({
                           <p>{storedMenu.menu.categories.length} kategori · {productCount} ürün</p>
                           <div className="menu-card-meta"><span><Eye size={13} /> {storedMenu.viewCount} görüntülenme</span><span>Güncellendi {new Date(storedMenu.updatedAt).toLocaleDateString("tr-TR", { day: "numeric", month: "short" })}</span></div>
                           <div className="menu-card-actions">
-                            <Link href={`/studio?menu=${storedMenu.id}`}><FilePenLine size={15} /> Düzenle</Link>
+                            <Link className={needsPublishing ? "publish-draft" : undefined} href={studioHref}>
+                              {needsPublishing ? <Rocket size={15} /> : <FilePenLine size={15} />}
+                              {storedMenu.status === "draft"
+                                ? "Düzenle ve yayınla"
+                                : storedMenu.hasUnpublishedChanges
+                                  ? "Güncellemeyi yayınla"
+                                  : "Düzenle"}
+                            </Link>
                             {storedMenu.status === "published" && <Link className="qr" href={`/dashboard/menus/${storedMenu.id}/qr`}><QrCode size={15} /> QR kodu</Link>}
                             {storedMenu.status === "published" && <a href={`/m/${storedMenu.slug}`} target="_blank" rel="noreferrer"><Eye size={15} /> Görüntüle</a>}
                             {storedMenu.status === "published" && <button onClick={() => void copyMenuLink(storedMenu)}>{copiedId === storedMenu.id ? <Check size={15} /> : <Copy size={15} />} {copiedId === storedMenu.id ? "Kopyalandı" : "Bağlantı"}</button>}

@@ -618,6 +618,7 @@ export function MenuStudio({
         setAuthStatus("authenticated");
         const searchParams = new URLSearchParams(window.location.search);
         const requestedMenuId = searchParams.get("menu");
+        const shouldOpenPublishReview = searchParams.get("publish") === "1";
         if (requestedMenuId) {
           const menuResponse = await fetch(`/api/menus/${requestedMenuId}`, { cache: "no-store" });
           if (menuResponse.ok) {
@@ -629,6 +630,10 @@ export function MenuStudio({
             setActiveMenuStatus(menuResult.menu.status);
             setHasUnpublishedChanges(menuResult.menu.hasUnpublishedChanges);
             setScreen("studio");
+            if (shouldOpenPublishReview) {
+              setPublishError("");
+              setPublishReviewOpen(true);
+            }
           } else {
             setError("Açmak istediğin menü bulunamadı.");
           }
