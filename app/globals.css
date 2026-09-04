@@ -1515,11 +1515,17 @@ a {
 }
 
 .product-editor-toolbar {
+  position: sticky;
+  z-index: 7;
+  top: 51px;
   display: grid;
   margin: 14px 0 10px;
-  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 8px 0;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 10px;
+  background: rgba(252, 252, 250, 0.97);
+  backdrop-filter: blur(10px);
 }
 
 .product-editor-search {
@@ -1558,6 +1564,25 @@ a {
   font-size: 11.5px;
   font-weight: 700;
   white-space: nowrap;
+}
+
+.product-toolbar-add {
+  display: inline-flex;
+  min-height: 42px;
+  padding: 0 11px;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  color: white;
+  background: #2f352e;
+  border-radius: 8px;
+  font-size: 11.5px;
+  font-weight: 780;
+  white-space: nowrap;
+}
+
+.product-toolbar-add:hover {
+  background: var(--orange);
 }
 
 .category-list {
@@ -1616,7 +1641,7 @@ a {
   display: grid;
   min-height: 60px;
   padding: 8px 10px;
-  grid-template-columns: auto 1fr auto auto;
+  grid-template-columns: auto 1fr auto auto auto;
   align-items: center;
   gap: 8px;
   cursor: pointer;
@@ -1682,6 +1707,16 @@ a {
 .item-editor-top > button:hover {
   color: #b34835;
   background: #fff0ed;
+}
+
+.category-editor > summary .category-quick-add {
+  color: #54703f;
+  background: #f0f5ec;
+}
+
+.category-editor > summary .category-quick-add:hover {
+  color: white;
+  background: #66844f;
 }
 
 .category-items {
@@ -1757,6 +1792,29 @@ a {
   white-space: nowrap;
 }
 
+.item-editor-summary .item-summary-name-input {
+  height: 32px;
+  padding: 0 7px;
+  color: #343a33;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 750;
+  text-overflow: ellipsis;
+}
+
+.item-editor-summary .item-summary-name-input:hover {
+  background: #fff;
+  border-color: #deddd7;
+}
+
+.item-editor-summary .item-summary-name-input:focus {
+  background: #fff;
+  border-color: rgba(234, 91, 42, 0.7);
+  box-shadow: 0 0 0 3px rgba(234, 91, 42, 0.08);
+}
+
 .item-editor-summary-copy strong {
   color: #343a33;
   font-size: 13px;
@@ -1778,6 +1836,39 @@ a {
 
 .item-editor-summary-price strong { font-size: 12.5px; }
 .item-editor-summary-price del { color: #9c8177; font-size: 9.5px; }
+
+.item-summary-price-input {
+  position: relative;
+  display: block;
+}
+
+.item-editor-summary .item-summary-price-input input {
+  width: 78px;
+  height: 32px;
+  padding: 0 20px 0 6px;
+  color: #3f453d;
+  background: #fff;
+  border: 1px solid #deddd7;
+  border-radius: 6px;
+  font-size: 12.5px;
+  font-weight: 750;
+  text-align: right;
+}
+
+.item-editor-summary .item-summary-price-input input:focus {
+  border-color: rgba(234, 91, 42, 0.7);
+  box-shadow: 0 0 0 3px rgba(234, 91, 42, 0.08);
+}
+
+.item-summary-price-input b {
+  position: absolute;
+  top: 50%;
+  right: 7px;
+  color: #858a82;
+  font-size: 10px;
+  pointer-events: none;
+  transform: translateY(-50%);
+}
 
 .item-editor-chevron {
   color: #969b93;
@@ -2230,8 +2321,7 @@ a {
 .campaign-editor del { color: #9a8379; }
 .campaign-editor strong { color: #b44923; }
 
-.add-row-button,
-.add-category-button {
+.add-row-button {
   display: flex;
   min-height: 46px;
   align-items: center;
@@ -2245,17 +2335,10 @@ a {
   font-weight: 700;
 }
 
-.add-row-button:hover,
-.add-category-button:hover {
+.add-row-button:hover {
   color: var(--orange);
   background: #fff9f5;
   border-color: #efa98d;
-}
-
-.add-category-button {
-  width: 100%;
-  min-height: 46px;
-  margin-top: 10px;
 }
 
 .ai-theme-designer-section {
@@ -2599,6 +2682,16 @@ a {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 9px;
+}
+
+.theme-subsection-heading {
+  margin: 0 0 9px;
+  color: #4c524a;
+  font-size: 12.5px;
+}
+
+.theme-subsection-heading.typography {
+  margin-top: 20px;
 }
 
 .theme-color-control {
@@ -8451,6 +8544,8 @@ a {
   .editor-content, .notice + .editor-content { height: auto; overflow: visible; padding-bottom: 110px; }
   .studio-section-nav { top: 121px; padding: 7px 10px; }
   .studio-section-nav button { min-height: 34px; font-size: 12px; }
+  .product-editor-toolbar { top: 169px; grid-template-columns: minmax(0, 1fr) auto; gap: 7px; }
+  .product-editor-toolbar > span { display: none; }
   .form-section { padding: 21px 16px; }
   .preview-stage { display: none; }
   .business-profile-help { font-size: 12px; }

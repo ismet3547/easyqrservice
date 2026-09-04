@@ -257,10 +257,10 @@ const contentSectionLinks: Array<{ id: ContentSectionId; label: string }> = [
 
 const designSectionLinks: Array<{ id: DesignSectionId; label: string }> = [
   { id: "presets", label: "Stiller" },
-  { id: "ai", label: "AI tasarım" },
-  { id: "brand", label: "Marka" },
-  { id: "layout", label: "Yerleşim" },
-  { id: "advanced", label: "Gelişmiş" },
+  { id: "layout", label: "Düzen" },
+  { id: "brand", label: "Renk & yazı" },
+  { id: "advanced", label: "Detaylar" },
+  { id: "ai", label: "AI tasarla" },
 ];
 
 function ThemeChoiceGroup<Value extends string>({
@@ -550,6 +550,18 @@ export function MenuStudio({
     setDesignSection(nextSection);
     window.requestAnimationFrame(() => {
       editorScrollRef.current?.scrollTo({ top: 0, behavior: "auto" });
+    });
+  };
+
+  const revealEditorElement = (elementId: string, inputSelector?: string) => {
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        const element = document.getElementById(elementId);
+        element?.scrollIntoView({ behavior: "smooth", block: "center" });
+        if (inputSelector) {
+          element?.querySelector<HTMLInputElement>(inputSelector)?.focus({ preventScroll: true });
+        }
+      });
     });
   };
 
@@ -1078,6 +1090,7 @@ export function MenuStudio({
           : category,
       ),
     }));
+    revealEditorElement(`studio-item-${itemId}`, ".item-name-input");
   };
 
   const updateItemImage = async (categoryIndex: number, itemIndex: number, file?: File) => {
@@ -1487,6 +1500,7 @@ export function MenuStudio({
         },
       ],
     }));
+    revealEditorElement(`studio-category-${categoryId}`, "summary input");
   };
 
   const removeCategory = (categoryIndex: number) => {
@@ -2308,6 +2322,9 @@ export function MenuStudio({
                       value={productQuery}
                     />
                   </label>
+                  <button className="product-toolbar-add" onClick={addCategory} type="button">
+                    <Plus size={15} /> Kategori
+                  </button>
                   <span>{normalizedProductQuery ? `${filteredItemCount} sonuç` : `${menu.categories.length} kategori`}</span>
                 </div>
                 <div className="category-list">
@@ -2338,7 +2355,26 @@ export function MenuStudio({
                           }}
                         />
                         <span>{category.items.length}</span>
-                        <button aria-label="Kategoriyi sil" onClick={(event) => { event.preventDefault(); removeCategory(categoryIndex); }}><Trash2 size={15} /></button>
+                        <button
+                          aria-label={`${category.name || "Kategori"} kategorisine ürün ekle`}
+                          className="category-quick-add"
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            addItem(categoryIndex);
+                          }}
+                          title="Bu kategoriye ürün ekle"
+                          type="button"
+                        ><Plus size={16} /></button>
+                        <button
+                          aria-label="Kategoriyi sil"
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            removeCategory(categoryIndex);
+                          }}
+                          type="button"
+                        ><Trash2 size={15} /></button>
                       </summary>
                       <div className="category-items">
                         {items.map(({ item, itemIndex }) => (
@@ -2357,7 +2393,14 @@ export function MenuStudio({
                                 {item.image ? <img src={item.image} alt="" /> : <ImagePlus aria-hidden="true" size={18} />}
                               </span>
                               <span className="item-editor-summary-copy">
-                                <strong>{item.name || "İsimsiz ürün"}</strong>
+                                <input
+                                  aria-label={`${item.name || "İsimsiz ürün"} ürün adı`}
+                                  className="item-summary-name-input"
+                                  onChange={(event) => updateItem(categoryIndex, itemIndex, "name", event.target.value)}
+                                  onClick={(event) => event.stopPropagation()}
+                                  onKeyDown={(event) => event.stopPropagation()}
+                                  value={item.name}
+                                />
                                 <small>
                                   {[
                                     item.availability === "sold-out"
@@ -2372,7 +2415,17 @@ export function MenuStudio({
                               </span>
                               <span className="item-editor-summary-price">
                                 {item.isCampaign && item.originalPrice && <del>{item.originalPrice}{menu.currency}</del>}
-                                <strong>{item.price || "0"}{menu.currency}</strong>
+                                <span className="item-summary-price-input">
+                                  <input
+                                    aria-label={`${item.name || "Ürün"} fiyatı`}
+                                    inputMode="decimal"
+                                    onChange={(event) => updateItem(categoryIndex, itemIndex, "price", event.target.value)}
+                                    onClick={(event) => event.stopPropagation()}
+                                    onKeyDown={(event) => event.stopPropagation()}
+                                    value={item.price}
+                                  />
+                                  <b>{menu.currency}</b>
+                                </span>
                               </span>
                               <ChevronDown className="item-editor-chevron" aria-hidden="true" size={16} />
                             </summary>
@@ -2530,7 +2583,6 @@ export function MenuStudio({
                     </div>
                   )}
                 </div>
-                <button className="add-category-button" onClick={addCategory}><Plus size={17} /> Yeni kategori</button>
                 </section>
               )}
             </div>
@@ -2658,9 +2710,10 @@ export function MenuStudio({
               )}
 
               {designSection === "brand" && (
-                <>
-                <section className="form-section studio-tool-panel" id="studio-design-colors">
-                <div className="section-heading"><div><span>Marka kimliği</span><h2>Renkler</h2></div>{theme.stylePreset === "custom" && <div className="theme-custom-badge">Özel</div>}</div>
+                <section className="form-section studio-tool-panel" id="studio-design-brand">
+                <div className="section-heading"><div><span>Marka kimliği</span><h2>Renk ve yazı</h2></div>{theme.stylePreset === "custom" && <div className="theme-custom-badge">Özel</div>}</div>
+                <p className="theme-section-description">Menünün renk paletini ve yazı karakterini tek yerden markana uyarla.</p>
+                <h3 className="theme-subsection-heading">Renk paleti</h3>
                 <div className="theme-color-grid">
                   {themeColorOptions.map((color) => (
                     <label className="theme-color-control" key={color.id}>
@@ -2677,10 +2730,7 @@ export function MenuStudio({
                     </label>
                   ))}
                 </div>
-                </section>
-
-                <section className="form-section" id="studio-design-type">
-                <div className="section-heading"><div><span>Tipografi</span><h2>Yazı karakteri</h2></div></div>
+                <h3 className="theme-subsection-heading typography">Yazı karakteri</h3>
                 <div className="font-grid">
                   {fontOptions.map((font) => (
                     <button aria-pressed={theme.font === font.id} key={font.id} className={`${font.id} ${theme.font === font.id ? "active" : ""}`} onClick={() => updateThemeOption("font", font.id)} type="button">
@@ -2689,12 +2739,12 @@ export function MenuStudio({
                   ))}
                 </div>
                 </section>
-                </>
               )}
 
               {designSection === "layout" && (
                 <section className="form-section studio-tool-panel" id="studio-design-layout">
-                <div className="section-heading"><div><span>Düzen</span><h2>Ürün görünümü</h2></div></div>
+                <div className="section-heading"><div><span>En sık kullanılan</span><h2>Menü düzeni</h2></div></div>
+                <p className="theme-section-description">Ürünlerin müşterinin telefonunda nasıl sıralanacağını seç.</p>
                 <div className="layout-grid">
                   <button aria-pressed={theme.layout === "cards"} className={theme.layout === "cards" ? "active" : ""} onClick={() => updateThemeOption("layout", "cards")} type="button"><LayoutGrid size={22} /><span><strong>Kartlar</strong><small>Rahat ve dengeli</small></span></button>
                   <button aria-pressed={theme.layout === "compact"} className={theme.layout === "compact" ? "active" : ""} onClick={() => updateThemeOption("layout", "compact")} type="button"><List size={22} /><span><strong>Kompakt</strong><small>Uzun menüler için</small></span></button>
@@ -2707,8 +2757,8 @@ export function MenuStudio({
 
               {designSection === "advanced" && (
                 <section className="form-section advanced-theme-section studio-tool-panel" id="studio-design-advanced">
-                <div className="section-heading"><div><span>İnce ayar</span><h2>Gelişmiş görünüm</h2></div><Sparkles size={17} /></div>
-                <p className="theme-section-description">Menünün karakterini değiştiren ayrıntıları canlı önizlemede karşılaştır.</p>
+                <div className="section-heading"><div><span>İnce ayar</span><h2>Kart ve görünüm detayları</h2></div><Sparkles size={17} /></div>
+                <p className="theme-section-description">Köşe, yoğunluk ve fiyat gibi ayrıntıları canlı önizlemede karşılaştır.</p>
                 <div className="theme-choice-list">
                   <ThemeChoiceGroup description="Kartların yüzey etkisi" label="Kart stili" onChange={(value) => updateThemeOption("cardStyle", value)} options={cardStyleOptions} value={theme.cardStyle} />
                   <ThemeChoiceGroup description="Kart ve görsel köşeleri" label="Köşeler" onChange={(value) => updateThemeOption("cornerStyle", value)} options={cornerStyleOptions} value={theme.cornerStyle} />
