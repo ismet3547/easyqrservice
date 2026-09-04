@@ -45,6 +45,8 @@ Restoran ve kafelerin mevcut PDF veya görsel menülerini yapay zekâ ile okuyup
 - Otomatik kaydı canlı QR menüden ayıran güvenli çalışma kopyası ve açık yayınlama akışı
 - Studio ve dashboard üzerinde yayınlanmamış değişiklik göstergesi
 - Korumalı dashboard, ayrı menü yönetim sayfası ve gerçek zamanlı özet metrikler
+- 7/30 günlük karşılaştırmalı Dashboard V2; tekil/tekrar gelen ziyaretçiler, ürün görünürlüğü ve QR kaynaklı açılışlar
+- Popüler ürün sıralaması, günlük hareket grafiği ve sonuçsuz arama/kategori erişiminden üretilen fırsat kartları
 - Giriş sonrasında landing page'den tamamen ayrılan korumalı menü oluşturma alanı
 - Menülerin SQLite veritabanına otomatik kaydı
 - Dashboard’dan menü açma, bağlantı kopyalama ve silme
