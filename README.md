@@ -37,6 +37,8 @@ Restoran ve kafelerin mevcut PDF veya görsel menülerini yapay zekâ ile okuyup
 - Atomik harcama, güvenli iade ve yinelenen istekte ikinci kez ücret kesmeyen kredi işlem defteri
 - Menü bağlamı ve kullanıcının tarifinden erişilebilir Theme Engine tokenları üreten, 4 kredilik AI tasarım asistanı
 - Tek seferde yalnızca seçilen aracı gösteren, ürün araması ve açılır kategori/ürün özetleriyle kaydırmayı azaltan responsive Studio çalışma alanı
+- Ürün kartını açmadan ad ve fiyat düzenleme, sabit arama/ekleme çubuğu ve yeni öğeye otomatik odaklanma
+- Stiller → düzen → renk ve yazı → detaylar sırasını izleyen sadeleştirilmiş tasarım araçları
 - Anlık telefon önizlemesi
 - Tarayıcıda otomatik taslak kaydı
 - Kullanıcı hesabına göre ayrılmış yerel taslaklar
