@@ -127,7 +127,7 @@ function normalizeBreakdownKey<Key extends string>(
   return keys.includes(value as Key) ? value as Key : "unknown" as Key;
 }
 
-export function getUserAnalytics(userId: string, requestedDays = 60): UserAnalytics {
+export function getUserAnalytics(userId: string, requestedDays = 60, menuId: string | null = null): UserAnalytics {
   const days = Math.min(Math.max(Math.trunc(requestedDays), 14), 90);
   const start = new Date();
   start.setUTCHours(0, 0, 0, 0);
@@ -137,10 +137,10 @@ export function getUserAnalytics(userId: string, requestedDays = 60): UserAnalyt
     `SELECT substr(menu_views.viewed_at, 1, 10) AS date, COUNT(*) AS views
      FROM menu_views
      INNER JOIN menus ON menus.id = menu_views.menu_id
-     WHERE menus.user_id = ? AND menu_views.viewed_at >= ?
+     WHERE menus.user_id = ? AND menu_views.viewed_at >= ? AND (? IS NULL OR menus.id = ?)
      GROUP BY substr(menu_views.viewed_at, 1, 10)
      ORDER BY date ASC`,
-  ).all(userId, start.toISOString()) as DailyViewRow[];
+  ).all(userId, start.toISOString(), menuId, menuId) as DailyViewRow[];
 
   const viewsByDate = new Map(rows.map((row) => [row.date, Number(row.views)]));
   const breakdownRows = db.prepare(
@@ -152,10 +152,10 @@ export function getUserAnalytics(userId: string, requestedDays = 60): UserAnalyt
        COUNT(*) AS views
      FROM menu_views
      INNER JOIN menus ON menus.id = menu_views.menu_id
-     WHERE menus.user_id = ? AND menu_views.viewed_at >= ?
+     WHERE menus.user_id = ? AND menu_views.viewed_at >= ? AND (? IS NULL OR menus.id = ?)
      GROUP BY date, menu_views.source, menu_views.device_type, menu_views.language
      ORDER BY date ASC`,
-  ).all(userId, start.toISOString()) as DailyBreakdownRow[];
+  ).all(userId, start.toISOString(), menuId, menuId) as DailyBreakdownRow[];
 
   const breakdownByDate = new Map<string, {
     devices: Record<TrackedMenuDeviceType, number>;
@@ -190,7 +190,7 @@ export function getUserAnalytics(userId: string, requestedDays = 60): UserAnalyt
     return { date: key, views: viewsByDate.get(key) || 0, ...breakdown };
   });
 
-  const storedMenus = listUserMenus(userId);
+  const storedMenus = listUserMenus(userId).filter((menu) => menuId === null || menu.id === menuId);
   const menus = storedMenus
     .map((menu) => ({
       id: menu.id,
@@ -205,8 +205,8 @@ export function getUserAnalytics(userId: string, requestedDays = 60): UserAnalyt
     `SELECT MIN(menu_views.viewed_at) AS tracking_started_at
      FROM menu_views
      INNER JOIN menus ON menus.id = menu_views.menu_id
-     WHERE menus.user_id = ?`,
-  ).get(userId) as TrackingRow;
+     WHERE menus.user_id = ? AND (? IS NULL OR menus.id = ?)`,
+  ).get(userId, menuId, menuId) as TrackingRow;
 
   return {
     dailyViews,

@@ -18,13 +18,15 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useTransition, type ReactNode } from "react";
 import type { DailyMenuViews, UserAnalytics } from "@/lib/analytics";
+import type { AnalyticsPeriod, EngagementAnalytics } from "@/lib/analytics-details";
+import { AnalyticsEngagement } from "@/components/AnalyticsEngagement";
 import type { SessionUser } from "@/lib/auth";
 import { DashboardMobileNav } from "@/components/DashboardMobileNav";
 import { DashboardMobileHeader, DashboardSidebar } from "@/components/DashboardSidebar";
 
-type Period = 7 | 14 | 30;
+type Period = AnalyticsPeriod;
 type BreakdownField = "devices" | "languages" | "sources";
 type BreakdownItem = {
   color: string;
@@ -124,9 +126,22 @@ function AnalyticsBreakdownCard({
   );
 }
 
-export function AnalyticsDashboard({ user, analytics }: { user: SessionUser; analytics: UserAnalytics }) {
+export function AnalyticsDashboard({ user, analytics, engagement, menuOptions, selectedMenuId, initialPeriod }: {
+  user: SessionUser;
+  analytics: UserAnalytics;
+  engagement: EngagementAnalytics;
+  menuOptions: { id: string; name: string }[];
+  selectedMenuId: string | null;
+  initialPeriod: Period;
+}) {
   const router = useRouter();
-  const [period, setPeriod] = useState<Period>(14);
+  const period = initialPeriod;
+  const [isPending, startTransition] = useTransition();
+  const changeScope = (menuId: string | null, days: Period) => {
+    const params = new URLSearchParams({ period: String(days) });
+    if (menuId) params.set("menu", menuId);
+    startTransition(() => router.replace(`/dashboard/analytics?${params}`, { scroll: false }));
+  };
 
   const periodData = useMemo(() => analytics.dailyViews.slice(-period), [analytics.dailyViews, period]);
   const previousData = useMemo(
@@ -169,16 +184,28 @@ export function AnalyticsDashboard({ user, analytics }: { user: SessionUser; ana
 
   return (
     <main className="dashboard-shell">
-      <DashboardSidebar active="analytics" menuCount={analytics.menus.length} onLogout={() => void logout()} user={user} />
+      <DashboardSidebar active="analytics" menuCount={menuOptions.length} onLogout={() => void logout()} user={user} />
 
       <section className="dashboard-main analytics-dashboard-main">
         <DashboardMobileHeader user={user} />
 
         <div className="dashboard-content analytics-page-content">
           <div className="dashboard-heading">
-            <div><span className="dashboard-kicker"><BarChart3 size={14} /> Canlı performans</span><h1>Analitik</h1><p>QR menülerinin açılışlarını takip et ve en çok ilgi gören menünü keşfet.</p></div>
+            <div><span className="dashboard-kicker"><BarChart3 size={14} /> Canlı performans</span><h1>Analitik</h1><p>Menü açılışlarını, ürün ilgisini ve kategori erişimini tek yerden incele.</p></div>
             <Link className="dashboard-primary" href="/studio?new=1"><Plus size={18} /> Yeni menü oluştur</Link>
           </div>
+
+          <section className="analytics-scope" aria-label="Analitik filtreleri" aria-busy={isPending}>
+            <label><span>Menü</span><select value={selectedMenuId || ""} disabled={isPending}
+              onChange={(event) => changeScope(event.target.value || null, period)}>
+              <option value="">Tüm menüler</option>{menuOptions.map((menu) => <option key={menu.id} value={menu.id}>{menu.name}</option>)}
+            </select></label>
+            <div><span>Dönem</span><div className="analytics-periods" role="group" aria-label="Analitik zaman aralığı">
+              {([7, 14, 30] as Period[]).map((option) => <button type="button" key={option} disabled={isPending} aria-pressed={period === option}
+                className={period === option ? "active" : ""} onClick={() => changeScope(selectedMenuId, option)}>{option} gün</button>)}
+            </div></div>
+            <p role="status">{isPending ? "Veriler güncelleniyor…" : `${formatDay(engagement[period].start.slice(0, 10))} – ${formatDay(engagement[period].end.slice(0, 10))} · Bugün dahil · UTC`}</p>
+          </section>
 
           <section className="analytics-summary-grid">
             <article><div className="analytics-metric-icon orange"><Eye size={20} /></div><span>Tüm zamanlar</span><strong>{analytics.totalViews.toLocaleString("tr-TR")}</strong><small>Toplam menü açılışı</small></article>
@@ -187,12 +214,12 @@ export function AnalyticsDashboard({ user, analytics }: { user: SessionUser; ana
             <article><div className="analytics-metric-icon blue"><BookOpen size={20} /></div><span>Yayındaki menü</span><strong>{analytics.publishedMenus}</strong><small>{analytics.menus.length} toplam menüden</small></article>
           </section>
 
+          <AnalyticsEngagement key={`${selectedMenuId || "all"}:${period}`} data={engagement[period]} />
+
           <section className="analytics-chart-card">
             <div className="analytics-card-heading">
               <div><span>Görüntülenme trendi</span><h2>Menü açılışları</h2></div>
-              <div className="analytics-periods" aria-label="Analitik zaman aralığı">
-                {([7, 14, 30] as Period[]).map((option) => <button key={option} aria-pressed={period === option} className={period === option ? "active" : ""} onClick={() => setPeriod(option)}>{option} gün</button>)}
-              </div>
+              <span className="analytics-detail-status">Son {period} gün</span>
             </div>
 
             {periodViews === 0 ? (
@@ -240,7 +267,7 @@ export function AnalyticsDashboard({ user, analytics }: { user: SessionUser; ana
 
           <div className="analytics-lower-grid">
             <section className="analytics-ranking-card">
-              <div className="analytics-card-heading"><div><span>Menü performansı</span><h2>En çok görüntülenenler</h2></div><Link href="/dashboard/menus">Tüm menüler <ArrowUpRight size={14} /></Link></div>
+              <div className="analytics-card-heading"><div><span>Tüm zamanlar · Menü performansı</span><h2>En çok görüntülenenler</h2></div><Link href="/dashboard/menus">Tüm menüler <ArrowUpRight size={14} /></Link></div>
               {analytics.menus.length === 0 ? (
                 <div className="analytics-list-empty"><p>Karşılaştırılacak bir menü bulunmuyor.</p><Link href="/studio?new=1">İlk menüyü oluştur</Link></div>
               ) : (

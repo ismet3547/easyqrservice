@@ -47,6 +47,8 @@ Restoran ve kafelerin mevcut PDF veya görsel menülerini yapay zekâ ile okuyup
 - Korumalı dashboard, ayrı menü yönetim sayfası ve gerçek zamanlı özet metrikler
 - 7/30 günlük karşılaştırmalı Dashboard V2; tekil/tekrar gelen ziyaretçiler, ürün görünürlüğü ve QR kaynaklı açılışlar
 - Popüler ürün sıralaması, günlük hareket grafiği ve sonuçsuz arama/kategori erişiminden üretilen fırsat kartları
+- Menü ve 7/14/30 günlük dönem filtreli ürün/kategori analitiği; arama, kategori filtresi, sıralama ve sayfalama
+- Gören ziyaret, anonim tekil ziyaretçi, menüye özel erişim ve önceki dönem karşılaştırması; ölçümsüz dönem ile sıfır ilgiyi ayıran gösterim
 - Giriş sonrasında landing page'den tamamen ayrılan korumalı menü oluşturma alanı
 - Menülerin SQLite veritabanına otomatik kaydı
 - Dashboard’dan menü açma, bağlantı kopyalama ve silme
@@ -65,6 +67,8 @@ Restoran ve kafelerin mevcut PDF veya görsel menülerini yapay zekâ ile okuyup
 - Yayındaki menüler için görüntülenme sayacı
 
 ## Yerelde çalıştırma
+
+Analitik veri kontrolleri için `npm run test:analytics` çalıştırılabilir. Testler geçici SQLite veritabanı oluşturur; uygulamanın veritabanına dokunmaz.
 
 Gereksinimler: Node.js 20.9 veya üzeri.
 
@@ -113,6 +117,7 @@ npm start          # üretim sunucusu
 - `app/dashboard/menus` ve `components/MenusDashboard.tsx`: menü arama, filtreleme ve yönetim sayfası
 - `app/dashboard/menus/[id]/qr` ve `components/QrCenter.tsx`: QR indirme, paylaşma ve baskı şablonları
 - `app/dashboard/analytics`, `components/AnalyticsDashboard.tsx` ve `lib/analytics.ts`: günlük açılış trendi, trafik kaynağı, cihaz, dil ve menü performansı
+- `lib/analytics-details.ts` ve `components/AnalyticsEngagement.tsx`: kullanıcıya/menüye bağlı ürün ve kategori detayları. Ziyaret ve olaylar ziyaretin açılış gününe göre (UTC) gruplanır; erişim paydası aynı menünün `visitor_hash` bulunan ziyaretleridir. Eski ölçümsüz açılışlar paydaya alınmaz. Silinen/gizlenen ürünlerin dönem içi olayları korunur; etiketler canlı yayın anlık görüntüsünden okunur. Güncel dönem bugün dahil olduğundan henüz tamamlanmamıştır.
 - `app/dashboard/settings` ve `components/SettingsDashboard.tsx`: profil ve hesap güvenliği ayarları
 - `app/api/menus/*`: menü oluşturma, okuma, güncelleme, yayınlama ve silme
 - `app/m/[slug]`: herkese açık, kalıcı müşteri menüsü
