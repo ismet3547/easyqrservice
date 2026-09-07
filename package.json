@@ -5,9 +5,14 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "prestart": "node scripts/production-env.cjs",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test:analytics": "node scripts/test-analytics.cjs"
+    "test:analytics": "node scripts/test-analytics.cjs",
+    "test:ops": "node scripts/test-production-ops.cjs",
+    "db:backup": "node scripts/backup-database.cjs",
+    "db:verify": "node scripts/verify-database-backup.cjs",
+    "db:restore": "node scripts/restore-database.cjs"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",

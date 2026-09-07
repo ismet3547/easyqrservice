@@ -60,6 +60,8 @@ Restoran ve kafelerin mevcut PDF veya görsel menülerini yapay zekâ ile okuyup
 - Ham IP veya tarayıcı bilgisi saklamayan ve bilinen botları saymayan gizlilik odaklı ölçüm
 - Menü bazlı görüntülenme sıralaması ve mobil dashboard navigasyonu
 - QR kod, bağlantı kopyalama, paylaşma ve SVG indirme
+- Docker standalone üretim image'ı, veritabanı hazır olma kontrolü ve root olmayan çalışma kullanıcısı
+- Canlı SQLite veritabanı için checksum ve bütünlük kontrollü otomatik yedekleme ile güvenli geri yükleme
 - Yayından önce zorunlu hataları engelleyen, kalite puanı ve doğrudan düzeltme bağlantıları sunan menü kontrolü
 - Yayınlanan menüler için masa kartı, sticker ve poster şablonlu QR Baskı Merkezi
 - Yüksek çözünürlüklü PNG, vektörel SVG ve tarayıcıdan A4/PDF çıktısı
@@ -106,7 +108,27 @@ npm run dev        # geliştirme sunucusu
 npm run typecheck  # TypeScript kontrolü
 npm run build      # üretim derlemesi
 npm start          # üretim sunucusu
+npm run test:ops   # ortam, online yedek ve geri yükleme kontrolleri
+npm run db:backup  # çalışan SQLite veritabanından güvenli yedek
+npm run db:verify -- --source /yedek.sqlite3
+npm run db:restore -- --source /yedek.sqlite3 --target /yeni/easyqr.db
 ```
+
+`npm start`, canlı ortam yanlışlıkla geçici veya eksik ayarlarla açılmasın diye
+`APP_URL`, mutlak `DATABASE_PATH` ve AI/demo seçimini başlatmadan önce doğrular.
+Yerel geliştirmede bu kontrol `npm run dev` akışını etkilemez.
+
+## Pilot üretim kurulumu
+
+İlk müşteriler için önerilen topoloji, tek uygulama instance'ı ve kalıcı Docker
+volume üzerindeki SQLite veritabanıdır. Uygulama image'ı root olmayan kullanıcıyla
+çalışır; `/api/health` veritabanı erişimini de doğrular. Ayrı yedekleme servisi
+çalışan SQLite veritabanını güvenli API ile yedekler, SHA-256 ve bütünlük kontrolü
+yapar. Kurulum, güncelleme, harici yedek ve geri yükleme adımları
+[`docs/production-runbook.md`](docs/production-runbook.md) dosyasındadır.
+
+Bu pilot topoloji tek instance içindir. Çoklu instance veya yüksek yazma trafiği
+gerektiğinde PostgreSQL'e geçilmelidir.
 
 ## Mimari
 
@@ -144,7 +166,7 @@ npm start          # üretim sunucusu
 
 ## MVP notu
 
-Kullanıcılar, oturumlar, taslaklar ve yayınlanan menüler yerel SQLite veritabanında saklanır. Studio otomatik olarak çalışma kopyasını kaydeder; canlı müşteri menüsü yalnızca açık yayınlama işlemiyle atomik olarak güncellenir. Yayınlanan her menü aynı QR kodla güncellenebilen kalıcı bir `/m/{slug}` adresi alır. Üretime geçerken önerilen sonraki adımlar:
+Kullanıcılar, oturumlar, taslaklar ve yayınlanan menüler SQLite veritabanında saklanır. Studio otomatik olarak çalışma kopyasını kaydeder; canlı müşteri menüsü yalnızca açık yayınlama işlemiyle atomik olarak güncellenir. Yayınlanan her menü aynı QR kodla güncellenebilen kalıcı bir `/m/{slug}` adresi alır. Pilot üretimde veritabanı kalıcı volume üzerinde tek uygulama instance'ıyla çalıştırılır ve otomatik yedeklenir. İlk müşterilerden sonra önerilen ölçek adımları:
 
 1. Üretim ortamı için PostgreSQL ile işletme, menü, kategori ve ürün tabloları
 2. E-posta doğrulama, şifre sıfırlama ve çoklu işletme desteği

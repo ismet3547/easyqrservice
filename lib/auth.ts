@@ -95,11 +95,25 @@ export function isSameOrigin(request: Request) {
   const origin = request.headers.get("origin");
   if (!origin) return process.env.NODE_ENV !== "production";
 
-  const expectedHost = request.headers.get("x-forwarded-host") || request.headers.get("host");
-  const expectedProtocol = request.headers.get("x-forwarded-proto") || new URL(request.url).protocol.slice(0, -1);
   try {
     const parsedOrigin = new URL(origin);
-    return parsedOrigin.host === expectedHost && parsedOrigin.protocol === `${expectedProtocol}:`;
+    const configuredAppUrl = process.env.APP_URL?.trim();
+    if (configuredAppUrl) {
+      return parsedOrigin.origin === new URL(configuredAppUrl).origin;
+    }
+
+    const expectedHost = (
+      request.headers.get("x-forwarded-host") || request.headers.get("host")
+    )?.split(",")[0]?.trim();
+    const expectedProtocol = (
+      request.headers.get("x-forwarded-proto") || new URL(request.url).protocol.slice(0, -1)
+    ).split(",")[0]?.trim();
+    return Boolean(
+      expectedHost &&
+      expectedProtocol &&
+      parsedOrigin.host === expectedHost &&
+      parsedOrigin.protocol === `${expectedProtocol}:`,
+    );
   } catch {
     return false;
   }
