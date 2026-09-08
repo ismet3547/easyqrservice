@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser, isSameOrigin } from "@/lib/auth";
+import { getAccountFeatureBlock } from "@/lib/account-plan";
 import { checkRateLimit, getClientAddress } from "@/lib/rate-limit";
 import {
   createAiCacheKey,
@@ -82,6 +83,13 @@ export async function POST(request: Request) {
   if (!user) {
     return NextResponse.json({ message: "Görsel üretmek için giriş yapmalısın." }, { status: 401 });
   }
+  const accountBlock = getAccountFeatureBlock(user.account, "ai");
+  if (accountBlock) {
+    return NextResponse.json(
+      { code: accountBlock.code, message: accountBlock.message },
+      { status: accountBlock.status },
+    );
+  }
 
   let body: GenerateProductImageBody;
   try {
@@ -127,13 +135,14 @@ export async function POST(request: Request) {
 
   const model = process.env.OPENAI_IMAGE_MODEL || "gpt-image-1";
   const cacheKey = createAiCacheKey({
+    userId: user.id,
     operation: cacheOperation,
     version: cacheVersion,
     model,
     input: prompt + "\0size=1024x1024\0quality=low",
   });
   if (!refresh) {
-    const cachedImage = readAiCache<unknown>(cacheKey, cacheOperation);
+    const cachedImage = readAiCache<unknown>(user.id, cacheKey, cacheOperation);
     if (cachedImage !== null) {
       if (
         typeof cachedImage === "string" &&
@@ -145,7 +154,7 @@ export async function POST(request: Request) {
           { headers: { "Cache-Control": "no-store", "X-AI-Cache": "HIT" } },
         );
       }
-      deleteAiCacheEntry(cacheKey);
+      deleteAiCacheEntry(user.id, cacheKey);
     }
   }
 
@@ -240,6 +249,7 @@ export async function POST(request: Request) {
 
   const imageDataUrl = "data:image/png;base64," + base64Image;
   writeAiCache({
+    userId: user.id,
     cacheKey,
     operation: cacheOperation,
     value: imageDataUrl,

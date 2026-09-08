@@ -21,6 +21,9 @@ async function run() {
     APP_URL: "https://menu.example.test",
     DATABASE_PATH: path.join(validationRoot, "easyqr.db"),
     OPENAI_API_KEY: "test-only",
+    EMAIL_DELIVERY_MODE: "resend",
+    RESEND_API_KEY: "test-only",
+    EMAIL_FROM: "easyqr <no-reply@example.test>",
     BACKUP_DIR: path.join(validationRoot, "backups"),
   }, { cwd: path.join(path.parse(process.cwd()).root, "easyqr-app") });
   assert.deepEqual(valid.errors, []);
@@ -31,6 +34,7 @@ async function run() {
     APP_URL: "http://localhost:3000",
     DATABASE_PATH: path.join(validationRoot, "easyqr.db"),
     ALLOW_DEMO_MODE: "true",
+    EMAIL_DELIVERY_MODE: "log",
   }, { cwd: path.join(path.parse(process.cwd()).root, "easyqr-app") });
   assert.deepEqual(demo.errors, []);
 
@@ -38,12 +42,16 @@ async function run() {
     APP_URL: "http://public.example.test/path",
     DATABASE_PATH: "relative.db",
     NEXT_PUBLIC_OPENAI_API_KEY: "must-not-leak",
+    NEXT_PUBLIC_RESEND_API_KEY: "must-not-leak",
   });
   assert.ok(invalid.errors.some((error) => error.includes("HTTPS")));
   assert.ok(invalid.errors.some((error) => error.includes("yalnızca origin")));
   assert.ok(invalid.errors.some((error) => error.includes("mutlak")));
   assert.ok(invalid.errors.some((error) => error.includes("NEXT_PUBLIC_OPENAI_API_KEY")));
+  assert.ok(invalid.errors.some((error) => error.includes("NEXT_PUBLIC_RESEND_API_KEY")));
   assert.ok(invalid.errors.some((error) => error.includes("OPENAI_API_KEY zorunludur")));
+  assert.ok(invalid.errors.some((error) => error.includes("RESEND_API_KEY")));
+  assert.ok(invalid.errors.some((error) => error.includes("EMAIL_FROM")));
 
   fs.mkdirSync(path.dirname(sourcePath), { recursive: true });
   const liveDatabase = new Database(sourcePath);

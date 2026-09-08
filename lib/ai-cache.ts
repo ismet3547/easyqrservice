@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { db } from "@/lib/db";
 
 type AiCacheKeyOptions = {
+  userId: string;
   operation: string;
   version: string;
   model: string;
@@ -9,6 +10,7 @@ type AiCacheKeyOptions = {
 };
 
 type AiCacheWriteOptions<T> = {
+  userId: string;
   cacheKey: string;
   operation: string;
   value: T;
@@ -28,8 +30,10 @@ type AiCacheFootprintRow = {
   payload_bytes: number;
 };
 
-export function createAiCacheKey({ operation, version, model, input }: AiCacheKeyOptions) {
+export function createAiCacheKey({ userId, operation, version, model, input }: AiCacheKeyOptions) {
   const hash = createHash("sha256");
+  hash.update(userId);
+  hash.update("\0");
   hash.update(operation);
   hash.update("\0");
   hash.update(version);
@@ -40,21 +44,21 @@ export function createAiCacheKey({ operation, version, model, input }: AiCacheKe
   return hash.digest("hex");
 }
 
-export function deleteAiCacheEntry(cacheKey: string) {
-  db.prepare("DELETE FROM ai_cache WHERE cache_key = ?").run(cacheKey);
+export function deleteAiCacheEntry(userId: string, cacheKey: string) {
+  db.prepare("DELETE FROM ai_cache WHERE user_id = ? AND cache_key = ?").run(userId, cacheKey);
 }
 
-export function readAiCache<T>(cacheKey: string, operation: string): T | null {
+export function readAiCache<T>(userId: string, cacheKey: string, operation: string): T | null {
   const now = new Date().toISOString();
   const row = db.prepare(
     `SELECT payload_json, expires_at
      FROM ai_cache
-     WHERE cache_key = ? AND operation = ?`,
-  ).get(cacheKey, operation) as AiCacheRow | undefined;
+     WHERE user_id = ? AND cache_key = ? AND operation = ?`,
+  ).get(userId, cacheKey, operation) as AiCacheRow | undefined;
 
   if (!row) return null;
   if (row.expires_at <= now) {
-    deleteAiCacheEntry(cacheKey);
+    deleteAiCacheEntry(userId, cacheKey);
     return null;
   }
 
@@ -63,16 +67,17 @@ export function readAiCache<T>(cacheKey: string, operation: string): T | null {
     db.prepare(
       `UPDATE ai_cache
        SET hit_count = hit_count + 1, last_accessed_at = ?
-       WHERE cache_key = ?`,
-    ).run(now, cacheKey);
+       WHERE user_id = ? AND cache_key = ?`,
+    ).run(now, userId, cacheKey);
     return value;
   } catch {
-    deleteAiCacheEntry(cacheKey);
+    deleteAiCacheEntry(userId, cacheKey);
     return null;
   }
 }
 
 function pruneAiCache(
+  userId: string,
   operation: string,
   maxEntries: number,
   maxOperationBytes: number,
@@ -83,9 +88,9 @@ function pruneAiCache(
   const rows = db.prepare(
     `SELECT cache_key, payload_bytes
      FROM ai_cache
-     WHERE operation = ?
+     WHERE user_id = ? AND operation = ?
      ORDER BY last_accessed_at DESC, created_at DESC`,
-  ).all(operation) as AiCacheFootprintRow[];
+  ).all(userId, operation) as AiCacheFootprintRow[];
 
   let keptEntries = 0;
   let keptBytes = 0;
@@ -102,13 +107,14 @@ function pruneAiCache(
   }
 
   if (keysToDelete.length === 0) return;
-  const removeEntry = db.prepare("DELETE FROM ai_cache WHERE cache_key = ?");
+  const removeEntry = db.prepare("DELETE FROM ai_cache WHERE user_id = ? AND cache_key = ?");
   db.transaction((cacheKeys: string[]) => {
-    cacheKeys.forEach((cacheKey) => removeEntry.run(cacheKey));
+    cacheKeys.forEach((cacheKey) => removeEntry.run(userId, cacheKey));
   })(keysToDelete);
 }
 
 export function writeAiCache<T>({
+  userId,
   cacheKey,
   operation,
   value,
@@ -132,9 +138,10 @@ export function writeAiCache<T>({
   const expiresAt = new Date(now.getTime() + ttlMs).toISOString();
   db.prepare(
     `INSERT INTO ai_cache
-      (cache_key, operation, payload_json, payload_bytes, hit_count, created_at, last_accessed_at, expires_at)
-     VALUES (?, ?, ?, ?, 0, ?, ?, ?)
+      (cache_key, user_id, operation, payload_json, payload_bytes, hit_count, created_at, last_accessed_at, expires_at)
+     VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?)
      ON CONFLICT(cache_key) DO UPDATE SET
+       user_id = excluded.user_id,
        operation = excluded.operation,
        payload_json = excluded.payload_json,
        payload_bytes = excluded.payload_bytes,
@@ -143,6 +150,7 @@ export function writeAiCache<T>({
        expires_at = excluded.expires_at`,
   ).run(
     cacheKey,
+    userId,
     operation,
     payload,
     payloadBytes,
@@ -151,6 +159,6 @@ export function writeAiCache<T>({
     expiresAt,
   );
 
-  pruneAiCache(operation, maxEntries, maxOperationBytes);
+  pruneAiCache(userId, operation, maxEntries, maxOperationBytes);
   return true;
 }

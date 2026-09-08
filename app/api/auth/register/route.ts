@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { createSession, isSameOrigin } from "@/lib/auth";
+import { getAccountAccess, trialDurationDays } from "@/lib/account-plan";
 import { db } from "@/lib/db";
 import { checkRateLimit, getClientAddress } from "@/lib/rate-limit";
 
@@ -67,13 +68,19 @@ export async function POST(request: Request) {
   }
 
   const id = randomUUID();
-  const now = new Date().toISOString();
+  const createdAt = new Date();
+  const now = createdAt.toISOString();
+  const trialEndsAt = new Date(
+    createdAt.getTime() + trialDurationDays * 24 * 60 * 60 * 1000,
+  ).toISOString();
   const passwordHash = await bcrypt.hash(password, 12);
 
   try {
     db.prepare(
-      "INSERT INTO users (id, name, email, password_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
-    ).run(id, name, email, passwordHash, now, now);
+      `INSERT INTO users
+        (id, name, email, password_hash, plan, trial_ends_at, plan_expires_at, created_at, updated_at)
+       VALUES (?, ?, ?, ?, 'trial', ?, NULL, ?, ?)`,
+    ).run(id, name, email, passwordHash, trialEndsAt, now, now);
   } catch (error) {
     const databaseError = error as { code?: string };
     if (databaseError.code === "SQLITE_CONSTRAINT_UNIQUE") {
@@ -87,7 +94,7 @@ export async function POST(request: Request) {
 
   await createSession(id);
   return NextResponse.json(
-    { user: { id, name, email, createdAt: now } },
+    { user: { id, name, email, createdAt: now, account: getAccountAccess(id) } },
     { status: 201, headers: { "Cache-Control": "no-store" } },
   );
 }

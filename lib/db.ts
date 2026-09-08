@@ -17,6 +17,9 @@ db.exec(`
     name TEXT NOT NULL,
     email TEXT NOT NULL UNIQUE COLLATE NOCASE,
     password_hash TEXT NOT NULL,
+    plan TEXT NOT NULL DEFAULT 'trial' CHECK (plan IN ('trial', 'pro')),
+    trial_ends_at TEXT,
+    plan_expires_at TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
   );
@@ -32,6 +35,22 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS sessions_token_hash_idx ON sessions(token_hash);
   CREATE INDEX IF NOT EXISTS sessions_expires_at_idx ON sessions(expires_at);
+
+  CREATE TABLE IF NOT EXISTS password_reset_tokens (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    token_hash TEXT NOT NULL UNIQUE,
+    expires_at TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE INDEX IF NOT EXISTS password_reset_tokens_hash_idx
+    ON password_reset_tokens(token_hash);
+  CREATE INDEX IF NOT EXISTS password_reset_tokens_user_idx
+    ON password_reset_tokens(user_id);
+  CREATE INDEX IF NOT EXISTS password_reset_tokens_expires_idx
+    ON password_reset_tokens(expires_at);
 
   CREATE TABLE IF NOT EXISTS ai_credit_wallets (
     user_id TEXT PRIMARY KEY,
@@ -99,13 +118,15 @@ db.exec(`
 
   CREATE TABLE IF NOT EXISTS ai_cache (
     cache_key TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
     operation TEXT NOT NULL,
     payload_json TEXT NOT NULL,
     payload_bytes INTEGER NOT NULL,
     hit_count INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL,
     last_accessed_at TEXT NOT NULL,
-    expires_at TEXT NOT NULL
+    expires_at TEXT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   );
 
   CREATE INDEX IF NOT EXISTS ai_cache_operation_accessed_idx
@@ -114,6 +135,37 @@ db.exec(`
 `);
 
 type DatabaseColumn = { name: string };
+const userColumns = new Set(
+  (db.prepare("PRAGMA table_info(users)").all() as DatabaseColumn[])
+    .map((column) => column.name),
+);
+
+if (!userColumns.has("plan")) {
+  db.exec("ALTER TABLE users ADD COLUMN plan TEXT NOT NULL DEFAULT 'trial' CHECK (plan IN ('trial', 'pro'))");
+}
+if (!userColumns.has("trial_ends_at")) {
+  db.exec("ALTER TABLE users ADD COLUMN trial_ends_at TEXT");
+}
+if (!userColumns.has("plan_expires_at")) {
+  db.exec("ALTER TABLE users ADD COLUMN plan_expires_at TEXT");
+}
+const migrationTrialEnd = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+db.prepare("UPDATE users SET trial_ends_at = ? WHERE trial_ends_at IS NULL")
+  .run(migrationTrialEnd);
+
+const aiCacheColumns = new Set(
+  (db.prepare("PRAGMA table_info(ai_cache)").all() as DatabaseColumn[])
+    .map((column) => column.name),
+);
+
+if (!aiCacheColumns.has("user_id")) {
+  db.exec("ALTER TABLE ai_cache ADD COLUMN user_id TEXT");
+  // Historical cache rows were shared globally and cannot be attributed to a
+  // specific account safely. Dropping them prevents cross-account reuse.
+  db.exec("DELETE FROM ai_cache");
+}
+db.exec("CREATE INDEX IF NOT EXISTS ai_cache_user_idx ON ai_cache(user_id)");
+
 const menuViewColumns = new Set(
   (db.prepare("PRAGMA table_info(menu_views)").all() as DatabaseColumn[])
     .map((column) => column.name),

@@ -131,7 +131,7 @@ export function AuthScreen({ mode }: { mode: AuthMode }) {
               </div>
             </label>
 
-            {!isRegister && <div className="auth-form-options"><label className="remember-me"><input type="checkbox" checked={remember} onChange={(event) => setRemember(event.target.checked)} /> <span>Beni 30 gün hatırla</span></label><button type="button" disabled title="Şifre sıfırlama sonraki sürümde eklenecek">Şifremi unuttum</button></div>}
+            {!isRegister && <div className="auth-form-options"><label className="remember-me"><input type="checkbox" checked={remember} onChange={(event) => setRemember(event.target.checked)} /> <span>Beni 30 gün hatırla</span></label><Link href="/sifremi-unuttum">Şifremi unuttum</Link></div>}
 
             {error && <div className="auth-error" role="alert">{error}</div>}
 

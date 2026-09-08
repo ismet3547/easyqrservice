@@ -37,6 +37,7 @@ import type { SessionUser } from "@/lib/auth";
 import type { StoredMenu } from "@/lib/menus";
 import { DashboardMobileNav } from "@/components/DashboardMobileNav";
 import { DashboardMobileHeader, DashboardSidebar } from "@/components/DashboardSidebar";
+import { AccountAccessNotice } from "@/components/AccountAccessNotice";
 import { getOnboardingProgress, type OnboardingStepId } from "@/lib/onboarding";
 
 function OnboardingStepIcon({ id }: { id: OnboardingStepId }) {
@@ -237,8 +238,12 @@ export function Dashboard({
               <h1>Hoş geldin, {user.name.split(" ")[0]}.</h1>
               <p>{welcomeVisible ? "İlk QR menünü birlikte hazırlayalım." : "Menülerini yönet, performansını takip et ve yeni deneyimler oluştur."}</p>
             </div>
-            <Link className="dashboard-primary" href="/studio?new=1"><Plus size={18} /> Yeni menü oluştur</Link>
+            {user.account.canCreateMenu
+              ? <Link className="dashboard-primary" href="/studio?new=1"><Plus size={18} /> Yeni menü oluştur</Link>
+              : <Link className="dashboard-primary secondary" href="/dashboard/settings">Planı görüntüle</Link>}
           </div>
+
+          <AccountAccessNotice account={user.account} />
 
           {(!onboarding.isComplete || welcomeVisible) && (
             <section className={`onboarding-journey ${welcomeVisible ? "is-welcome" : ""}`} aria-labelledby="onboarding-title">
@@ -425,7 +430,7 @@ export function Dashboard({
           <section className="dashboard-menus dashboard-v2-menus" id="menuler">
             <div className="dashboard-section-heading">
               <div><span>İçerik</span><h2>Menülerim</h2></div>
-              {menus.length > 0 && <Link href="/studio?new=1"><Plus size={15} /> Yeni ekle</Link>}
+              {menus.length > 0 && user.account.canCreateMenu && <Link href="/studio?new=1"><Plus size={15} /> Yeni ekle</Link>}
             </div>
 
             {menus.length === 0 ? (
@@ -433,14 +438,17 @@ export function Dashboard({
                 <div className="empty-illustration"><QrCode size={34} /><Sparkles size={16} /></div>
                 <h3>İlk menünü oluşturalım</h3>
                 <p>Mevcut menünü yükle; yapay zekâ ürünleri, kategorileri ve fiyatları senin için ayırsın.</p>
-                <Link className="dashboard-primary" href="/studio?new=1"><Plus size={17} /> Menü oluştur</Link>
+                {user.account.canCreateMenu
+                  ? <Link className="dashboard-primary" href="/studio?new=1"><Plus size={17} /> Menü oluştur</Link>
+                  : <Link className="dashboard-primary secondary" href="/dashboard/settings">Plan ayrıntıları</Link>}
               </div>
             ) : (
               <div className="dashboard-menu-list">
                 {menus.map((storedMenu) => {
                   const productCount = storedMenu.menu.categories.reduce((sum, category) => sum + category.items.length, 0);
                   const needsPublishing = storedMenu.status === "draft" || storedMenu.hasUnpublishedChanges;
-                  const studioHref = `/studio?menu=${storedMenu.id}${needsPublishing ? "&publish=1" : ""}`;
+                  const publishActionAvailable = needsPublishing && user.account.canPublish;
+                  const studioHref = `/studio?menu=${storedMenu.id}${publishActionAvailable ? "&publish=1" : ""}`;
                   return (
                     <article className="dashboard-menu-card" key={storedMenu.id}>
                       <div className="menu-card-preview" style={{ background: storedMenu.theme.background, color: storedMenu.theme.text }}>
@@ -460,9 +468,11 @@ export function Dashboard({
                         <p>{storedMenu.menu.categories.length} kategori · {productCount} ürün</p>
                         <div className="menu-card-meta"><span><Eye size={13} /> {storedMenu.viewCount} görüntülenme</span><span>Güncellendi {new Date(storedMenu.updatedAt).toLocaleDateString("tr-TR", { day: "numeric", month: "short" })}</span></div>
                         <div className="menu-card-actions">
-                          <Link className={needsPublishing ? "publish-draft" : undefined} href={studioHref}>
-                            {needsPublishing ? <Rocket size={15} /> : <FilePenLine size={15} />}
-                            {storedMenu.status === "draft"
+                          <Link className={publishActionAvailable ? "publish-draft" : undefined} href={studioHref}>
+                            {publishActionAvailable ? <Rocket size={15} /> : <FilePenLine size={15} />}
+                            {!user.account.canPublish
+                              ? "Düzenle"
+                              : storedMenu.status === "draft"
                               ? "Düzenle ve yayınla"
                               : storedMenu.hasUnpublishedChanges
                                 ? "Güncellemeyi yayınla"

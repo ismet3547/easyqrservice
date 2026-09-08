@@ -25,4 +25,5 @@ pnpm-debug.log*
 *.pem
 
 # typescript
+next-env.d.ts
 *.tsbuildinfo

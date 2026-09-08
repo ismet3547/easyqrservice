@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
 import { createSession, isSameOrigin } from "@/lib/auth";
+import { getAccountAccess } from "@/lib/account-plan";
 import { db } from "@/lib/db";
 import { checkRateLimit, getClientAddress } from "@/lib/rate-limit";
 
@@ -65,6 +66,7 @@ export async function POST(request: Request) {
         name: user.name,
         email: user.email,
         createdAt: user.created_at,
+        account: getAccountAccess(user.id),
       },
     },
     { headers: { "Cache-Control": "no-store" } },

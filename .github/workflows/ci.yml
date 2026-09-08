@@ -37,6 +37,9 @@ jobs:
       - name: Analytics integration
         run: npm run test:analytics
 
+      - name: Account lifecycle integration
+        run: npm run test:account
+
       - name: Production operations
         run: npm run test:ops
 

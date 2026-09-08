@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser, isSameOrigin } from "@/lib/auth";
+import { getAccountAccess, getAccountFeatureBlock } from "@/lib/account-plan";
 import {
   createUserMenu,
   isValidMenuData,
@@ -31,6 +32,14 @@ export async function POST(request: Request) {
   if (!body) return NextResponse.json({ message: "Geçersiz istek." }, { status: 400 });
   if (!isValidMenuData(body.menu) || !isValidMenuTheme(body.theme)) {
     return NextResponse.json({ message: "Geçersiz menü verisi." }, { status: 400 });
+  }
+
+  const accountBlock = getAccountFeatureBlock(getAccountAccess(user.id), "create-menu");
+  if (accountBlock) {
+    return NextResponse.json(
+      { code: accountBlock.code, message: accountBlock.message },
+      { status: accountBlock.status },
+    );
   }
 
   const menu = createUserMenu(user.id, body.menu, body.theme);

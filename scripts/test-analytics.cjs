@@ -26,7 +26,9 @@ today.setUTCHours(0, 0, 0, 0);
 const day = (offset) => new Date(today.getTime() + offset * 86400000).toISOString();
 const current = day(-1);
 const previous = day(-7);
-const insertUser = db.prepare("INSERT INTO users VALUES (?, ?, ?, 'test-only', ?, ?)");
+const insertUser = db.prepare(
+  "INSERT INTO users (id, name, email, password_hash, created_at, updated_at) VALUES (?, ?, ?, 'test-only', ?, ?)",
+);
 const insertMenu = db.prepare(`INSERT INTO menus
   (id, user_id, name, slug, status, content_json, theme_json, published_content_json,
    published_theme_json, view_count, created_at, updated_at)
