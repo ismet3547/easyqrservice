@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser, isSameOrigin } from "@/lib/auth";
+import { getAccountFeatureBlock } from "@/lib/account-plan";
 import { checkRateLimit, getClientAddress } from "@/lib/rate-limit";
 import {
   createAiCacheKey,
@@ -203,6 +204,13 @@ export async function POST(request: Request) {
   if (!user) {
     return NextResponse.json({ message: "Menüyü çevirmek için giriş yapmalısın." }, { status: 401 });
   }
+  const accountBlock = getAccountFeatureBlock(user.account, "ai");
+  if (accountBlock) {
+    return NextResponse.json(
+      { code: accountBlock.code, message: accountBlock.message },
+      { status: accountBlock.status },
+    );
+  }
 
   let input: unknown;
   try {
@@ -217,12 +225,13 @@ export async function POST(request: Request) {
 
   const model = process.env.OPENAI_MODEL || "gpt-4.1-mini";
   const cacheKey = createAiCacheKey({
+    userId: user.id,
     operation: cacheOperation,
     version: cacheVersion,
     model,
     input: JSON.stringify(input),
   });
-  const cachedTranslation = readAiCache<unknown>(cacheKey, cacheOperation);
+  const cachedTranslation = readAiCache<unknown>(user.id, cacheKey, cacheOperation);
   if (cachedTranslation !== null) {
     if (isValidTranslation(cachedTranslation, input)) {
       return NextResponse.json(
@@ -230,7 +239,7 @@ export async function POST(request: Request) {
         { headers: { "Cache-Control": "no-store", "X-AI-Cache": "HIT" } },
       );
     }
-    deleteAiCacheEntry(cacheKey);
+    deleteAiCacheEntry(user.id, cacheKey);
   }
 
   const rateLimit = checkRateLimit(
@@ -321,6 +330,7 @@ export async function POST(request: Request) {
       throw new Error("Translation output failed validation.");
     }
     writeAiCache({
+      userId: user.id,
       cacheKey,
       operation: cacheOperation,
       value: translation,

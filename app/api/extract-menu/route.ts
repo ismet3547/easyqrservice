@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { MenuData } from "@/lib/menu";
 import { getCurrentUser, isSameOrigin } from "@/lib/auth";
+import { getAccountFeatureBlock } from "@/lib/account-plan";
 import {
   createAiCacheKey,
   deleteAiCacheEntry,
@@ -139,6 +140,14 @@ export async function POST(request: Request) {
       { status: 401 },
     );
   }
+  const accountBlock = getAccountFeatureBlock(user.account, "ai") ||
+    getAccountFeatureBlock(user.account, "create-menu");
+  if (accountBlock) {
+    return NextResponse.json(
+      { code: accountBlock.code, message: accountBlock.message },
+      { status: accountBlock.status },
+    );
+  }
 
   let body: ExtractionBody;
   try {
@@ -160,12 +169,13 @@ export async function POST(request: Request) {
 
   const model = process.env.OPENAI_MODEL || "gpt-4.1-mini";
   const cacheKey = createAiCacheKey({
+    userId: user.id,
     operation: cacheOperation,
     version: cacheVersion,
     model,
     input: JSON.stringify([fileName, mimeType, dataUrl]),
   });
-  const cachedMenu = readAiCache<unknown>(cacheKey, cacheOperation);
+  const cachedMenu = readAiCache<unknown>(user.id, cacheKey, cacheOperation);
   if (cachedMenu !== null) {
     if (isValidMenuData(cachedMenu)) {
       return NextResponse.json(
@@ -173,7 +183,7 @@ export async function POST(request: Request) {
         { headers: { "Cache-Control": "no-store", "X-AI-Cache": "HIT" } },
       );
     }
-    deleteAiCacheEntry(cacheKey);
+    deleteAiCacheEntry(user.id, cacheKey);
   }
 
   const apiKey = process.env.OPENAI_API_KEY;
@@ -239,6 +249,7 @@ export async function POST(request: Request) {
     const menu = addStableIds(extractedMenu);
     if (!isValidMenuData(menu)) throw new Error("Extracted menu failed validation.");
     writeAiCache({
+      userId: user.id,
       cacheKey,
       operation: cacheOperation,
       value: menu,

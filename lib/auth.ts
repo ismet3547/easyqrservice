@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { getAccountAccess, type AccountAccess } from "@/lib/account-plan";
 import { db } from "@/lib/db";
 
 const sessionCookieName = "easyqr_session";
@@ -11,6 +12,7 @@ export type SessionUser = {
   name: string;
   email: string;
   createdAt: string;
+  account: AccountAccess;
 };
 
 type UserRow = {
@@ -30,6 +32,7 @@ function toSessionUser(row: UserRow): SessionUser {
     name: row.name,
     email: row.email,
     createdAt: row.created_at,
+    account: getAccountAccess(row.id),
   };
 }
 

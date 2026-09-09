@@ -2,6 +2,7 @@
 
 import {
   AlertCircle,
+  AlertTriangle,
   ArrowLeft,
   BadgeCheck,
   CalendarDays,
@@ -13,6 +14,7 @@ import {
   Mail,
   Save,
   ShieldCheck,
+  Trash2,
   UserRound,
 } from "lucide-react";
 import Link from "next/link";
@@ -106,6 +108,10 @@ export function SettingsDashboard({
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordMessage, setPasswordMessage] = useState<RequestMessage>(null);
   const [passwordSaving, setPasswordSaving] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
+  const [deleteMessage, setDeleteMessage] = useState<RequestMessage>(null);
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   const normalizedEmail = email.trim().toLocaleLowerCase("en-US");
   const emailChanged = normalizedEmail !== user.email.toLocaleLowerCase("en-US");
@@ -185,6 +191,42 @@ export function SettingsDashboard({
       });
     } finally {
       setPasswordSaving(false);
+    }
+  };
+
+  const deleteAccount = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setDeleteMessage(null);
+    if (!window.confirm("Hesabın, menülerin ve analitik verilerin kalıcı olarak silinecek. Devam edilsin mi?")) {
+      return;
+    }
+
+    setDeletingAccount(true);
+    try {
+      const response = await fetch("/api/account", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          confirmation: deleteConfirmation,
+          currentPassword: deletePassword,
+        }),
+      });
+      const result = (await response.json().catch(() => ({}))) as { message?: string };
+      if (!response.ok) throw new Error(result.message || "Hesap silinemedi.");
+      try {
+        window.localStorage.removeItem(`easyqr-draft:${user.id}`);
+      } catch {
+        // Server-side account deletion already succeeded; unavailable browser
+        // storage must not trap the user on an authenticated screen.
+      }
+      router.replace("/");
+      router.refresh();
+    } catch (error) {
+      setDeleteMessage({
+        kind: "error",
+        text: error instanceof Error ? error.message : "Hesap silinemedi.",
+      });
+      setDeletingAccount(false);
     }
   };
 
@@ -310,17 +352,73 @@ export function SettingsDashboard({
                   </div>
                 </form>
               </section>
+
+              <section className="settings-card settings-danger-card">
+                <div className="settings-card-heading">
+                  <span className="settings-card-icon red"><AlertTriangle size={20} /></span>
+                  <div><h2>Tehlikeli bölge</h2><p>Hesabını ve ona bağlı tüm verileri kalıcı olarak sil.</p></div>
+                </div>
+
+                <form className="settings-form" onSubmit={deleteAccount}>
+                  <div className="settings-danger-warning">
+                    <AlertTriangle aria-hidden="true" size={18} />
+                    <p>Bu işlem geri alınamaz. Taslak ve yayınlanmış menülerin, QR bağlantıların, analitik kayıtların ve AI önbelleğin silinir.</p>
+                  </div>
+                  <PasswordInput
+                    autoComplete="current-password"
+                    label="Mevcut şifre"
+                    onChange={setDeletePassword}
+                    placeholder="Kimliğini doğrula"
+                    value={deletePassword}
+                  />
+                  <label className="settings-field">
+                    <span>Onaylamak için HESABIMI SİL yaz</span>
+                    <div className="settings-input">
+                      <AlertTriangle aria-hidden="true" size={17} />
+                      <input
+                        autoComplete="off"
+                        onChange={(event) => setDeleteConfirmation(event.target.value)}
+                        placeholder="HESABIMI SİL"
+                        required
+                        value={deleteConfirmation}
+                      />
+                    </div>
+                  </label>
+                  <FormMessage message={deleteMessage} />
+                  <div className="settings-form-actions">
+                    <span>Silme tamamlandığında tüm cihazlardaki oturumların kapanır.</span>
+                    <button
+                      className="settings-delete-button"
+                      disabled={deletingAccount || deleteConfirmation !== "HESABIMI SİL"}
+                      type="submit"
+                    >
+                      <Trash2 size={16} /> {deletingAccount ? "Siliniyor…" : "Hesabımı sil"}
+                    </button>
+                  </div>
+                </form>
+              </section>
             </div>
 
             <aside className="settings-side-column">
               <section className="settings-account-card">
                 <div className="settings-account-avatar">{user.name.slice(0, 1).toLocaleUpperCase("tr-TR")}</div>
-                <span><BadgeCheck size={14} /> Aktif hesap</span>
+                <span className={user.account.status === "expired" ? "expired" : ""}>
+                  <BadgeCheck size={14} /> {user.account.status === "active" ? "Aktif hesap" : "Erişim süresi doldu"}
+                </span>
                 <h2>{user.name}</h2>
                 <p>{user.email}</p>
+                <div className="settings-plan-summary">
+                  <div><small>Plan</small><strong>{user.account.plan === "pro" ? "Pro" : "7 günlük deneme"}</strong></div>
+                  <div><small>Menü kullanımı</small><strong>{user.account.menuCount} / {user.account.maxMenus}</strong></div>
+                </div>
                 <div className="settings-account-meta">
                   <CalendarDays size={16} />
-                  <div><small>Kayıt tarihi</small><strong>{new Date(user.createdAt).toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric" })}</strong></div>
+                  <div>
+                    <small>{user.account.status === "active" ? "Erişim bitişi" : "Erişim durumu"}</small>
+                    <strong>{user.account.endsAt
+                      ? `${new Date(user.account.endsAt).toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric" })}${user.account.status === "active" ? ` · ${user.account.daysRemaining} gün` : " · sona erdi"}`
+                      : "Tanımlanmamış"}</strong>
+                  </div>
                 </div>
               </section>
 

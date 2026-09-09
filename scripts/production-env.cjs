@@ -112,6 +112,31 @@ function validateProductionEnv(environment, options = {}) {
     errors.push("NEXT_PUBLIC_OPENAI_API_KEY kullanılamaz; API anahtarı tarayıcıya açılmamalıdır.");
   }
 
+  const emailDeliveryMode = (environment.EMAIL_DELIVERY_MODE?.trim() || "resend").toLowerCase();
+  if (!["log", "resend"].includes(emailDeliveryMode)) {
+    errors.push("EMAIL_DELIVERY_MODE yalnızca resend veya log olabilir.");
+  }
+  if (emailDeliveryMode === "log" && !allowDemoMode) {
+    errors.push("Canlı ortamda EMAIL_DELIVERY_MODE=log yalnızca ALLOW_DEMO_MODE=true ile kullanılabilir.");
+  }
+  if (emailDeliveryMode === "resend") {
+    if (!environment.RESEND_API_KEY?.trim()) {
+      errors.push("RESEND_API_KEY şifre sıfırlama e-postaları için zorunludur.");
+    }
+    const sender = environment.EMAIL_FROM?.trim() || "";
+    const angleAddress = sender.match(/<([^<>]+)>$/)?.[1];
+    const senderAddress = angleAddress || sender;
+    if (
+      !sender || sender.length > 320 || /[\r\n]/.test(sender) ||
+      !/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(senderAddress)
+    ) {
+      errors.push("EMAIL_FROM geçerli bir gönderici e-posta adresi olmalıdır.");
+    }
+  }
+  if (environment.NEXT_PUBLIC_RESEND_API_KEY?.trim()) {
+    errors.push("NEXT_PUBLIC_RESEND_API_KEY kullanılamaz; e-posta anahtarı tarayıcıya açılmamalıdır.");
+  }
+
   const backupRetentionDays = parseInteger(
     environment.BACKUP_RETENTION_DAYS,
     "BACKUP_RETENTION_DAYS",
@@ -148,6 +173,7 @@ function validateProductionEnv(environment, options = {}) {
       backupMaxFiles,
       backupIntervalHours,
       allowDemoMode,
+      emailDeliveryMode,
     },
   };
 }

@@ -7,9 +7,11 @@
     "build": "next build",
     "prestart": "node scripts/production-env.cjs",
     "start": "next start",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "next typegen && tsc --noEmit",
     "test:analytics": "node scripts/test-analytics.cjs",
+    "test:account": "node scripts/test-account-lifecycle.cjs",
     "test:ops": "node scripts/test-production-ops.cjs",
+    "account:activate": "node scripts/activate-account.cjs",
     "db:backup": "node scripts/backup-database.cjs",
     "db:verify": "node scripts/verify-database-backup.cjs",
     "db:restore": "node scripts/restore-database.cjs"

@@ -13,6 +13,7 @@ import {
   writeAiCache,
 } from "@/lib/ai-cache";
 import { getCurrentUser, isSameOrigin } from "@/lib/auth";
+import { getAccountFeatureBlock } from "@/lib/account-plan";
 import { getUserMenu } from "@/lib/menus";
 import { checkRateLimit, getClientAddress } from "@/lib/rate-limit";
 import {
@@ -74,6 +75,13 @@ export async function POST(request: Request) {
   const user = await getCurrentUser();
   if (!user) {
     return json({ message: "AI tasarım oluşturmak için giriş yapmalısın." }, { status: 401 });
+  }
+  const accountBlock = getAccountFeatureBlock(user.account, "ai");
+  if (accountBlock) {
+    return json(
+      { code: accountBlock.code, message: accountBlock.message },
+      { status: accountBlock.status },
+    );
   }
 
   const contentType = (request.headers.get("content-type") || "")
@@ -150,6 +158,7 @@ export async function POST(request: Request) {
 
   const model = process.env.OPENAI_THEME_MODEL || process.env.OPENAI_MODEL || "gpt-4.1-mini";
   const cacheKey = createAiCacheKey({
+    userId: user.id,
     operation: cacheOperation,
     version: cacheVersion,
     model,
@@ -162,7 +171,7 @@ export async function POST(request: Request) {
   });
   const spendReferenceId = `theme-design:${body.requestId}:${cacheKey}`;
 
-  const cachedDesign = readAiCache<unknown>(cacheKey, cacheOperation);
+  const cachedDesign = readAiCache<unknown>(user.id, cacheKey, cacheOperation);
   if (cachedDesign !== null) {
     if (isValidGeneratedThemeDesign(cachedDesign)) {
       const account = getAICreditAccount(user.id, 0);
@@ -174,7 +183,7 @@ export async function POST(request: Request) {
         { headers: { "X-AI-Cache": "HIT" } },
       );
     }
-    deleteAiCacheEntry(cacheKey);
+    deleteAiCacheEntry(user.id, cacheKey);
   }
 
   const rateLimit = checkRateLimit(
@@ -383,6 +392,7 @@ export async function POST(request: Request) {
 
   try {
     writeAiCache({
+      userId: user.id,
       cacheKey,
       operation: cacheOperation,
       value: design,

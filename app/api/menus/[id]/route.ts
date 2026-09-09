@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser, isSameOrigin } from "@/lib/auth";
+import { getAccountAccess, getAccountFeatureBlock } from "@/lib/account-plan";
 import { getMenuReadiness } from "@/lib/menu-readiness";
 import {
   deleteUserMenu,
@@ -57,6 +58,13 @@ export async function PATCH(request: Request, context: RouteContext) {
     body.status === "published" && existingMenu.status !== "published"
   );
   if (shouldPublish) {
+    const accountBlock = getAccountFeatureBlock(getAccountAccess(user.id), "publish");
+    if (accountBlock) {
+      return NextResponse.json(
+        { code: accountBlock.code, message: accountBlock.message },
+        { status: accountBlock.status },
+      );
+    }
     const readiness = getMenuReadiness(body.menu);
     if (!readiness.canPublish) {
       return NextResponse.json(

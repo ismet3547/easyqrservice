@@ -19,6 +19,7 @@ import type { SessionUser } from "@/lib/auth";
 import type { MenuStatus, StoredMenu } from "@/lib/menus";
 import { DashboardMobileNav } from "@/components/DashboardMobileNav";
 import { DashboardMobileHeader, DashboardSidebar } from "@/components/DashboardSidebar";
+import { AccountAccessNotice } from "@/components/AccountAccessNotice";
 
 type Filter = "all" | MenuStatus;
 
@@ -55,7 +56,10 @@ export function MenusDashboard({ user, initialMenus }: { user: SessionUser; init
     setDeletingId(menu.id);
     try {
       const response = await fetch(`/api/menus/${menu.id}`, { method: "DELETE" });
-      if (response.ok) setMenus((current) => current.filter((item) => item.id !== menu.id));
+      if (response.ok) {
+        setMenus((current) => current.filter((item) => item.id !== menu.id));
+        router.refresh();
+      }
     } finally {
       setDeletingId("");
     }
@@ -71,8 +75,12 @@ export function MenusDashboard({ user, initialMenus }: { user: SessionUser; init
         <div className="dashboard-content menus-page-content">
           <div className="dashboard-heading">
             <div><span className="dashboard-kicker"><BookOpen size={14} /> Menü yönetimi</span><h1>Menülerim</h1><p>Taslaklarını düzenle, yayınlanan menülerini görüntüle ve bağlantılarını yönet.</p></div>
-            <Link className="dashboard-primary" href="/studio?new=1"><Plus size={18} /> Yeni menü oluştur</Link>
+            {user.account.canCreateMenu
+              ? <Link className="dashboard-primary" href="/studio?new=1"><Plus size={18} /> Yeni menü oluştur</Link>
+              : <Link className="dashboard-primary secondary" href="/dashboard/settings">Planı görüntüle</Link>}
           </div>
+
+          <AccountAccessNotice account={user.account} />
 
           <section className="menus-toolbar">
             <label><Search size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Menü ara…" /></label>
@@ -88,14 +96,15 @@ export function MenusDashboard({ user, initialMenus }: { user: SessionUser; init
               <div><QrCode size={32} /></div>
               <h2>{menus.length === 0 ? "Henüz menün yok" : "Eşleşen menü bulunamadı"}</h2>
               <p>{menus.length === 0 ? "İlk dijital menünü oluşturarak başlayabilirsin." : "Arama kelimesini veya filtreyi değiştirmeyi dene."}</p>
-              {menus.length === 0 && <Link className="dashboard-primary" href="/studio?new=1"><Plus size={17} /> İlk menüyü oluştur</Link>}
+              {menus.length === 0 && user.account.canCreateMenu && <Link className="dashboard-primary" href="/studio?new=1"><Plus size={17} /> İlk menüyü oluştur</Link>}
             </section>
           ) : (
             <section className="menus-page-grid">
               {filteredMenus.map((storedMenu) => {
                 const productCount = storedMenu.menu.categories.reduce((sum, category) => sum + category.items.length, 0);
                 const needsPublishing = storedMenu.status === "draft" || storedMenu.hasUnpublishedChanges;
-                const studioHref = `/studio?menu=${storedMenu.id}${needsPublishing ? "&publish=1" : ""}`;
+                const publishActionAvailable = needsPublishing && user.account.canPublish;
+                const studioHref = `/studio?menu=${storedMenu.id}${publishActionAvailable ? "&publish=1" : ""}`;
                 return (
                   <article className="menus-page-card" key={storedMenu.id}>
                     <div className="menus-card-cover" style={{ background: storedMenu.theme.background, color: storedMenu.theme.text }}>
@@ -113,9 +122,11 @@ export function MenusDashboard({ user, initialMenus }: { user: SessionUser; init
                       </div>
                       <div className="menus-card-stats"><span><Eye size={14} /><strong>{storedMenu.viewCount}</strong> görüntülenme</span><span>Son güncelleme <strong>{new Date(storedMenu.updatedAt).toLocaleDateString("tr-TR", { day: "numeric", month: "short", year: "numeric" })}</strong></span></div>
                       <div className="menus-card-actions">
-                        <Link className={needsPublishing ? "edit publish-draft" : "edit"} href={studioHref}>
-                          {needsPublishing ? <Rocket size={16} /> : <FilePenLine size={16} />}
-                          {storedMenu.status === "draft"
+                        <Link className={publishActionAvailable ? "edit publish-draft" : "edit"} href={studioHref}>
+                          {publishActionAvailable ? <Rocket size={16} /> : <FilePenLine size={16} />}
+                          {!user.account.canPublish
+                            ? "Düzenle"
+                            : storedMenu.status === "draft"
                             ? "Düzenle ve yayınla"
                             : storedMenu.hasUnpublishedChanges
                               ? "Güncellemeyi yayınla"

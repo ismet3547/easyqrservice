@@ -11,6 +11,7 @@ dosyası doğrudan kopyalanmaz.
 - HTTPS sağlayan bir domain veya reverse proxy
 - Kalıcı Docker volume desteği
 - Gerçek AI özellikleri için sunucu tarafı `OPENAI_API_KEY`
+- Şifre kurtarma e-postaları için Resend API anahtarı ve doğrulanmış gönderici adresi
 
 Bu kurulum tek uygulama instance'ı içindir. Aynı SQLite dosyasına birden fazla
 uygulama instance'ı bağlanmamalıdır.
@@ -23,6 +24,9 @@ Repo kökünde Git tarafından izlenmeyen `.env` dosyasını oluştur:
 APP_URL=https://easyqrservice.com
 OPENAI_API_KEY=sk-...
 ALLOW_DEMO_MODE=false
+EMAIL_DELIVERY_MODE=resend
+RESEND_API_KEY=re_...
+EMAIL_FROM="easyqr <no-reply@easyqrservice.com>"
 
 BACKUP_RETENTION_DAYS=14
 BACKUP_MAX_FILES=30
@@ -34,9 +38,15 @@ HOST_PORT=3000
 Canlı ortamda HTTPS zorunludur. `OPENAI_API_KEY` hiçbir zaman `NEXT_PUBLIC_`
 önekli bir değişkende tutulmamalıdır.
 
+`EMAIL_FROM` alanındaki domain [Resend](https://resend.com/docs/api-reference/emails/send-email)
+üzerinde doğrulanmış olmalıdır. E-posta API
+anahtarı yalnızca sunucuda tutulmalı ve `NEXT_PUBLIC_` önekiyle tanımlanmamalıdır.
+Canlı uygulama, e-posta teslim ayarları eksikse başlamayı reddeder.
+
 Demo/staging ortamında gerçek AI kasıtlı olarak kapalıysa `OPENAI_API_KEY` boş
-bırakılıp `ALLOW_DEMO_MODE=true` yazılabilir. Müşteri ortamında bu seçenek
-kullanılmamalıdır.
+bırakılıp `ALLOW_DEMO_MODE=true` yazılabilir. Aynı kontrollü ortamda e-postaları
+terminalde görmek için `EMAIL_DELIVERY_MODE=log` seçilebilir. Müşteri ortamında
+bu seçenekler kullanılmamalıdır.
 
 ## 3. Başlatma
 
@@ -72,10 +82,24 @@ docker compose up -d --build
 docker compose ps
 ```
 
-Dağıtım sonrasında kayıt, giriş, mevcut bir menünün açılması ve `/api/health`
-kontrol edilmelidir.
+Dağıtım sonrasında kayıt, giriş, şifre yenileme e-postası, mevcut bir menünün
+açılması ve `/api/health` kontrol edilmelidir.
 
-## 5. Yedekler
+## 5. Pilot Pro erişimi
+
+Yeni hesaplar 7 günlük ve 1 menü sınırına sahip denemeyle açılır. Pilot ödeme
+alındıktan sonra Pro erişimini yönetici komutuyla etkinleştir:
+
+```bash
+docker compose exec app node scripts/activate-account.cjs \
+  --email musteri@example.com --days 30
+```
+
+Pro planı 5 menüye izin verir. Süresi devam eden bir Pro hesaba yeniden gün
+eklendiğinde süre mevcut bitiş tarihinden uzatılır. Komuttan sonra kullanıcı
+sayfayı yenilediğinde yeni durum görünür.
+
+## 6. Yedekler
 
 `backup` servisi başladığında ilk yedeği alır ve varsayılan olarak 24 saatte bir
 tekrarlar. Her yedekte:
@@ -109,7 +133,7 @@ Volume kaybına karşı yedekler ayrıca sağlayıcının şifreli harici depola
 aktarılmalıdır. Aynı volume üzerindeki yedek, sunucu veya volume tamamen
 kaybolduğunda tek başına yeterli değildir.
 
-## 6. Güvenli geri yükleme
+## 7. Güvenli geri yükleme
 
 Geri yükleme komutu mevcut veritabanının üzerine yazmaz. Önce yeni bir dosyaya
 geri yükler; checksum ve SQLite bütünlüğü doğrulanmadan tamamlanmaz.
@@ -140,7 +164,7 @@ geri yükler; checksum ve SQLite bütünlüğü doğrulanmadan tamamlanmaz.
 Eski `/data/easyqr.db` dosyası otomatik silinmez. Geri dönüş gerektiğinde
 `DATABASE_PATH` eski dosyaya çevrilebilir.
 
-## 7. Operasyon kuralları
+## 8. Operasyon kuralları
 
 - `docker compose down -v` çalıştırma; `-v` kalıcı veri volume'ünü siler.
 - Veritabanını çalışan konteynerden `cp` ile kopyalama; online backup komutunu kullan.
@@ -148,7 +172,7 @@ Eski `/data/easyqr.db` dosyası otomatik silinmez. Geri dönüş gerektiğinde
 - Yedek geri yüklemeyi düzenli aralıklarla staging üzerinde prova et.
 - Disk doluluğunu ve `/api/health` sonucunu hosting sağlayıcısından izle.
 
-## 8. Ölçek sınırı
+## 9. Ölçek sınırı
 
 Bu topoloji ilk pilot işletmeler ve tek uygulama instance'ı içindir. Birden fazla
 uygulama instance'ı, yüksek yazma trafiği veya ayrı dosya depolama ihtiyacı

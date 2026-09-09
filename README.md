@@ -7,10 +7,13 @@ Restoran ve kafelerin mevcut PDF veya görsel menülerini yapay zekâ ile okuyup
 - JPG, PNG, WEBP ve PDF menü yükleme
 - E-posta ve şifreyle kullanıcı kaydı/girişi
 - Dashboard ayarlarından ad, e-posta ve şifre güncelleme
+- 30 dakika geçerli, tek kullanımlık bağlantıyla güvenli şifre sıfırlama
+- 7 günlük deneme, sunucu tarafı menü/yayın/AI sınırları ve manuel Pro aktivasyonu
+- Ayarlardan şifre ve açık onayla hesabı ve bağlı verileri kalıcı silme
 - `bcrypt` parola hash’i ve veritabanında tutulan güvenli oturumlar
 - HTTP-only, SameSite oturum çerezi ve giriş denemesi sınırı
 - OpenAI Responses API ile kategori, ürün, açıklama ve fiyat çıkarımı
-- Aynı menü analizi ve çeviriyi tekrar AI'a göndermeyen kalıcı SQLite önbelleği
+- Aynı menü analizi ve çeviriyi tekrar AI'a göndermeyen, kullanıcıya özel kalıcı SQLite önbelleği
 - Otomatik ürün görsellerinde önbellek; kullanıcı tarafından yapılan “yenile” işleminde yeni üretim
 - API anahtarı olmadan deneyimlenebilen, açıkça etiketlenmiş demo modu
 - Restoran, kafe, pastane, fırın, fast food ve otel için hazır içerik/tasarım şablonları ile tamamen boş başlangıç
@@ -70,7 +73,9 @@ Restoran ve kafelerin mevcut PDF veya görsel menülerini yapay zekâ ile okuyup
 
 ## Yerelde çalıştırma
 
-Analitik veri kontrolleri için `npm run test:analytics` çalıştırılabilir. Testler geçici SQLite veritabanı oluşturur; uygulamanın veritabanına dokunmaz.
+Analitik veri kontrolleri için `npm run test:analytics`, hesap yaşam döngüsü için
+`npm run test:account` çalıştırılabilir. Testler geçici SQLite veritabanı
+oluşturur; uygulamanın veritabanına dokunmaz.
 
 Gereksinimler: Node.js 20.9 veya üzeri.
 
@@ -89,6 +94,7 @@ OPENAI_API_KEY=sk-...
 OPENAI_MODEL=gpt-4.1-mini
 OPENAI_THEME_MODEL=gpt-4.1-mini
 OPENAI_IMAGE_MODEL=gpt-image-1
+EMAIL_DELIVERY_MODE=log
 ```
 
 Kullanıcılar ve oturumlar varsayılan olarak `.data/easyqr.db` SQLite veritabanında saklanır. Farklı bir konum kullanmak isterseniz:
@@ -101,6 +107,10 @@ DATABASE_PATH=/tam/yol/easyqr.db
 
 AI sonuçları aynı SQLite veritabanında, model ve işlem sürümünü de içeren SHA-256 anahtarlarla saklanır. Menü analizi, çeviri ve idempotent tema tasarımı kayıtları 30 gün; otomatik ürün görselleri 14 gün geçerlidir. Girdi dosyalarının kendisi saklanmaz; yalnızca içerik özeti ve doğrulanmış AI sonucu tutulur. Süresi dolan veya kapasite sınırını aşan kayıtlar otomatik temizlenir.
 
+Yerel geliştirmede `EMAIL_DELIVERY_MODE=log`, şifre yenileme bağlantısını yalnızca
+sunucu terminaline yazar. Canlı ortamda `EMAIL_DELIVERY_MODE=resend`,
+`RESEND_API_KEY` ve doğrulanmış bir `EMAIL_FROM` adresi kullanılmalıdır.
+
 ## Komutlar
 
 ```bash
@@ -108,14 +118,18 @@ npm run dev        # geliştirme sunucusu
 npm run typecheck  # TypeScript kontrolü
 npm run build      # üretim derlemesi
 npm start          # üretim sunucusu
+npm run test:analytics # analitik kapsam ve hesaplama kontrolleri
+npm run test:account   # plan, şifre kurtarma, cache ve hesap silme kontrolleri
 npm run test:ops   # ortam, online yedek ve geri yükleme kontrolleri
+npm run account:activate -- --email musteri@example.com --days 30
 npm run db:backup  # çalışan SQLite veritabanından güvenli yedek
 npm run db:verify -- --source /yedek.sqlite3
 npm run db:restore -- --source /yedek.sqlite3 --target /yeni/easyqr.db
 ```
 
 `npm start`, canlı ortam yanlışlıkla geçici veya eksik ayarlarla açılmasın diye
-`APP_URL`, mutlak `DATABASE_PATH` ve AI/demo seçimini başlatmadan önce doğrular.
+`APP_URL`, mutlak `DATABASE_PATH`, AI/demo seçimi ve e-posta teslim ayarlarını
+başlatmadan önce doğrular.
 Yerel geliştirmede bu kontrol `npm run dev` akışını etkilemez.
 
 ## Pilot üretim kurulumu
@@ -150,9 +164,12 @@ gerektiğinde PostgreSQL'e geçilmelidir.
 - `app/api/ai-credits/route.ts`: oturum sahibine ait AI bakiyesi, maliyet bilgisi ve son hareketler
 - `app/api/menu-events/route.ts`: herkese açık menüler için aynı-origin, boyut ve hız sınırlı olay toplama endpoint’i
 - `app/api/auth/*`: kayıt, giriş, çıkış ve aktif kullanıcı endpoint’leri
-- `app/giris` ve `app/kayit`: kullanıcı erişim ekranları
+- `app/api/account`: şifre doğrulamalı ve açık onaylı hesap silme endpoint’i
+- `app/giris`, `app/kayit`, `app/sifremi-unuttum` ve `app/sifre-sifirla`: kullanıcı erişim ve hesap kurtarma ekranları
 - `lib/auth.ts` ve `lib/db.ts`: oturum ve SQLite altyapısı
-- `lib/ai-cache.ts`: süreli, boyut kontrollü ve sürümlü AI sonuç önbelleği
+- `lib/account-plan.ts`: deneme/Pro erişimi, süre ve menü sınırı kuralları
+- `lib/password-reset.ts` ve `lib/email.ts`: hash’li tek kullanımlık token ve e-posta teslim katmanı
+- `lib/ai-cache.ts`: kullanıcıya özel, süreli, boyut kontrollü ve sürümlü AI sonuç önbelleği
 - `lib/ai-credit-config.ts` ve `lib/ai-credits.ts`: kredi maliyetleri, başlangıç bakiyesi, atomik harcama/iade ve idempotent işlem defteri
 - `lib/theme-design.ts`: AI tema şeması, izinli token doğrulaması ve renk kontrastı denetimi
 - `lib/menu-tracking.ts`: kişisel veri saklamadan kaynak, cihaz, dil ve bot sınıflandırması
@@ -169,7 +186,7 @@ gerektiğinde PostgreSQL'e geçilmelidir.
 Kullanıcılar, oturumlar, taslaklar ve yayınlanan menüler SQLite veritabanında saklanır. Studio otomatik olarak çalışma kopyasını kaydeder; canlı müşteri menüsü yalnızca açık yayınlama işlemiyle atomik olarak güncellenir. Yayınlanan her menü aynı QR kodla güncellenebilen kalıcı bir `/m/{slug}` adresi alır. Pilot üretimde veritabanı kalıcı volume üzerinde tek uygulama instance'ıyla çalıştırılır ve otomatik yedeklenir. İlk müşterilerden sonra önerilen ölçek adımları:
 
 1. Üretim ortamı için PostgreSQL ile işletme, menü, kategori ve ürün tabloları
-2. E-posta doğrulama, şifre sıfırlama ve çoklu işletme desteği
+2. E-posta doğrulama ve çoklu işletme desteği
 3. İngilizce dışındaki ek hedef diller ve işletmeye özel dil seçimi
 4. Kampanya tıklaması ve doğrulanmış dönüşüm analitiği
 5. AI kredi paketleri, ekip rolleri, çoklu şube ve abonelik planları
@@ -189,6 +206,10 @@ Kullanıcılar, oturumlar, taslaklar ve yayınlanan menüler SQLite veritabanın
 - Oturum anahtarının yalnızca SHA-256 özeti veritabanında tutulur; ham anahtar HTTP-only çerezdedir.
 - Kayıt ve giriş endpoint’lerinde aynı-origin kontrolü ve temel deneme sınırı uygulanır.
 - E-posta değişikliği mevcut şifre doğrulaması gerektirir; şifre değişikliğinde diğer cihazlardaki oturumlar kapatılır ve hassas denemeler sınırlandırılır.
+- Şifre sıfırlama anahtarının yalnızca SHA-256 özeti saklanır; bağlantı 30 dakika geçerlidir, tek kullanımlıktır ve parola yenilendiğinde tüm eski oturumlar kapatılır.
+- Şifre sıfırlama isteği hesap varlığını açıklamayan sabit yanıt kullanır; IP ve e-posta özeti bazında sınırlandırılır.
+- Hesap silme mevcut şifre, açık onay ifadesi, same-origin ve hız sınırı gerektirir; kullanıcıya bağlı menü, analitik, oturum, kredi, token ve AI cache kayıtları birlikte silinir.
+- Deneme ve Pro süreleri sunucuda denetlenir. Süre dolması mevcut yayınlanmış menüyü kapatmaz; yeni menü, yayınlama ve AI işlemlerini engeller.
 - AI çıktısı, yayınlamadan önce kullanıcı tarafından düzenlenebilir ve kontrol edilebilir.
 - Boş ad, görünür ürün eksikliği ve geçersiz fiyat gibi yayın engelleri istemciye ek olarak sunucuda da doğrulanır.
 - Yayındaki bir menünün otomatik kayıtları yalnızca çalışma kopyasını değiştirir; doğrulanmış canlı anlık görüntü açık bir yayın isteği olmadan güncellenemez.
