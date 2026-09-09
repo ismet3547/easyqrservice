@@ -84,7 +84,7 @@ export function isRecordWithOnlyKeys(
   value: unknown,
   allowedKeys: readonly string[],
 ): value is Record<string, unknown> {
-  return Boolean(value) &&
+  return value !== null &&
     typeof value === "object" &&
     !Array.isArray(value) &&
     Object.keys(value).every((key) => allowedKeys.includes(key));

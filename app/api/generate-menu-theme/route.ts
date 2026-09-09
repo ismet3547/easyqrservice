@@ -86,26 +86,26 @@ export async function POST(request: Request) {
     );
   }
 
-  const parsed = await readJsonRequest(request, maximumRequestBytes);
-  if (!parsed.ok) {
+  const requestBodyResult = await readJsonRequest(request, maximumRequestBytes);
+  if (!requestBodyResult.ok) {
     return json(
       {
-        message: parsed.reason === "too-large"
+        message: requestBodyResult.reason === "too-large"
           ? "Tasarım isteği boyut sınırını aşıyor."
           : "Geçersiz istek.",
       },
-      { status: parsed.status },
+      { status: requestBodyResult.status },
     );
   }
   if (
-    !isRecordWithOnlyKeys(parsed.value, ["brief", "menuId", "requestId"]) ||
-    typeof parsed.value.brief !== "string" ||
-    typeof parsed.value.menuId !== "string" ||
-    typeof parsed.value.requestId !== "string"
+    !isRecordWithOnlyKeys(requestBodyResult.value, ["brief", "menuId", "requestId"]) ||
+    typeof requestBodyResult.value.brief !== "string" ||
+    typeof requestBodyResult.value.menuId !== "string" ||
+    typeof requestBodyResult.value.requestId !== "string"
   ) {
     return json({ message: "Tasarım isteği uygun değil." }, { status: 400 });
   }
-  const body = parsed.value as ThemeDesignBody;
+  const body = requestBodyResult.value as ThemeDesignBody;
 
   const brief = normalizeBrief(body.brief);
   if (
