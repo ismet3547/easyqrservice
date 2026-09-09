@@ -4,14 +4,17 @@ import { NextResponse } from "next/server";
 import { createSession, isSameOrigin } from "@/lib/auth";
 import { getAccountAccess, trialDurationDays } from "@/lib/account-plan";
 import { db } from "@/lib/db";
+import { isRecordWithOnlyKeys, readJsonRequest } from "@/lib/http";
 import { checkRateLimit, getClientAddress } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
+const maximumRequestBytes = 4 * 1024;
+
 type RegisterBody = {
-  name?: string;
-  email?: string;
-  password?: string;
+  name: string;
+  email: string;
+  password: string;
 };
 
 function normalizeEmail(value: string) {
@@ -31,18 +34,31 @@ export async function POST(request: Request) {
   if (!rateLimit.allowed) {
     return NextResponse.json(
       { message: "Çok fazla kayıt denemesi yapıldı. Biraz sonra tekrar dene." },
-      { status: 429, headers: { "Retry-After": String(rateLimit.retryAfterSeconds) } },
+      {
+        status: 429,
+        headers: { "Retry-After": String(rateLimit.retryAfterSeconds) },
+      },
     );
   }
 
-  let body: RegisterBody;
-  try {
-    body = (await request.json()) as RegisterBody;
-  } catch {
+  const parsed = await readJsonRequest(request, maximumRequestBytes);
+  if (!parsed.ok) {
+    return NextResponse.json(
+      { message: parsed.reason === "too-large" ? "İstek çok büyük." : "Geçersiz istek." },
+      { status: parsed.status },
+    );
+  }
+  if (
+    !isRecordWithOnlyKeys(parsed.value, ["name", "email", "password"]) ||
+    typeof parsed.value.name !== "string" ||
+    typeof parsed.value.email !== "string" ||
+    typeof parsed.value.password !== "string"
+  ) {
     return NextResponse.json({ message: "Geçersiz istek." }, { status: 400 });
   }
+  const body = parsed.value as RegisterBody;
 
-  const name = body.name?.trim() || "";
+  const name = body.name.trim();
   const email = normalizeEmail(body.email || "");
   const password = body.password || "";
 
@@ -64,6 +80,17 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { message: "Bu e-posta adresiyle zaten bir hesap bulunuyor." },
       { status: 409 },
+    );
+  }
+
+  const globalRateLimit = checkRateLimit("register:global", 200, 60 * 60 * 1000);
+  if (!globalRateLimit.allowed) {
+    return NextResponse.json(
+      { message: "Kayıt sistemi şu anda yoğun. Biraz sonra tekrar dene." },
+      {
+        status: 429,
+        headers: { "Retry-After": String(globalRateLimit.retryAfterSeconds) },
+      },
     );
   }
 

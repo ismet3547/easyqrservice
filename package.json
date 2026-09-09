@@ -14,7 +14,8 @@
     "account:activate": "node scripts/activate-account.cjs",
     "db:backup": "node scripts/backup-database.cjs",
     "db:verify": "node scripts/verify-database-backup.cjs",
-    "db:restore": "node scripts/restore-database.cjs"
+    "db:restore": "node scripts/restore-database.cjs",
+    "test:security": "node scripts/test-security.cjs"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",

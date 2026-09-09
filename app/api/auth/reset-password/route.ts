@@ -6,6 +6,7 @@ import {
   isValidPasswordResetToken,
   resetPasswordWithToken,
 } from "@/lib/password-reset";
+import { isRecordWithOnlyKeys, readJsonRequest } from "@/lib/http";
 import { checkRateLimit, getClientAddress } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
@@ -34,31 +35,17 @@ export async function POST(request: Request) {
     );
   }
 
-  const contentType = (request.headers.get("content-type") || "").split(";", 1)[0].trim();
-  const declaredLength = Number(request.headers.get("content-length"));
-  if (
-    contentType !== "application/json" ||
-    (Number.isFinite(declaredLength) && declaredLength > maximumRequestBytes)
-  ) {
+  const parsed = await readJsonRequest(request, maximumRequestBytes);
+  if (!parsed.ok) {
+    return NextResponse.json(
+      { message: parsed.reason === "too-large" ? "İstek çok büyük." : "Geçersiz istek." },
+      { status: parsed.status },
+    );
+  }
+  if (!isRecordWithOnlyKeys(parsed.value, ["password", "token"])) {
     return NextResponse.json({ message: "Geçersiz istek." }, { status: 400 });
   }
-
-  let input: unknown;
-  try {
-    const rawBody = await request.text();
-    if (Buffer.byteLength(rawBody, "utf8") > maximumRequestBytes) throw new Error("too large");
-    input = JSON.parse(rawBody) as unknown;
-  } catch {
-    return NextResponse.json({ message: "Geçersiz istek." }, { status: 400 });
-  }
-
-  if (
-    !input || typeof input !== "object" || Array.isArray(input) ||
-    Object.keys(input).some((key) => !["password", "token"].includes(key))
-  ) {
-    return NextResponse.json({ message: "Geçersiz istek." }, { status: 400 });
-  }
-  const body = input as ResetPasswordBody;
+  const body = parsed.value as ResetPasswordBody;
 
   const token = typeof body.token === "string" ? body.token : "";
   const password = typeof body.password === "string" ? body.password : "";

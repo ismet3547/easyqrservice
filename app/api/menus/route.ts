@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser, isSameOrigin } from "@/lib/auth";
 import { getAccountAccess, getAccountFeatureBlock } from "@/lib/account-plan";
+import { isRecordWithOnlyKeys, readJsonRequest } from "@/lib/http";
 import {
   createUserMenu,
   isValidMenuData,
@@ -9,6 +10,8 @@ import {
 } from "@/lib/menus";
 
 export const runtime = "nodejs";
+
+const maximumRequestBytes = 12 * 1024 * 1024;
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -26,10 +29,17 @@ export async function POST(request: Request) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ message: "Giriş gerekli." }, { status: 401 });
 
-  const body = (await request.json().catch(() => null)) as
-    | { menu?: unknown; theme?: unknown }
-    | null;
-  if (!body) return NextResponse.json({ message: "Geçersiz istek." }, { status: 400 });
+  const parsed = await readJsonRequest(request, maximumRequestBytes);
+  if (!parsed.ok) {
+    return NextResponse.json(
+      { message: parsed.reason === "too-large" ? "Menü verisi çok büyük." : "Geçersiz istek." },
+      { status: parsed.status },
+    );
+  }
+  if (!isRecordWithOnlyKeys(parsed.value, ["menu", "theme"])) {
+    return NextResponse.json({ message: "Geçersiz istek." }, { status: 400 });
+  }
+  const body = parsed.value;
   if (!isValidMenuData(body.menu) || !isValidMenuTheme(body.theme)) {
     return NextResponse.json({ message: "Geçersiz menü verisi." }, { status: 400 });
   }

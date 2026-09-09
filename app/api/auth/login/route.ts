@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { createSession, isSameOrigin } from "@/lib/auth";
 import { getAccountAccess } from "@/lib/account-plan";
 import { db } from "@/lib/db";
+import { isRecordWithOnlyKeys, readJsonRequest } from "@/lib/http";
 import { checkRateLimit, getClientAddress } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
@@ -22,6 +23,7 @@ type LoginUserRow = {
 };
 
 const dummyPasswordHash = "$2b$12$C6UzMDM.H6dfI/f/IKcEe.5vAxiQC4a8yCq5c0qF4YqVv5C3GQZe";
+const maximumRequestBytes = 4 * 1024;
 
 export async function POST(request: Request) {
   if (!isSameOrigin(request)) {
@@ -36,17 +38,42 @@ export async function POST(request: Request) {
     );
   }
 
-  let body: LoginBody;
-  try {
-    body = (await request.json()) as LoginBody;
-  } catch {
+  const parsed = await readJsonRequest(request, maximumRequestBytes);
+  if (!parsed.ok) {
+    return NextResponse.json(
+      { message: parsed.reason === "too-large" ? "İstek çok büyük." : "Geçersiz istek." },
+      { status: parsed.status },
+    );
+  }
+  if (
+    !isRecordWithOnlyKeys(parsed.value, ["email", "password", "remember"]) ||
+    typeof parsed.value.email !== "string" ||
+    typeof parsed.value.password !== "string" ||
+    (parsed.value.remember !== undefined && typeof parsed.value.remember !== "boolean")
+  ) {
     return NextResponse.json({ message: "Geçersiz istek." }, { status: 400 });
   }
+  const body = parsed.value as LoginBody;
 
   const email = (body.email || "").trim().toLocaleLowerCase("en-US");
   const password = body.password || "";
-  if (!email || !password) {
-    return NextResponse.json({ message: "E-posta ve şifre zorunludur." }, { status: 400 });
+  if (!email || email.length > 254 || !password || Buffer.byteLength(password, "utf8") > 72) {
+    return NextResponse.json({ message: "E-posta veya şifre uygun değil." }, { status: 400 });
+  }
+
+  const accountRateLimit = checkRateLimit(
+    `login:account:${email}`,
+    10,
+    15 * 60 * 1000,
+  );
+  if (!accountRateLimit.allowed) {
+    return NextResponse.json(
+      { message: "Çok fazla giriş denemesi yapıldı. Biraz sonra tekrar dene." },
+      {
+        status: 429,
+        headers: { "Retry-After": String(accountRateLimit.retryAfterSeconds) },
+      },
+    );
   }
 
   const user = db

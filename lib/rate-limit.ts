@@ -1,30 +1,97 @@
-type RateLimitEntry = {
+import { createHash } from "node:crypto";
+import { isIP } from "node:net";
+import { db } from "@/lib/db";
+
+type RateLimitRow = {
   attempts: number;
-  resetAt: number;
+  reset_at: number;
 };
 
-const attempts = new Map<string, RateLimitEntry>();
+const cleanupIntervalMs = 60 * 1000;
+const maximumStoredWindows = 10_000;
+let nextCleanupAt = 0;
+
+function hashKey(key: string) {
+  return createHash("sha256").update(key).digest("hex");
+}
+
+function cleanupRateLimits(now: number) {
+  if (now < nextCleanupAt) return;
+  nextCleanupAt = now + cleanupIntervalMs;
+
+  db.prepare("DELETE FROM rate_limits WHERE reset_at <= ?").run(now);
+}
+
+const updateWindow = db.transaction(
+  (keyHash: string, limit: number, windowMs: number, now: number) => {
+    const current = db.prepare(
+      "SELECT attempts, reset_at FROM rate_limits WHERE key_hash = ?",
+    ).get(keyHash) as RateLimitRow | undefined;
+
+    if (!current) {
+      const count = (
+        db.prepare("SELECT COUNT(*) AS count FROM rate_limits").get() as { count: number }
+      ).count;
+      if (count >= maximumStoredWindows) {
+        return { allowed: false, retryAfterSeconds: 60 };
+      }
+
+      db.prepare(
+        "INSERT INTO rate_limits (key_hash, attempts, reset_at) VALUES (?, 1, ?)",
+      ).run(keyHash, now + windowMs);
+      return { allowed: true, retryAfterSeconds: 0 };
+    }
+
+    if (current.reset_at <= now) {
+      db.prepare(
+        "UPDATE rate_limits SET attempts = 1, reset_at = ? WHERE key_hash = ?",
+      ).run(now + windowMs, keyHash);
+      return { allowed: true, retryAfterSeconds: 0 };
+    }
+
+    const attempts = current.attempts + 1;
+    db.prepare("UPDATE rate_limits SET attempts = ? WHERE key_hash = ?")
+      .run(attempts, keyHash);
+
+    return {
+      allowed: attempts <= limit,
+      retryAfterSeconds: attempts <= limit
+        ? 0
+        : Math.max(1, Math.ceil((current.reset_at - now) / 1000)),
+    };
+  },
+);
 
 export function checkRateLimit(key: string, limit: number, windowMs: number) {
+  if (
+    !Number.isSafeInteger(limit) ||
+    limit <= 0 ||
+    !Number.isSafeInteger(windowMs) ||
+    windowMs <= 0
+  ) {
+    throw new RangeError("Rate-limit values must be positive safe integers.");
+  }
+
   const now = Date.now();
-  const current = attempts.get(key);
+  cleanupRateLimits(now);
+  return updateWindow(hashKey(key), limit, windowMs, now);
+}
 
-  if (!current || current.resetAt <= now) {
-    attempts.set(key, { attempts: 1, resetAt: now + windowMs });
-    return { allowed: true, retryAfterSeconds: 0 };
-  }
+function normalizeAddress(value: string | null) {
+  if (!value) return null;
+  const candidate = value.split(",", 1)[0].trim().replace(/^\[|\]$/g, "");
+  return candidate.length <= 80 && isIP(candidate) ? candidate : null;
+}
 
-  current.attempts += 1;
-  if (current.attempts <= limit) {
-    return { allowed: true, retryAfterSeconds: 0 };
-  }
+type HeaderReader = Pick<Headers, "get">;
 
-  return {
-    allowed: false,
-    retryAfterSeconds: Math.max(1, Math.ceil((current.resetAt - now) / 1000)),
-  };
+export function getClientAddressFromHeaders(headers: HeaderReader) {
+  return normalizeAddress(headers.get("cf-connecting-ip")) ||
+    normalizeAddress(headers.get("x-forwarded-for")) ||
+    normalizeAddress(headers.get("x-real-ip")) ||
+    "unknown";
 }
 
 export function getClientAddress(request: Request) {
-  return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
+  return getClientAddressFromHeaders(request.headers);
 }

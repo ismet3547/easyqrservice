@@ -685,7 +685,12 @@ export function MenuStudio({
         if (searchParams.has("new")) return;
 
         const draftKey = `easyqr-draft:${result.user.id}`;
-        const draft = window.localStorage.getItem(draftKey);
+        let draft: string | null = null;
+        try {
+          draft = window.localStorage.getItem(draftKey);
+        } catch {
+          return;
+        }
         if (!draft) return;
         try {
           const saved = JSON.parse(draft) as PublishedMenu;
@@ -735,11 +740,41 @@ export function MenuStudio({
 
   useEffect(() => {
     if (screen !== "studio" || !currentUser) return;
-    window.localStorage.setItem(
-      `easyqr-draft:${currentUser.id}`,
-      JSON.stringify({ menu, theme }),
-    );
-  }, [currentUser, menu, screen, theme]);
+    const draftKey = `easyqr-draft:${currentUser.id}`;
+
+    try {
+      if (activeMenuId) {
+        window.localStorage.removeItem(draftKey);
+        return;
+      }
+      window.localStorage.setItem(draftKey, JSON.stringify({ menu, theme }));
+    } catch {
+      // Browsers can deny storage or exhaust their small localStorage quota
+      // when a draft contains images. Keep a text-only recovery copy instead.
+      const compactMenu: MenuData = {
+        ...menu,
+        businessProfile: menu.businessProfile
+          ? { ...menu.businessProfile, logo: "" }
+          : undefined,
+        categories: menu.categories.map((category) => ({
+          ...category,
+          items: category.items.map((item) => ({ ...item, image: "" })),
+        })),
+      };
+      try {
+        window.localStorage.setItem(
+          draftKey,
+          JSON.stringify({ menu: compactMenu, theme }),
+        );
+      } catch {
+        try {
+          window.localStorage.removeItem(draftKey);
+        } catch {
+          // Storage is unavailable; server autosave still protects saved menus.
+        }
+      }
+    }
+  }, [activeMenuId, currentUser, menu, screen, theme]);
 
   useEffect(() => {
     if (screen !== "studio" || !currentUser || !activeMenuId) return;

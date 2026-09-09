@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { isSameOrigin } from "@/lib/auth";
+import { readJsonRequest } from "@/lib/http";
 import { isValidMenuEventBatch, recordMenuEventBatch } from "@/lib/menu-events";
 import { checkRateLimit, getClientAddress } from "@/lib/rate-limit";
 
@@ -10,11 +11,6 @@ const maximumRequestBytes = 16_000;
 export async function POST(request: Request) {
   if (!isSameOrigin(request)) {
     return NextResponse.json({ message: "Geçersiz istek kaynağı." }, { status: 403 });
-  }
-
-  const contentLength = Number(request.headers.get("content-length") || 0);
-  if (contentLength > maximumRequestBytes) {
-    return NextResponse.json({ message: "İstek çok büyük." }, { status: 413 });
   }
 
   const rateLimit = checkRateLimit(
@@ -32,16 +28,14 @@ export async function POST(request: Request) {
     );
   }
 
-  const rawBody = await request.text();
-  if (new TextEncoder().encode(rawBody).byteLength > maximumRequestBytes) {
-    return NextResponse.json({ message: "İstek çok büyük." }, { status: 413 });
+  const parsed = await readJsonRequest(request, maximumRequestBytes);
+  if (!parsed.ok) {
+    return NextResponse.json(
+      { message: parsed.reason === "too-large" ? "İstek çok büyük." : "Geçersiz istek." },
+      { status: parsed.status },
+    );
   }
-  let body: unknown = null;
-  try {
-    body = JSON.parse(rawBody) as unknown;
-  } catch {
-    return NextResponse.json({ message: "Geçersiz istek." }, { status: 400 });
-  }
+  const body = parsed.value;
   if (!isValidMenuEventBatch(body)) {
     return NextResponse.json({ message: "Geçersiz analitik verisi." }, { status: 400 });
   }
