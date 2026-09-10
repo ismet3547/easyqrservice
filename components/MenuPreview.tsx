@@ -355,11 +355,17 @@ export function PublicMenu({
         initialLanguage={initialLanguage}
       />
       <footer className="public-menu-footer">
-        <div className="brand compact">
-          <span className="brand-mark"><QrCode size={17} /></span>
-          <strong>easy<span>qr</span></strong>
+        <div className="public-menu-powered-by">
+          <span>QR menu by</span>
+          <div className="brand compact">
+            <span className="brand-mark"><QrCode size={17} /></span>
+            <strong>easy<span>qr</span></strong>
+          </div>
         </div>
-        <span>QR menu by</span>
+        <nav aria-label="Gizlilik bağlantıları">
+          <a href="/gizlilik">Gizlilik</a>
+          <a href="/cerez-politikasi">Çerezler</a>
+        </nav>
       </footer>
     </main>
   );

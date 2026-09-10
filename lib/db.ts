@@ -20,6 +20,8 @@ db.exec(`
     plan TEXT NOT NULL DEFAULT 'trial' CHECK (plan IN ('trial', 'pro')),
     trial_ends_at TEXT,
     plan_expires_at TEXT,
+    terms_accepted_at TEXT,
+    terms_version TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
   );
@@ -156,6 +158,12 @@ if (!userColumns.has("trial_ends_at")) {
 }
 if (!userColumns.has("plan_expires_at")) {
   db.exec("ALTER TABLE users ADD COLUMN plan_expires_at TEXT");
+}
+if (!userColumns.has("terms_accepted_at")) {
+  db.exec("ALTER TABLE users ADD COLUMN terms_accepted_at TEXT");
+}
+if (!userColumns.has("terms_version")) {
+  db.exec("ALTER TABLE users ADD COLUMN terms_version TEXT");
 }
 const migrationTrialEnd = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 db.prepare("UPDATE users SET trial_ends_at = ? WHERE trial_ends_at IS NULL")

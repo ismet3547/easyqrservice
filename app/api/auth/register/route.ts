@@ -5,6 +5,7 @@ import { createSession, isSameOrigin } from "@/lib/auth";
 import { getAccountAccess, trialDurationDays } from "@/lib/account-plan";
 import { db } from "@/lib/db";
 import { isRecordWithOnlyKeys, readJsonRequest } from "@/lib/http";
+import { legalDocumentVersion } from "@/lib/legal";
 import { checkRateLimit, getClientAddress } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
@@ -12,6 +13,7 @@ export const runtime = "nodejs";
 const maximumRequestBytes = 4 * 1024;
 
 type RegisterBody = {
+  acceptedTerms: boolean;
   name: string;
   email: string;
   password: string;
@@ -49,7 +51,8 @@ export async function POST(request: Request) {
     );
   }
   if (
-    !isRecordWithOnlyKeys(parsed.value, ["name", "email", "password"]) ||
+    !isRecordWithOnlyKeys(parsed.value, ["acceptedTerms", "name", "email", "password"]) ||
+    parsed.value.acceptedTerms !== true ||
     typeof parsed.value.name !== "string" ||
     typeof parsed.value.email !== "string" ||
     typeof parsed.value.password !== "string"
@@ -105,9 +108,10 @@ export async function POST(request: Request) {
   try {
     db.prepare(
       `INSERT INTO users
-        (id, name, email, password_hash, plan, trial_ends_at, plan_expires_at, created_at, updated_at)
-       VALUES (?, ?, ?, ?, 'trial', ?, NULL, ?, ?)`,
-    ).run(id, name, email, passwordHash, trialEndsAt, now, now);
+        (id, name, email, password_hash, plan, trial_ends_at, plan_expires_at,
+         terms_accepted_at, terms_version, created_at, updated_at)
+       VALUES (?, ?, ?, ?, 'trial', ?, NULL, ?, ?, ?, ?)`,
+    ).run(id, name, email, passwordHash, trialEndsAt, now, legalDocumentVersion, now, now);
   } catch (error) {
     const databaseError = error as { code?: string };
     if (databaseError.code === "SQLITE_CONSTRAINT_UNIQUE") {

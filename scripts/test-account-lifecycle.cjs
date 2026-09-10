@@ -166,8 +166,11 @@ try {
   assert.equal(resetUrl.hash, `#token=${"A".repeat(43)}`);
 
   const legacyUser = db.prepare(
-    "SELECT plan, trial_ends_at, plan_expires_at FROM users WHERE id = 'legacy'",
+    `SELECT plan, trial_ends_at, plan_expires_at, terms_accepted_at, terms_version
+     FROM users WHERE id = 'legacy'`,
   ).get();
+  assert.equal(legacyUser.terms_accepted_at, null);
+  assert.equal(legacyUser.terms_version, null);
   assert.equal(legacyUser.plan, "trial");
   assert.ok(legacyUser.trial_ends_at, "existing accounts receive a migration grace period");
   assert.equal(legacyUser.plan_expires_at, null);
