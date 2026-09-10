@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   ArrowLeft,
   ArrowRight,
+  BarChart3,
   BedDouble,
   CakeSlice,
   Check,
@@ -24,6 +25,7 @@ import {
   LayoutGrid,
   Languages,
   List,
+  LockKeyhole,
   Loader2,
   LogOut,
   MapPin,
@@ -33,11 +35,13 @@ import {
   Plus,
   Printer,
   QrCode,
+  RefreshCcw,
   ScanLine,
   Search,
   Sandwich,
   Share2,
   Sparkles,
+  Smartphone,
   Trash2,
   Undo2,
   UploadCloud,
@@ -1961,6 +1965,9 @@ export function MenuStudio({
           <Brand />
           <nav aria-label="Ana menü">
             <a href="#nasil-calisir">Nasıl çalışır?</a>
+            <a href="#ozellikler">Özellikler</a>
+            <a href="#guven">Güven</a>
+            <a href="#sss">S.S.S.</a>
             <button className="nav-demo" onClick={openDemo}>Örnek menü</button>
           </nav>
           <div className="landing-auth-actions">
@@ -1982,15 +1989,16 @@ export function MenuStudio({
 
         <section className="hero">
           <div className="hero-copy">
-            <div className="eyebrow"><Sparkles size={15} /> Yapay zekâ destekli QR menü</div>
-            <h1>Kâğıt menünden<br /><span>dijital deneyime.</span></h1>
+            <div className="eyebrow"><Sparkles size={15} /> 7 gün ücretsiz QR menü</div>
+            <h1>Menün değişsin.<br /><span>QR kodun aynı kalsın.</span></h1>
             <p>
-              Menünü yükle. Yapay zekâ ürünleri ve fiyatları ayırsın. Markana uygun,
-              telefonda harika görünen QR menün dakikalar içinde hazır olsun.
+              PDF veya fotoğraf menünü yükle. Ürünleri, fiyatları ve kampanyaları tek
+              yerden yönet; masadaki QR kodunu yeniden bastırmadan menünü güncelle.
             </p>
             <div className="hero-proof">
-              <span><Check size={16} /> Tasarım bilgisi gerekmez</span>
+              <span><Check size={16} /> 7 gün ücretsiz</span>
               <span><Check size={16} /> Kredi kartı gerekmez</span>
+              <span><Check size={16} /> Tasarım bilgisi gerekmez</span>
             </div>
           </div>
 
@@ -2057,6 +2065,139 @@ export function MenuStudio({
             <article><div className="feature-number">03</div><QrCode size={25} /><h3>Paylaş</h3><p>QR kodunu indir, masalara yerleştir ve yayına al.</p></article>
           </div>
         </section>
+
+        <section className="landing-value" id="ozellikler">
+          <div className="landing-section-heading">
+            <span>Bir kez kur, her gün kullan</span>
+            <h2>Sadece QR üretmez. Menünü çalışır halde tutar.</h2>
+            <p>
+              Fiyat değişikliği, tükenen ürün, yeni kampanya veya İngilizce menü için
+              yeniden tasarım ve baskıyla uğraşmazsın.
+            </p>
+          </div>
+
+          <div className="landing-value-grid">
+            <article className="landing-value-card is-highlighted">
+              <span className="landing-value-icon"><RefreshCcw size={22} /></span>
+              <div>
+                <small>Aynı bağlantı, aynı baskı</small>
+                <h3>QR kodun hep güncel</h3>
+                <p>Menünü düzenle, kontrol et ve yayınla. Masadaki QR kodu değiştirmeden müşterine yeni halini göster.</p>
+              </div>
+              <ul>
+                <li><CheckCircle2 size={15} /> Taslak ve canlı menü birbirinden ayrı</li>
+                <li><CheckCircle2 size={15} /> Yayınlamadan önce kalite kontrolü</li>
+                <li><CheckCircle2 size={15} /> Kısa ve kalıcı menü bağlantısı</li>
+              </ul>
+            </article>
+
+            <article className="landing-value-card">
+              <span className="landing-value-icon"><Smartphone size={22} /></span>
+              <div>
+                <small>Müşterinin gördüğü yüz</small>
+                <h3>Telefona hazır menü</h3>
+                <p>Ürün arama, alerjen filtreleri, açık-kapalı bilgisi ve TR/EN desteği her ekrana uyum sağlar.</p>
+              </div>
+            </article>
+
+            <article className="landing-value-card">
+              <span className="landing-value-icon"><BarChart3 size={22} /></span>
+              <div>
+                <small>Tahmin değil, gerçek ilgi</small>
+                <h3>Neye bakıldığını gör</h3>
+                <p>QR açılışlarını, popüler ürünleri ve sonuçsuz aramaları gör; menünü gerçek kullanıma göre iyileştir.</p>
+              </div>
+            </article>
+
+            <article className="landing-value-card">
+              <span className="landing-value-icon"><QrCode size={22} /></span>
+              <div>
+                <small>Masaya çıkmaya hazır</small>
+                <h3>Baskı merkezinden indir</h3>
+                <p>Masa kartı, sticker ve poster tasarımlarını yüksek çözünürlüklü PNG, SVG veya A4/PDF olarak hazırla.</p>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section className="landing-trust" id="guven">
+          <div className="landing-trust-copy">
+            <span>Güvenli çalışma alanı</span>
+            <h2>Değişiklik sende, yayın kararı sende.</h2>
+            <p>
+              Yapay zekâ başlangıcı hızlandırır; ürün adını, fiyatını ve içeriğini sen
+              kontrol edersin. Taslak değişiklikler açıkça yayınlayana kadar canlı menüye geçmez.
+            </p>
+            <a className="secondary-button" href="/kayit">Ücretsiz hesabını oluştur <ArrowRight size={16} /></a>
+          </div>
+          <div className="landing-trust-list">
+            <article>
+              <LockKeyhole size={20} />
+              <div><strong>Hesabına özel erişim</strong><span>Parolalar hash’lenir; oturum anahtarı güvenli HTTP-only çerezde tutulur.</span></div>
+            </article>
+            <article>
+              <BarChart3 size={20} />
+              <div><strong>Gizlilik odaklı analitik</strong><span>Ham IP adresi, yönlendiren adres ve tarayıcı bilgisi saklanmaz.</span></div>
+            </article>
+            <article>
+              <CheckCircle2 size={20} />
+              <div><strong>Yayın öncesi kontrol</strong><span>Eksik ürün, geçersiz fiyat ve görünür içerik sorunları yayından önce gösterilir.</span></div>
+            </article>
+          </div>
+        </section>
+
+        <section className="landing-faq" id="sss">
+          <div className="landing-section-heading">
+            <span>Sık sorulanlar</span>
+            <h2>Başlamadan önce bilmen gerekenler.</h2>
+          </div>
+          <div className="landing-faq-list">
+            <details>
+              <summary>Neden tek seferlik bir QR yerine sürekli kullanayım?<ChevronDown size={18} /></summary>
+              <p>Çünkü fiyat, stok, kampanya ve ürünlerin değişir. easyqr aynı QR kodla menünü güncel tutar; ayrıca kullanım ve ürün ilgisini görmeni sağlar.</p>
+            </details>
+            <details>
+              <summary>Menüyü güncelleyince QR kodu yeniden basmam gerekir mi?<ChevronDown size={18} /></summary>
+              <p>Hayır. Yayınlanan menünün kısa bağlantısı kalıcıdır; yaptığın yeni yayınlar aynı QR kodunda görünür.</p>
+            </details>
+            <details>
+              <summary>Hangi dosyaları yükleyebilirim?<ChevronDown size={18} /></summary>
+              <p>12 MB’a kadar PDF, JPG, PNG ve WEBP menüler desteklenir. İstersen sektör şablonuyla veya tamamen boş menüyle de başlayabilirsin.</p>
+            </details>
+            <details>
+              <summary>Yapay zekânın çıkardığı içeriği değiştirebilir miyim?<ChevronDown size={18} /></summary>
+              <p>Evet. Kategorileri, ürünleri, fiyatları, görselleri ve tasarımı düzenleyebilir; yalnızca hazır olduğunda yayınlayabilirsin.</p>
+            </details>
+          </div>
+        </section>
+
+        <section className="landing-final-cta">
+          <div>
+            <span>İlk menün için hazır mısın?</span>
+            <h2>QR menünü bugün masaya çıkar.</h2>
+            <p>7 gün ücretsiz dene. Kredi kartı gerekmez.</p>
+          </div>
+          <div className="landing-final-actions">
+            <a className="primary-button" href={currentUser ? "/studio" : "/kayit"}>
+              {currentUser ? "Menü oluştur" : "Ücretsiz başla"} <ArrowRight size={16} />
+            </a>
+            <button className="secondary-button" onClick={openDemo}>Örnek menüyü aç</button>
+          </div>
+        </section>
+
+        <footer className="landing-footer">
+          <div>
+            <Brand />
+            <p>Restoran ve kafeler için güncellenebilir, ölçülebilir ve telefona hazır QR menü.</p>
+          </div>
+          <nav aria-label="Alt menü">
+            <a href="#nasil-calisir">Nasıl çalışır?</a>
+            <a href="#ozellikler">Özellikler</a>
+            <a href="#guven">Güven</a>
+            <a href="/giris">Giriş yap</a>
+          </nav>
+          <small>© {new Date().getFullYear()} easyqr</small>
+        </footer>
       </main>
     );
   }
