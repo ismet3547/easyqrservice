@@ -2194,6 +2194,9 @@ export function MenuStudio({
             <a href="#nasil-calisir">Nasıl çalışır?</a>
             <a href="#ozellikler">Özellikler</a>
             <a href="#guven">Güven</a>
+            <a href="/gizlilik">Gizlilik</a>
+            <a href="/cerez-politikasi">Çerezler</a>
+            <a href="/kullanim-kosullari">Koşullar</a>
             <a href="/giris">Giriş yap</a>
           </nav>
           <small>© {new Date().getFullYear()} easyqr</small>

@@ -24,6 +24,9 @@ async function run() {
     EMAIL_DELIVERY_MODE: "resend",
     RESEND_API_KEY: "test-only",
     EMAIL_FROM: "easyqr <no-reply@example.test>",
+    LEGAL_ENTITY_NAME: "Example Menu Ltd.",
+    LEGAL_CONTACT_EMAIL: "privacy@example.test",
+    LEGAL_ADDRESS: "Example Mahallesi No: 1 İstanbul",
     BACKUP_DIR: path.join(validationRoot, "backups"),
   }, { cwd: path.join(path.parse(process.cwd()).root, "easyqr-app") });
   assert.deepEqual(valid.errors, []);
@@ -35,6 +38,9 @@ async function run() {
     DATABASE_PATH: path.join(validationRoot, "easyqr.db"),
     ALLOW_DEMO_MODE: "true",
     EMAIL_DELIVERY_MODE: "log",
+    LEGAL_ENTITY_NAME: "Example Menu Ltd.",
+    LEGAL_CONTACT_EMAIL: "privacy@example.test",
+    LEGAL_ADDRESS: "Example Mahallesi No: 1 İstanbul",
   }, { cwd: path.join(path.parse(process.cwd()).root, "easyqr-app") });
   assert.deepEqual(demo.errors, []);
 
@@ -52,6 +58,9 @@ async function run() {
   assert.ok(invalid.errors.some((error) => error.includes("OPENAI_API_KEY zorunludur")));
   assert.ok(invalid.errors.some((error) => error.includes("RESEND_API_KEY")));
   assert.ok(invalid.errors.some((error) => error.includes("EMAIL_FROM")));
+  assert.ok(invalid.errors.some((error) => error.includes("LEGAL_ENTITY_NAME")));
+  assert.ok(invalid.errors.some((error) => error.includes("LEGAL_CONTACT_EMAIL")));
+  assert.ok(invalid.errors.some((error) => error.includes("LEGAL_ADDRESS")));
 
   fs.mkdirSync(path.dirname(sourcePath), { recursive: true });
   const liveDatabase = new Database(sourcePath);

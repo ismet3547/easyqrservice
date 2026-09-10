@@ -28,6 +28,7 @@ export function AuthScreen({ mode }: { mode: AuthMode }) {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(true);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -43,7 +44,9 @@ export function AuthScreen({ mode }: { mode: AuthMode }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(
-          isRegister ? { name, email, password } : { email, password, remember },
+          isRegister
+            ? { acceptedTerms, name, email, password }
+            : { email, password, remember },
         ),
       });
       const result = (await response.json()) as { message?: string };
@@ -134,6 +137,21 @@ export function AuthScreen({ mode }: { mode: AuthMode }) {
             </label>
 
             {!isRegister && <div className="auth-form-options"><label className="remember-me"><input type="checkbox" checked={remember} onChange={(event) => setRemember(event.target.checked)} /> <span>Beni 30 gün hatırla</span></label><Link href="/sifremi-unuttum">Şifremi unuttum</Link></div>}
+
+            {isRegister && (
+              <label className="auth-legal-consent">
+                <input
+                  checked={acceptedTerms}
+                  onChange={(event) => setAcceptedTerms(event.target.checked)}
+                  required
+                  type="checkbox"
+                />
+                <span>
+                  <Link href="/kullanim-kosullari" target="_blank" rel="noreferrer">Kullanım Koşulları</Link>’nı kabul ediyor ve{" "}
+                  <Link href="/gizlilik" target="_blank" rel="noreferrer">KVKK Aydınlatma Metni</Link>’ni okuduğumu beyan ediyorum.
+                </span>
+              </label>
+            )}
 
             {error && <div className="auth-error" role="alert">{error}</div>}
 

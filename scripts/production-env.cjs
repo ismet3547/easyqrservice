@@ -137,6 +137,33 @@ function validateProductionEnv(environment, options = {}) {
     errors.push("NEXT_PUBLIC_RESEND_API_KEY kullanılamaz; e-posta anahtarı tarayıcıya açılmamalıdır.");
   }
 
+  const legalEntityName = environment.LEGAL_ENTITY_NAME?.trim() || "";
+  if (
+    legalEntityName.length < 2 ||
+    legalEntityName.length > 160 ||
+    /[\r\n]/.test(legalEntityName)
+  ) {
+    errors.push("LEGAL_ENTITY_NAME veri sorumlusunun 2-160 karakterlik yasal adı/unvanı olmalıdır.");
+  }
+
+  const legalContactEmail = environment.LEGAL_CONTACT_EMAIL?.trim() || "";
+  if (
+    legalContactEmail.length > 254 ||
+    /[\r\n]/.test(legalContactEmail) ||
+    !/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(legalContactEmail)
+  ) {
+    errors.push("LEGAL_CONTACT_EMAIL geçerli ve izlenen bir iletişim e-posta adresi olmalıdır.");
+  }
+
+  const legalAddress = environment.LEGAL_ADDRESS?.trim() || "";
+  if (
+    legalAddress.length < 10 ||
+    legalAddress.length > 500 ||
+    /[\r\n]/.test(legalAddress)
+  ) {
+    errors.push("LEGAL_ADDRESS veri sorumlusunun 10-500 karakterlik tebligat adresi olmalıdır.");
+  }
+
   const backupRetentionDays = parseInteger(
     environment.BACKUP_RETENTION_DAYS,
     "BACKUP_RETENTION_DAYS",
@@ -174,6 +201,9 @@ function validateProductionEnv(environment, options = {}) {
       backupIntervalHours,
       allowDemoMode,
       emailDeliveryMode,
+      legalEntityName,
+      legalContactEmail,
+      legalAddress,
     },
   };
 }

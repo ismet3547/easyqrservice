@@ -27,6 +27,9 @@ ALLOW_DEMO_MODE=false
 EMAIL_DELIVERY_MODE=resend
 RESEND_API_KEY=re_...
 EMAIL_FROM="easyqr <no-reply@easyqrservice.com>"
+LEGAL_ENTITY_NAME="Gerçek kişi adı veya şirket ticaret unvanı"
+LEGAL_CONTACT_EMAIL=kvkk@easyqrservice.com
+LEGAL_ADDRESS="Veri sorumlusunun açık tebligat adresi"
 
 BACKUP_RETENTION_DAYS=14
 BACKUP_MAX_FILES=30
@@ -42,6 +45,11 @@ Canlı ortamda HTTPS zorunludur. `OPENAI_API_KEY` hiçbir zaman `NEXT_PUBLIC_`
 üzerinde doğrulanmış olmalıdır. E-posta API
 anahtarı yalnızca sunucuda tutulmalı ve `NEXT_PUBLIC_` önekiyle tanımlanmamalıdır.
 Canlı uygulama, e-posta teslim ayarları eksikse başlamayı reddeder.
+
+`LEGAL_ENTITY_NAME`, `LEGAL_CONTACT_EMAIL` ve `LEGAL_ADDRESS` değerleri
+`/gizlilik` ile `/kullanim-kosullari` sayfalarında yayınlanır. Örnek veya marka
+adı değil, hizmeti fiilen sunan gerçek kişi ya da şirketin yasal bilgileri
+kullanılmalıdır. `LEGAL_CONTACT_EMAIL` düzenli izlenen bir adres olmalıdır.
 
 Demo/staging ortamında gerçek AI kasıtlı olarak kapalıysa `OPENAI_API_KEY` boş
 bırakılıp `ALLOW_DEMO_MODE=true` yazılabilir. Aynı kontrollü ortamda e-postaları
@@ -177,3 +185,23 @@ Eski `/data/easyqr.db` dosyası otomatik silinmez. Geri dönüş gerektiğinde
 Bu topoloji ilk pilot işletmeler ve tek uygulama instance'ı içindir. Birden fazla
 uygulama instance'ı, yüksek yazma trafiği veya ayrı dosya depolama ihtiyacı
 oluştuğunda PostgreSQL ve nesne depolamaya geçiş planlanmalıdır.
+
+## 10. Hukuki lansman kontrolü
+
+İlk müşteri hesabı açılmadan önce:
+
+- `/gizlilik`, `/cerez-politikasi` ve `/kullanim-kosullari` sayfalarında gerçek
+  veri sorumlusu bilgilerinin göründüğünü kontrol et.
+- `LEGAL_CONTACT_EMAIL` gelen kutusunu izle; KVKK başvurularını en kısa sürede
+  ve en geç 30 gün içinde sonuçlandıracak bir kayıt süreci oluştur.
+- OpenAI, Resend ve barındırma sağlayıcısının veri işleme/yurt dışı aktarım
+  koşullarını seçilen üretim hesabıyla birlikte hukuk danışmanına teyit ettir.
+- Yayındaki veri akışları, saklama süreleri veya tarayıcı kayıtları değişirse
+  yasal metinleri aynı sürümde güncelle.
+- Yeni hesaplarda koşul kabul zamanının ve belge sürümünün veritabanına
+  kaydedildiğini bir test hesabıyla doğrula. Bu kayıt mevcut eski hesaplar için
+  geriye dönük kabul oluşturmaz.
+
+Bu repodaki metinler ürünün teknik veri akışını açıklar; işletmeye özel vergi,
+ticaret, tüketici ve yurt dışı aktarım değerlendirmesi profesyonel hukuk
+incelemesinin yerini tutmaz.
