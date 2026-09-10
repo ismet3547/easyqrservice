@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser, isSameOrigin } from "@/lib/auth";
 import { getAccountAccess, getAccountFeatureBlock } from "@/lib/account-plan";
+import { isRecordWithOnlyKeys, readJsonRequest } from "@/lib/http";
 import { getMenuReadiness } from "@/lib/menu-readiness";
 import {
   deleteUserMenu,
@@ -12,6 +13,8 @@ import {
 } from "@/lib/menus";
 
 export const runtime = "nodejs";
+
+const maximumRequestBytes = 12 * 1024 * 1024;
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -31,10 +34,26 @@ export async function PATCH(request: Request, context: RouteContext) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ message: "Giriş gerekli." }, { status: 401 });
   const { id } = await context.params;
-  const body = (await request.json().catch(() => null)) as
-    | { menu?: unknown; publish?: unknown; theme?: unknown; status?: string }
-    | null;
-  if (!body) return NextResponse.json({ message: "Geçersiz istek." }, { status: 400 });
+  const parsed = await readJsonRequest(request, maximumRequestBytes);
+  if (!parsed.ok) {
+    return NextResponse.json(
+      { message: parsed.reason === "too-large" ? "Menü verisi çok büyük." : "Geçersiz istek." },
+      { status: parsed.status },
+    );
+  }
+  if (
+    !isRecordWithOnlyKeys(parsed.value, ["menu", "publish", "theme", "status"]) ||
+    (parsed.value.publish !== undefined && typeof parsed.value.publish !== "boolean") ||
+    (parsed.value.status !== undefined && typeof parsed.value.status !== "string")
+  ) {
+    return NextResponse.json({ message: "Geçersiz istek." }, { status: 400 });
+  }
+  const body = parsed.value as {
+    menu?: unknown;
+    publish?: boolean;
+    theme?: unknown;
+    status?: string;
+  };
 
   if (!isValidMenuData(body.menu) || !isValidMenuTheme(body.theme)) {
     return NextResponse.json({ message: "Geçersiz menü verisi." }, { status: 400 });

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser, isSameOrigin } from "@/lib/auth";
 import { getAccountFeatureBlock } from "@/lib/account-plan";
+import { isRecordWithOnlyKeys, readJsonRequest } from "@/lib/http";
 import { checkRateLimit, getClientAddress } from "@/lib/rate-limit";
 import {
   createAiCacheKey,
@@ -70,6 +71,8 @@ function getVisualGuidance(name: string, categoryName: string) {
 }
 
 const hourlyImageLimit = 12;
+const globalHourlyImageLimit = 60;
+const maximumRequestBytes = 8 * 1024;
 const cacheOperation = "product-image";
 const cacheVersion = "v1";
 const cacheTtlMs = 14 * 24 * 60 * 60 * 1000;
@@ -91,12 +94,27 @@ export async function POST(request: Request) {
     );
   }
 
-  let body: GenerateProductImageBody;
-  try {
-    body = (await request.json()) as GenerateProductImageBody;
-  } catch {
+  const parsed = await readJsonRequest(request, maximumRequestBytes);
+  if (!parsed.ok) {
+    return NextResponse.json(
+      { message: parsed.reason === "too-large" ? "İstek çok büyük." : "Geçersiz istek." },
+      { status: parsed.status },
+    );
+  }
+  if (
+    !isRecordWithOnlyKeys(
+      parsed.value,
+      ["categoryName", "description", "name", "refresh", "restaurantName"],
+    ) ||
+    (parsed.value.name !== undefined && typeof parsed.value.name !== "string") ||
+    (parsed.value.description !== undefined && typeof parsed.value.description !== "string") ||
+    (parsed.value.categoryName !== undefined && typeof parsed.value.categoryName !== "string") ||
+    (parsed.value.restaurantName !== undefined && typeof parsed.value.restaurantName !== "string") ||
+    (parsed.value.refresh !== undefined && typeof parsed.value.refresh !== "boolean")
+  ) {
     return NextResponse.json({ message: "Geçersiz istek." }, { status: 400 });
   }
+  const body = parsed.value as GenerateProductImageBody;
 
   const name = typeof body.name === "string" ? body.name.trim() : "";
   const description = typeof body.description === "string" ? body.description.trim() : "";
@@ -163,13 +181,27 @@ export async function POST(request: Request) {
     hourlyImageLimit,
     60 * 60 * 1000,
   );
-  if (!rateLimit.allowed) {
+  const globalRateLimit = rateLimit.allowed
+    ? checkRateLimit(
+        "product-image:global",
+        globalHourlyImageLimit,
+        60 * 60 * 1000,
+      )
+    : { allowed: false, retryAfterSeconds: 0 };
+  if (!rateLimit.allowed || !globalRateLimit.allowed) {
     return NextResponse.json(
       {
         code: "IMAGE_RATE_LIMIT",
         message: "Saatlik görsel üretme sınırına ulaştın. Bir süre sonra tekrar dene.",
       },
-      { status: 429, headers: { "Retry-After": String(rateLimit.retryAfterSeconds) } },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(
+            Math.max(rateLimit.retryAfterSeconds, globalRateLimit.retryAfterSeconds),
+          ),
+        },
+      },
     );
   }
 

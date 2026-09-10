@@ -36,6 +36,14 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS sessions_token_hash_idx ON sessions(token_hash);
   CREATE INDEX IF NOT EXISTS sessions_expires_at_idx ON sessions(expires_at);
 
+  CREATE TABLE IF NOT EXISTS rate_limits (
+    key_hash TEXT PRIMARY KEY,
+    attempts INTEGER NOT NULL CHECK (attempts > 0),
+    reset_at INTEGER NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS rate_limits_reset_idx ON rate_limits(reset_at);
+
   CREATE TABLE IF NOT EXISTS password_reset_tokens (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL,

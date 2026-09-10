@@ -204,7 +204,17 @@ function isValidBusinessProfile(value: unknown) {
 }
 
 export function isValidMenuData(value: unknown): value is MenuData {
-  if (!value || typeof value !== "object") return false;
+  if (!isRecord(value)) return false;
+  const allowedMenuKeys = [
+    "businessProfile",
+    "categories",
+    "currency",
+    "restaurantName",
+    "subtitle",
+    "translations",
+  ];
+  if (Object.keys(value).some((key) => !allowedMenuKeys.includes(key))) return false;
+
   const menu = value as Partial<MenuData>;
   if (
     typeof menu.restaurantName !== "string" || menu.restaurantName.length > 120 ||
@@ -233,42 +243,99 @@ export function isValidMenuData(value: unknown): value is MenuData {
   ) + (typeof menu.businessProfile?.logo === "string" ? menu.businessProfile.logo.length : 0);
   if (totalImageSize > 8_000_000) return false;
 
-  return menu.categories.every((category) =>
-    category &&
-    typeof category.id === "string" && category.id.length <= 100 &&
-    typeof category.name === "string" && category.name.length <= 100 &&
-    isEnglishTranslationContainer(category.translations, isValidCategoryEnglishTranslation) &&
-    Array.isArray(category.items) &&
-    category.items.length <= 100 &&
-    category.items.every((item) =>
-      item &&
-      typeof item.id === "string" && item.id.length <= 100 &&
-      typeof item.name === "string" && item.name.length <= 180 &&
-      typeof item.description === "string" && item.description.length <= 1000 &&
-      typeof item.price === "string" && item.price.length <= 40 &&
-      typeof item.badge === "string" && item.badge.length <= 40 &&
-      isEnglishTranslationContainer(item.translations, isValidItemEnglishTranslation) &&
-      (item.originalPrice === undefined ||
-        (typeof item.originalPrice === "string" && item.originalPrice.length <= 40)) &&
-      (item.isCampaign === undefined || typeof item.isCampaign === "boolean") &&
-      (item.availability === undefined ||
-        ["available", "sold-out", "hidden"].includes(item.availability)) &&
-      (item.dietaryTags === undefined ||
-        (Array.isArray(item.dietaryTags) &&
-          item.dietaryTags.length <= menuDietaryTags.length &&
-          new Set(item.dietaryTags).size === item.dietaryTags.length &&
-          item.dietaryTags.every((tag) => menuDietaryTags.includes(tag)))) &&
-      (item.allergens === undefined ||
-        (Array.isArray(item.allergens) &&
-          item.allergens.length <= menuAllergens.length &&
-          new Set(item.allergens).size === item.allergens.length &&
-          item.allergens.every((allergen) => menuAllergens.includes(allergen)))) &&
-      (item.image === undefined || item.image === "" ||
-        (typeof item.image === "string" &&
-          item.image.length <= 750_000 &&
-          /^data:image\/(?:jpeg|png|webp);base64,/i.test(item.image))),
-    ),
-  );
+  const categoryIds = new Set<string>();
+  const itemIds = new Set<string>();
+  const categoryKeys = ["id", "items", "name", "translations"];
+  const itemKeys = [
+    "allergens",
+    "availability",
+    "badge",
+    "description",
+    "dietaryTags",
+    "id",
+    "image",
+    "isCampaign",
+    "name",
+    "originalPrice",
+    "price",
+    "translations",
+  ];
+
+  return menu.categories.every((category) => {
+    if (
+      !isRecord(category) ||
+      Object.keys(category).some((key) => !categoryKeys.includes(key)) ||
+      typeof category.id !== "string" ||
+      category.id.length === 0 ||
+      category.id.length > 100 ||
+      categoryIds.has(category.id) ||
+      typeof category.name !== "string" ||
+      category.name.length > 100 ||
+      !isEnglishTranslationContainer(category.translations, isValidCategoryEnglishTranslation) ||
+      !Array.isArray(category.items) ||
+      category.items.length > 100
+    ) return false;
+    categoryIds.add(category.id);
+
+    return category.items.every((item) => {
+      if (
+        !isRecord(item) ||
+        Object.keys(item).some((key) => !itemKeys.includes(key)) ||
+        typeof item.id !== "string" ||
+        item.id.length === 0 ||
+        item.id.length > 100 ||
+        itemIds.has(item.id) ||
+        typeof item.name !== "string" ||
+        item.name.length > 180 ||
+        typeof item.description !== "string" ||
+        item.description.length > 1000 ||
+        typeof item.price !== "string" ||
+        item.price.length > 40 ||
+        typeof item.badge !== "string" ||
+        item.badge.length > 40 ||
+        !isEnglishTranslationContainer(item.translations, isValidItemEnglishTranslation) ||
+        (
+          item.originalPrice !== undefined &&
+          (typeof item.originalPrice !== "string" || item.originalPrice.length > 40)
+        ) ||
+        (item.isCampaign !== undefined && typeof item.isCampaign !== "boolean") ||
+        (
+          item.availability !== undefined &&
+          !["available", "sold-out", "hidden"].includes(item.availability as string)
+        ) ||
+        (
+          item.dietaryTags !== undefined &&
+          (
+            !Array.isArray(item.dietaryTags) ||
+            item.dietaryTags.length > menuDietaryTags.length ||
+            new Set(item.dietaryTags).size !== item.dietaryTags.length ||
+            !item.dietaryTags.every((tag) => menuDietaryTags.includes(tag))
+          )
+        ) ||
+        (
+          item.allergens !== undefined &&
+          (
+            !Array.isArray(item.allergens) ||
+            item.allergens.length > menuAllergens.length ||
+            new Set(item.allergens).size !== item.allergens.length ||
+            !item.allergens.every((allergen) => menuAllergens.includes(allergen))
+          )
+        ) ||
+        (
+          item.image !== undefined &&
+          item.image !== "" &&
+          (
+            typeof item.image !== "string" ||
+            item.image.length > 750_000 ||
+            !/^data:image\/(?:jpeg|png|webp);base64,/i.test(item.image)
+          )
+        )
+      ) return false;
+
+      itemIds.add(item.id);
+      return true;
+    });
+  });
 }
 
 export function isValidMenuTheme(value: unknown): value is MenuThemeInput {

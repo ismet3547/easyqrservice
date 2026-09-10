@@ -14,6 +14,7 @@ import {
 } from "@/lib/ai-cache";
 import { getCurrentUser, isSameOrigin } from "@/lib/auth";
 import { getAccountFeatureBlock } from "@/lib/account-plan";
+import { isRecordWithOnlyKeys, readJsonRequest } from "@/lib/http";
 import { getUserMenu } from "@/lib/menus";
 import { checkRateLimit, getClientAddress } from "@/lib/rate-limit";
 import {
@@ -31,12 +32,13 @@ const cacheVersion = "v2";
 const cacheTtlMs = 30 * 24 * 60 * 60 * 1000;
 const maximumRequestBytes = 4 * 1024;
 const hourlyThemeDesignLimit = 10;
+const globalHourlyThemeDesignLimit = 30;
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 type ThemeDesignBody = {
-  brief?: unknown;
-  menuId?: unknown;
-  requestId?: unknown;
+  brief: string;
+  menuId: string;
+  requestId: string;
 };
 
 function json(data: unknown, init: ResponseInit = {}) {
@@ -84,39 +86,26 @@ export async function POST(request: Request) {
     );
   }
 
-  const contentType = (request.headers.get("content-type") || "")
-    .split(";", 1)[0]
-    .trim()
-    .toLowerCase();
-  if (contentType !== "application/json") {
-    return json({ message: "İstek JSON biçiminde olmalı." }, { status: 415 });
+  const requestBodyResult = await readJsonRequest(request, maximumRequestBytes);
+  if (!requestBodyResult.ok) {
+    return json(
+      {
+        message: requestBodyResult.reason === "too-large"
+          ? "Tasarım isteği boyut sınırını aşıyor."
+          : "Geçersiz istek.",
+      },
+      { status: requestBodyResult.status },
+    );
   }
-
-  const declaredLength = Number(request.headers.get("content-length"));
-  if (Number.isFinite(declaredLength) && declaredLength > maximumRequestBytes) {
-    return json({ message: "Tasarım isteği boyut sınırını aşıyor." }, { status: 413 });
-  }
-
-  let body: ThemeDesignBody;
-  try {
-    const rawBody = await request.text();
-    if (Buffer.byteLength(rawBody, "utf8") > maximumRequestBytes) {
-      return json({ message: "Tasarım isteği boyut sınırını aşıyor." }, { status: 413 });
-    }
-    body = JSON.parse(rawBody) as ThemeDesignBody;
-  } catch {
-    return json({ message: "Geçersiz istek." }, { status: 400 });
-  }
-
   if (
-    !isRecord(body) ||
-    Object.keys(body).some((key) => !["brief", "menuId", "requestId"].includes(key)) ||
-    typeof body.brief !== "string" ||
-    typeof body.menuId !== "string" ||
-    typeof body.requestId !== "string"
+    !isRecordWithOnlyKeys(requestBodyResult.value, ["brief", "menuId", "requestId"]) ||
+    typeof requestBodyResult.value.brief !== "string" ||
+    typeof requestBodyResult.value.menuId !== "string" ||
+    typeof requestBodyResult.value.requestId !== "string"
   ) {
     return json({ message: "Tasarım isteği uygun değil." }, { status: 400 });
   }
+  const body = requestBodyResult.value as ThemeDesignBody;
 
   const brief = normalizeBrief(body.brief);
   if (
@@ -191,13 +180,27 @@ export async function POST(request: Request) {
     hourlyThemeDesignLimit,
     60 * 60 * 1000,
   );
-  if (!rateLimit.allowed) {
+  const globalRateLimit = rateLimit.allowed
+    ? checkRateLimit(
+        "menu-theme-design:global",
+        globalHourlyThemeDesignLimit,
+        60 * 60 * 1000,
+      )
+    : { allowed: false, retryAfterSeconds: 0 };
+  if (!rateLimit.allowed || !globalRateLimit.allowed) {
     return json(
       {
         code: "THEME_DESIGN_RATE_LIMIT",
         message: "Saatlik AI tasarım sınırına ulaştın. Bir süre sonra tekrar dene.",
       },
-      { status: 429, headers: { "Retry-After": String(rateLimit.retryAfterSeconds) } },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(
+            Math.max(rateLimit.retryAfterSeconds, globalRateLimit.retryAfterSeconds),
+          ),
+        },
+      },
     );
   }
 

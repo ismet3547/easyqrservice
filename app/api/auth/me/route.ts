@@ -2,9 +2,12 @@ import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
 import { getCurrentUser, isSameOrigin } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { isRecordWithOnlyKeys, readJsonRequest } from "@/lib/http";
 import { checkRateLimit, getClientAddress } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
+
+const maximumRequestBytes = 4 * 1024;
 
 type ProfileBody = {
   currentPassword?: string;
@@ -49,8 +52,25 @@ export async function PATCH(request: Request) {
     );
   }
 
-  const body = (await request.json().catch(() => null)) as ProfileBody | null;
-  if (!body) return NextResponse.json({ message: "Geçersiz istek." }, { status: 400 });
+  const parsed = await readJsonRequest(request, maximumRequestBytes);
+  if (!parsed.ok) {
+    return NextResponse.json(
+      { message: parsed.reason === "too-large" ? "İstek çok büyük." : "Geçersiz istek." },
+      { status: parsed.status },
+    );
+  }
+  if (
+    !isRecordWithOnlyKeys(parsed.value, ["currentPassword", "email", "name"]) ||
+    typeof parsed.value.email !== "string" ||
+    typeof parsed.value.name !== "string" ||
+    (
+      parsed.value.currentPassword !== undefined &&
+      typeof parsed.value.currentPassword !== "string"
+    )
+  ) {
+    return NextResponse.json({ message: "Geçersiz istek." }, { status: 400 });
+  }
+  const body = parsed.value as ProfileBody;
 
   const name = (body.name || "").trim();
   const email = normalizeEmail(body.email || "");

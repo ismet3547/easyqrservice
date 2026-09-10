@@ -16,6 +16,7 @@ import {
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { type FormEvent, useState } from "react";
+import { getSafeInternalPath } from "@/lib/navigation";
 
 type AuthMode = "login" | "register";
 
@@ -49,9 +50,10 @@ export function AuthScreen({ mode }: { mode: AuthMode }) {
       if (!response.ok) throw new Error(result.message || "İşlem tamamlanamadı.");
 
       const requestedNext = searchParams.get("next");
-      const safeNext = requestedNext?.startsWith("/") && !requestedNext.startsWith("//")
-        ? requestedNext
-        : isRegister ? "/dashboard?welcome=1" : "/dashboard";
+      const safeNext = getSafeInternalPath(
+        requestedNext,
+        isRegister ? "/dashboard?welcome=1" : "/dashboard",
+      );
       router.replace(safeNext);
       router.refresh();
     } catch (submitError) {

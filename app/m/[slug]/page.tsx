@@ -10,6 +10,10 @@ import {
 } from "@/lib/menu";
 import { resolveMenuDeviceType, resolveMenuTrafficSource } from "@/lib/menu-tracking";
 import { getPublishedMenu, recordMenuView } from "@/lib/menus";
+import {
+  checkRateLimit,
+  getClientAddressFromHeaders,
+} from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -69,18 +73,36 @@ export default async function PublicMenuPage({ params, searchParams }: PublicMen
   const requestHost = (requestHeaders.get("x-forwarded-host") || requestHeaders.get("host"))
     ?.split(",")[0]
     .trim() || null;
-  const analyticsVisitId = recordMenuView(storedMenu.id, {
-    deviceType: resolveMenuDeviceType(
-      requestHeaders.get("user-agent"),
-      requestHeaders.get("sec-ch-ua-mobile"),
-    ),
-    language: initialLanguage,
-    source: resolveMenuTrafficSource(
-      sourceParameter,
-      requestHeaders.get("referer"),
-      requestHost,
-    ),
-  });
+  const deviceType = resolveMenuDeviceType(
+    requestHeaders.get("user-agent"),
+    requestHeaders.get("sec-ch-ua-mobile"),
+  );
+  const clientAddress = getClientAddressFromHeaders(requestHeaders);
+  const addressLimit = deviceType === "bot"
+    ? { allowed: false }
+    : checkRateLimit(
+        `public-menu-view:address:${storedMenu.id}:${clientAddress}`,
+        600,
+        60 * 60 * 1000,
+      );
+  const menuLimit = addressLimit.allowed
+    ? checkRateLimit(
+        `public-menu-view:menu:${storedMenu.id}`,
+        2_000,
+        60 * 60 * 1000,
+      )
+    : { allowed: false };
+  const analyticsVisitId = addressLimit.allowed && menuLimit.allowed
+    ? recordMenuView(storedMenu.id, {
+        deviceType,
+        language: initialLanguage,
+        source: resolveMenuTrafficSource(
+          sourceParameter,
+          requestHeaders.get("referer"),
+          requestHost,
+        ),
+      })
+    : null;
   return (
     <PublicMenu
       menu={visibleMenu}

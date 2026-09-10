@@ -60,6 +60,7 @@ export async function createSession(userId: string, remember = true) {
     secure: process.env.NODE_ENV === "production",
     path: "/",
     expires: expiresAt,
+    priority: "high",
   });
 }
 
@@ -77,10 +78,9 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
     )
     .get(hashToken(token), new Date().toISOString()) as UserRow | undefined;
 
-  if (!row) {
-    cookieStore.delete(sessionCookieName);
-    return null;
-  }
+  // Reading cookies is allowed during Server Component rendering, but mutating
+  // them is not. Route handlers clear cookies explicitly when signing out.
+  if (!row) return null;
 
   return toSessionUser(row);
 }
