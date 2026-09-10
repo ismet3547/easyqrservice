@@ -4,7 +4,6 @@ import {
   AlertTriangle,
   ArrowLeft,
   ArrowRight,
-  BadgePercent,
   BedDouble,
   CakeSlice,
   Check,
@@ -16,16 +15,13 @@ import {
   Copy,
   Croissant,
   Download,
-  EyeOff,
   FilePlus2,
   FileText,
   GalleryVerticalEnd,
   Grid2X2,
-  ImageOff,
   ImagePlus,
   Instagram,
   LayoutGrid,
-  Leaf,
   Languages,
   List,
   Loader2,
@@ -58,17 +54,13 @@ import {
   useState,
 } from "react";
 import {
-  allergenLabels,
   createId,
-  dietaryTagLabels,
   decodePublishedMenu,
   defaultTheme,
   demoMenu,
   getMenuBusinessProfile,
   getMenuTranslationFingerprint,
   hasEnglishMenuTranslation,
-  menuAllergens,
-  menuDietaryTags,
   menuThemePresets,
   menuWeekdays,
   normalizeMenuTheme,
@@ -113,6 +105,10 @@ import {
   StudioSectionNav,
   type StudioEditorTab,
 } from "@/components/studio/StudioChrome";
+import {
+  ProductDetailEditor,
+  ProductListItem,
+} from "@/components/studio/ProductEditor";
 import type { StoredMenu } from "@/lib/menus";
 
 type AuthUser = { id: string; name: string; email: string; createdAt: string };
@@ -250,17 +246,17 @@ type DesignSectionId = "presets" | "ai" | "brand" | "layout" | "advanced";
 
 const contentSectionLinks: Array<{ id: ContentSectionId; label: string }> = [
   { id: "products", label: "Ürünler" },
-  { id: "basics", label: "Başlık" },
-  { id: "business", label: "İşletme" },
-  { id: "language", label: "Dil" },
+  { id: "basics", label: "Menü bilgileri" },
+  { id: "business", label: "İşletme profili" },
+  { id: "language", label: "İngilizce" },
 ];
 
 const designSectionLinks: Array<{ id: DesignSectionId; label: string }> = [
-  { id: "presets", label: "Stiller" },
-  { id: "layout", label: "Düzen" },
-  { id: "brand", label: "Renk & yazı" },
-  { id: "advanced", label: "Detaylar" },
-  { id: "ai", label: "AI tasarla" },
+  { id: "presets", label: "Hazır stiller" },
+  { id: "ai", label: "AI tasarım" },
+  { id: "layout", label: "Yerleşim" },
+  { id: "brand", label: "Renk ve yazı" },
+  { id: "advanced", label: "İnce ayar" },
 ];
 
 function ThemeChoiceGroup<Value extends string>({
@@ -522,6 +518,19 @@ export function MenuStudio({
     })
     .filter(({ categoryMatches, items }) => !normalizedProductQuery || categoryMatches || items.length > 0);
   const filteredItemCount = editorCategories.reduce((sum, category) => sum + category.items.length, 0);
+  const productEditorItems = menu.categories.flatMap((category, categoryIndex) =>
+    category.items.map((item, itemIndex) => ({ category, categoryIndex, item, itemIndex })),
+  );
+  const activeProductIndex = productEditorItems.findIndex(({ item }) => item.id === expandedItemId);
+  const activeProductEditor = activeProductIndex >= 0
+    ? productEditorItems[activeProductIndex]
+    : null;
+  const previousProduct = activeProductIndex > 0
+    ? productEditorItems[activeProductIndex - 1]
+    : null;
+  const nextProduct = activeProductIndex >= 0 && activeProductIndex < productEditorItems.length - 1
+    ? productEditorItems[activeProductIndex + 1]
+    : null;
   const englishCoverage = getEnglishTranslationCoverage(menu);
   const hasEnglishTranslation = hasEnglishMenuTranslation(menu);
   const publishQrUrl = buildMenuTrafficUrl(publishUrl, "qr");
@@ -534,6 +543,7 @@ export function MenuStudio({
     themeCreditBalance < aiCreditCosts.themeDesign;
   const changeEditorTab = (nextTab: StudioEditorTab) => {
     setTab(nextTab);
+    setExpandedItemId("");
     window.requestAnimationFrame(() => {
       editorScrollRef.current?.scrollTo({ top: 0, behavior: "auto" });
     });
@@ -541,6 +551,7 @@ export function MenuStudio({
 
   const changeContentSection = (nextSection: ContentSectionId) => {
     setContentSection(nextSection);
+    setExpandedItemId("");
     window.requestAnimationFrame(() => {
       editorScrollRef.current?.scrollTo({ top: 0, behavior: "auto" });
     });
@@ -551,6 +562,26 @@ export function MenuStudio({
     window.requestAnimationFrame(() => {
       editorScrollRef.current?.scrollTo({ top: 0, behavior: "auto" });
     });
+  };
+
+  const openCategory = (categoryId: string) => {
+    setProductQuery("");
+    setExpandedItemId("");
+    setCategoryOpenState({ [categoryId]: true });
+    revealEditorElement(`studio-category-${categoryId}`);
+  };
+
+  const openProductEditor = (itemId: string) => {
+    setExpandedItemId(itemId);
+    window.requestAnimationFrame(() => {
+      editorScrollRef.current?.scrollTo({ top: 0, behavior: "auto" });
+    });
+  };
+
+  const returnToProductList = (categoryId: string) => {
+    setExpandedItemId("");
+    setCategoryOpenState({ [categoryId]: true });
+    revealEditorElement(`studio-category-${categoryId}`);
   };
 
   const revealEditorElement = (elementId: string, inputSelector?: string) => {
@@ -1062,7 +1093,7 @@ export function MenuStudio({
     setProductQuery("");
     setExpandedItemId(itemId);
     if (categoryId) {
-      setCategoryOpenState((current) => ({ ...current, [categoryId]: true }));
+      setCategoryOpenState({ [categoryId]: true });
     }
     setMenu((current) => ({
       ...current,
@@ -1488,7 +1519,7 @@ export function MenuStudio({
 
   const addCategory = () => {
     const categoryId = createId("kategori");
-    setCategoryOpenState((current) => ({ ...current, [categoryId]: true }));
+    setCategoryOpenState({ [categoryId]: true });
     setMenu((current) => ({
       ...current,
       categories: [
@@ -1505,6 +1536,10 @@ export function MenuStudio({
 
   const removeCategory = (categoryIndex: number) => {
     const removedCategoryId = menu.categories[categoryIndex]?.id;
+    const removesActiveProduct = menu.categories[categoryIndex]?.items.some(
+      (item) => item.id === expandedItemId,
+    );
+    if (removesActiveProduct) setExpandedItemId("");
     if (removedCategoryId) {
       setCategoryOpenState((current) => {
         const next = { ...current };
@@ -1525,7 +1560,7 @@ export function MenuStudio({
     setProductQuery("");
     const categoryId = target.categoryId;
     if (categoryId) {
-      setCategoryOpenState((current) => ({ ...current, [categoryId]: true }));
+      setCategoryOpenState({ [categoryId]: true });
     }
     if (target.itemId) setExpandedItemId(target.itemId);
 
@@ -2271,6 +2306,47 @@ export function MenuStudio({
                   <div><span>İçerik</span><h2>Kategoriler ve ürünler</h2></div>
                   <div className="item-count">{totalItemCount} ürün</div>
                 </div>
+                {activeProductEditor ? (
+                  <ProductDetailEditor
+                    categoryName={activeProductEditor.category.name}
+                    currency={menu.currency}
+                    generatingImages={generatingImages}
+                    generatingItemId={generatingItemId}
+                    hasNext={Boolean(nextProduct)}
+                    hasPrevious={Boolean(previousProduct)}
+                    item={activeProductEditor.item}
+                    key={activeProductEditor.item.id}
+                    onBack={() => returnToProductList(activeProductEditor.category.id)}
+                    onDelete={() => removeItem(activeProductEditor.categoryIndex, activeProductEditor.itemIndex)}
+                    onGenerateImage={() => {
+                      void generateItemImage(activeProductEditor.categoryIndex, activeProductEditor.itemIndex);
+                    }}
+                    onImageChange={(file) => {
+                      void updateItemImage(activeProductEditor.categoryIndex, activeProductEditor.itemIndex, file);
+                    }}
+                    onNext={() => nextProduct && openProductEditor(nextProduct.item.id)}
+                    onPrevious={() => previousProduct && openProductEditor(previousProduct.item.id)}
+                    onToggleAllergen={(allergen) => toggleAllergen(
+                      activeProductEditor.categoryIndex,
+                      activeProductEditor.itemIndex,
+                      allergen,
+                    )}
+                    onToggleDietaryTag={(tag) => toggleDietaryTag(
+                      activeProductEditor.categoryIndex,
+                      activeProductEditor.itemIndex,
+                      tag,
+                    )}
+                    onUpdate={(key, value) => updateItem(
+                      activeProductEditor.categoryIndex,
+                      activeProductEditor.itemIndex,
+                      key,
+                      value,
+                    )}
+                    position={activeProductIndex + 1}
+                    total={productEditorItems.length}
+                  />
+                ) : (
+                  <>
                 <div className="auto-image-assistant" aria-live="polite">
                   <div className="auto-image-copy">
                     <span className="auto-image-icon"><Sparkles size={17} /></span>
@@ -2311,21 +2387,40 @@ export function MenuStudio({
                     </div>
                   )}
                 </div>
-                <div className="product-editor-toolbar">
-                  <label className="product-editor-search">
-                    <Search aria-hidden="true" size={16} />
-                    <input
-                      aria-label="Ürünlerde ara"
-                      onChange={(event) => setProductQuery(event.target.value)}
-                      placeholder="Ürün, kategori veya fiyat ara"
-                      type="search"
-                      value={productQuery}
-                    />
-                  </label>
-                  <button className="product-toolbar-add" onClick={addCategory} type="button">
-                    <Plus size={15} /> Kategori
-                  </button>
-                  <span>{normalizedProductQuery ? `${filteredItemCount} sonuç` : `${menu.categories.length} kategori`}</span>
+                <div className="product-editor-tools">
+                  <div className="product-editor-toolbar">
+                    <label className="product-editor-search">
+                      <Search aria-hidden="true" size={16} />
+                      <input
+                        aria-label="Ürünlerde ara"
+                        onChange={(event) => setProductQuery(event.target.value)}
+                        placeholder="Ürün veya kategori ara"
+                        type="search"
+                        value={productQuery}
+                      />
+                    </label>
+                    <button className="product-toolbar-add" onClick={addCategory} type="button">
+                      <Plus size={15} /> Kategori
+                    </button>
+                    <span>{normalizedProductQuery ? `${filteredItemCount} sonuç` : `${menu.categories.length} kategori`}</span>
+                  </div>
+                  {menu.categories.length > 1 && (
+                    <nav className="category-jump-nav" aria-label="Kategori kısayolları">
+                      {menu.categories.map((category) => (
+                        <button
+                          aria-current={categoryOpenState[category.id] ? "true" : undefined}
+                          className={categoryOpenState[category.id] ? "active" : ""}
+                          key={category.id}
+                          onClick={() => openCategory(category.id)}
+                          title={`${category.name || "İsimsiz kategori"} kategorisini aç`}
+                          type="button"
+                        >
+                          <span>{category.name || "İsimsiz kategori"}</span>
+                          <b>{category.items.length}</b>
+                        </button>
+                      ))}
+                    </nav>
+                  )}
                 </div>
                 <div className="category-list">
                   {editorCategories.map(({ category, categoryIndex, items }) => (
@@ -2336,9 +2431,14 @@ export function MenuStudio({
                       onToggle={(event) => {
                         if (normalizedProductQuery) return;
                         const isOpen = event.currentTarget.open;
-                        setCategoryOpenState((current) => current[category.id] === isOpen
-                          ? current
-                          : { ...current, [category.id]: isOpen });
+                        setCategoryOpenState((current) => {
+                          if (isOpen) {
+                            return current[category.id] && Object.keys(current).length === 1
+                              ? current
+                              : { [category.id]: true };
+                          }
+                          return current[category.id] ? {} : current;
+                        });
                       }}
                       open={Boolean(normalizedProductQuery) || categoryOpenState[category.id] === true}
                     >
@@ -2371,196 +2471,23 @@ export function MenuStudio({
                           onClick={(event) => {
                             event.preventDefault();
                             event.stopPropagation();
-                            removeCategory(categoryIndex);
+                            if (window.confirm(
+                              `“${category.name || "Bu kategori"}” ve içindeki ${category.items.length} ürün silinsin mi?`,
+                            )) {
+                              removeCategory(categoryIndex);
+                            }
                           }}
                           type="button"
                         ><Trash2 size={15} /></button>
                       </summary>
                       <div className="category-items">
-                        {items.map(({ item, itemIndex }) => (
-                          <details
-                            className={`item-editor availability-${item.availability || "available"}`}
-                            id={`studio-item-${item.id}`}
+                        {items.map(({ item }) => (
+                          <ProductListItem
+                            currency={menu.currency}
+                            item={item}
                             key={item.id}
-                            onToggle={(event) => {
-                              const isOpen = event.currentTarget.open;
-                              setExpandedItemId((current) => isOpen ? item.id : current === item.id ? "" : current);
-                            }}
-                            open={expandedItemId === item.id}
-                          >
-                            <summary className="item-editor-summary">
-                              <span className={`item-editor-summary-image ${item.image ? "has-image" : ""}`}>
-                                {item.image ? <img src={item.image} alt="" /> : <ImagePlus aria-hidden="true" size={18} />}
-                              </span>
-                              <span className="item-editor-summary-copy">
-                                <input
-                                  aria-label={`${item.name || "İsimsiz ürün"} ürün adı`}
-                                  className="item-summary-name-input"
-                                  onChange={(event) => updateItem(categoryIndex, itemIndex, "name", event.target.value)}
-                                  onClick={(event) => event.stopPropagation()}
-                                  onKeyDown={(event) => event.stopPropagation()}
-                                  value={item.name}
-                                />
-                                <small>
-                                  {[
-                                    item.availability === "sold-out"
-                                      ? "Tükendi"
-                                      : item.availability === "hidden"
-                                        ? "Gizli"
-                                        : "Satışta",
-                                    item.isCampaign ? "Kampanya" : "",
-                                    item.badge,
-                                  ].filter(Boolean).join(" · ")}
-                                </small>
-                              </span>
-                              <span className="item-editor-summary-price">
-                                {item.isCampaign && item.originalPrice && <del>{item.originalPrice}{menu.currency}</del>}
-                                <span className="item-summary-price-input">
-                                  <input
-                                    aria-label={`${item.name || "Ürün"} fiyatı`}
-                                    inputMode="decimal"
-                                    onChange={(event) => updateItem(categoryIndex, itemIndex, "price", event.target.value)}
-                                    onClick={(event) => event.stopPropagation()}
-                                    onKeyDown={(event) => event.stopPropagation()}
-                                    value={item.price}
-                                  />
-                                  <b>{menu.currency}</b>
-                                </span>
-                              </span>
-                              <ChevronDown className="item-editor-chevron" aria-hidden="true" size={16} />
-                            </summary>
-                            <div className="item-editor-body">
-                            <div className="item-editor-top">
-                              <input aria-label="Ürün adı" className="item-name-input" data-readiness-field="item-name" value={item.name} onChange={(event) => updateItem(categoryIndex, itemIndex, "name", event.target.value)} />
-                              <div className="price-input"><input aria-label={item.isCampaign ? "Kampanyalı fiyat" : "Fiyat"} data-readiness-field="item-price" value={item.price} onChange={(event) => updateItem(categoryIndex, itemIndex, "price", event.target.value)} /><span>{menu.currency}</span></div>
-                              <button aria-label="Ürünü sil" onClick={() => removeItem(categoryIndex, itemIndex)}><Trash2 size={15} /></button>
-                            </div>
-                            <textarea aria-label="Ürün açıklaması" data-readiness-field="item-description" rows={2} value={item.description} onChange={(event) => updateItem(categoryIndex, itemIndex, "description", event.target.value)} />
-                            <div className="item-image-editor">
-                              <label className={item.image ? "has-image" : ""}>
-                                {item.image ? <img src={item.image} alt="" /> : <ImagePlus size={18} />}
-                                <span><strong>{item.image ? "Görseli değiştir" : "Ürün görseli ekle"}</strong><small>JPG, PNG veya WEBP · otomatik küçültülür</small></span>
-                                <input className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => { void updateItemImage(categoryIndex, itemIndex, event.target.files?.[0]); event.target.value = ""; }} />
-                              </label>
-                              <div className="item-image-actions" data-readiness-field="item-image">
-                                <button
-                                  className="item-ai-image-button"
-                                  disabled={generatingImages || Boolean(generatingItemId)}
-                                  aria-label={(item.image ? "AI ile görseli yenile: " : "AI ile görsel oluştur: ") + (item.name || "ürün")}
-                                  onClick={() => { void generateItemImage(categoryIndex, itemIndex); }}
-                                >
-                                  {generatingItemId === item.id
-                                    ? <Loader2 className="auto-image-spinner" size={14} />
-                                    : <Sparkles size={14} />}
-                                  {generatingItemId === item.id ? "Üretiliyor" : item.image ? "AI ile yenile" : "AI oluştur"}
-                                </button>
-                                {item.image && (
-                                  <button
-                                    className="item-remove-image-button"
-                                    aria-label="Ürün görselini kaldır"
-                                    onClick={() => updateItem(categoryIndex, itemIndex, "image", "")}
-                                  >
-                                    <ImageOff size={14} /> Kaldır
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                            <div className="item-availability">
-                              <div className="item-availability-copy">
-                                <strong>Ürün durumu</strong>
-                                <small>
-                                  {(item.availability || "available") === "sold-out"
-                                    ? "Menüde görünür ve Tükendi etiketi taşır."
-                                    : (item.availability || "available") === "hidden"
-                                      ? "Müşteri menüsünde ve kategori sayısında görünmez."
-                                      : "Müşteriler ürünü normal şekilde görür."}
-                                </small>
-                              </div>
-                              <div className="availability-options" role="group" aria-label={(item.name || "Ürün") + " menü durumu"}>
-                                <button
-                                  className={`availability-option available ${(item.availability || "available") === "available" ? "active" : ""}`}
-                                  aria-pressed={(item.availability || "available") === "available"}
-                                  onClick={() => updateItem(categoryIndex, itemIndex, "availability", "available")}
-                                >
-                                  <Check size={13} /> Satışta
-                                </button>
-                                <button
-                                  className={`availability-option sold-out ${item.availability === "sold-out" ? "active" : ""}`}
-                                  aria-pressed={item.availability === "sold-out"}
-                                  onClick={() => updateItem(categoryIndex, itemIndex, "availability", "sold-out")}
-                                >
-                                  <X size={13} /> Tükendi
-                                </button>
-                                <button
-                                  className={`availability-option hidden ${item.availability === "hidden" ? "active" : ""}`}
-                                  aria-pressed={item.availability === "hidden"}
-                                  onClick={() => updateItem(categoryIndex, itemIndex, "availability", "hidden")}
-                                >
-                                  <EyeOff size={13} /> Gizli
-                                </button>
-                              </div>
-                            </div>
-                            <details className="item-dietary-editor">
-                              <summary>
-                                <Leaf size={16} />
-                                <span className="item-dietary-summary-copy">
-                                  <strong>Beslenme &amp; alerjenler</strong>
-                                  <small>Menüde gösterilecek ürün bilgileri</small>
-                                </span>
-                                <b>{(item.dietaryTags?.length || 0) + (item.allergens?.length || 0)}</b>
-                                <ChevronDown className="dietary-chevron" size={15} />
-                              </summary>
-                              <div className="item-dietary-body">
-                                <div className="item-dietary-group">
-                                  <span>Beslenme etiketleri</span>
-                                  <div className="item-dietary-options">
-                                    {menuDietaryTags.map((tag) => (
-                                      <button
-                                        type="button"
-                                        key={tag}
-                                        className={`dietary-choice ${tag} ${item.dietaryTags?.includes(tag) ? "active" : ""}`}
-                                        aria-pressed={item.dietaryTags?.includes(tag) || false}
-                                        onClick={() => toggleDietaryTag(categoryIndex, itemIndex, tag)}
-                                      >
-                                        {dietaryTagLabels[tag]}
-                                      </button>
-                                    ))}
-                                  </div>
-                                </div>
-                                <div className="item-dietary-group">
-                                  <span>Alerjenler</span>
-                                  <div className="item-dietary-options">
-                                    {menuAllergens.map((allergen) => (
-                                      <button
-                                        type="button"
-                                        key={allergen}
-                                        className={`allergen-choice ${item.allergens?.includes(allergen) ? "active" : ""}`}
-                                        aria-pressed={item.allergens?.includes(allergen) || false}
-                                        onClick={() => toggleAllergen(categoryIndex, itemIndex, allergen)}
-                                      >
-                                        {allergenLabels[allergen]}
-                                      </button>
-                                    ))}
-                                  </div>
-                                </div>
-                                <p className="item-allergen-caution">
-                                  Bu bilgileri yayınlamadan önce mutfak ekibiyle doğrula. Çapraz bulaşma ayrıca değerlendirilmelidir.
-                                </p>
-                              </div>
-                            </details>
-                            <div className="item-editor-extras">
-                              <input aria-label="Ürün etiketi" className="badge-input" placeholder="Etiket ekle (örn. Yeni)" value={item.badge} onChange={(event) => updateItem(categoryIndex, itemIndex, "badge", event.target.value)} />
-                              <button className={`campaign-toggle ${item.isCampaign ? "active" : ""}`} onClick={() => updateItem(categoryIndex, itemIndex, "isCampaign", !item.isCampaign)}><BadgePercent size={14} /> {item.isCampaign ? "Kampanyalı" : "Kampanya ekle"}</button>
-                            </div>
-                            {item.isCampaign && (
-                              <div className="campaign-editor">
-                                <BadgePercent size={16} />
-                                <label><span>Eski fiyat</span><div className="price-input"><input aria-label="Kampanya öncesi fiyat" data-readiness-field="campaign-price" placeholder="475" value={item.originalPrice || ""} onChange={(event) => updateItem(categoryIndex, itemIndex, "originalPrice", event.target.value)} /><span>{menu.currency}</span></div></label>
-                                <p>Menüde <del>{item.originalPrice || "475"}{menu.currency}</del> yerine <strong>{item.price || "400"}{menu.currency}</strong> gösterilir.</p>
-                              </div>
-                            )}
-                            </div>
-                          </details>
+                            onOpen={() => openProductEditor(item.id)}
+                          />
                         ))}
                         <button className="add-row-button" onClick={() => addItem(categoryIndex)}><Plus size={16} /> Ürün ekle</button>
                       </div>
@@ -2583,6 +2510,8 @@ export function MenuStudio({
                     </div>
                   )}
                 </div>
+                  </>
+                )}
                 </section>
               )}
             </div>
