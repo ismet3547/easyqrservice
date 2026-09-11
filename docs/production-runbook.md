@@ -205,3 +205,37 @@ oluştuğunda PostgreSQL ve nesne depolamaya geçiş planlanmalıdır.
 Bu repodaki metinler ürünün teknik veri akışını açıklar; işletmeye özel vergi,
 ticaret, tüketici ve yurt dışı aktarım değerlendirmesi profesyonel hukuk
 incelemesinin yerini tutmaz.
+
+## 2026-09 denetimi: güvenilir proxy ve kayıt sürümleri
+
+Compose uygulama portunu artık `127.0.0.1:${HOST_PORT:-3000}` üzerinde açar.
+HTTPS reverse proxy aynı sunucuda çalışmalı; Docker ağında çalışan proxy kendi
+servis ağı üzerinden `app:3000` adresine bağlanabilir. Uygulama portunu internete
+açmadan önce bu topolojiyi doğrula. `CLIENT_IP_HEADER` boşken bütün istemciler
+ortak `unknown` hız sınırına girer; bu güvenli varsayılan yoğun kullanım için uygun değildir.
+
+Örneğin doğrudan internete bakan Nginx için `.env` içine
+`CLIENT_IP_HEADER=x-real-ip` ekle. İlgili proxy location içinde aşağıdaki başlıklar
+istemcinin değerinin üzerine yazılmalıdır:
+
+```nginx
+proxy_pass http://127.0.0.1:3000;
+proxy_set_header Host $host;
+proxy_set_header X-Forwarded-Proto $scheme;
+proxy_set_header X-Real-IP $remote_addr;
+```
+
+CDN veya başka bir load balancer öndeyse `$remote_addr` son proxy'nin adresi
+olabilir. Gerçek IP çözümlemesini yalnızca güvenilen proxy aralıkları için kur.
+`cf-connecting-ip` veya `x-forwarded-for` seçilecekse bu başlık da doğrulanmış
+**tek** istemci IP'siyle yeniden yazılmalı. Bir IP listesi kabul edilmez. Başlıklara
+güvenmek tek başına yeterli değildir: origin sunucusuna proxy'yi atlayan erişim
+engellenmelidir. Deploy sonrasında iki ayrı istemcinin ayrı limit kimliği aldığını
+ve istemcinin gönderdiği ek CF/XFF başlıklarının bunları değiştirmediğini kontrol et.
+
+`PATCH /api/menus/:id` artık son GET/POST/PATCH cevabındaki `updatedAt` değerini
+çift tırnak içinde `If-Match` başlığı olarak ister. Eksik sürüm 428, eski sürüm 409
+döndürür. Yayın sırasında açık eski Studio sekmelerini yenile. 409 alan kullanıcı
+önce **Taslağı indir**, sonra sayfayı yenile ve **İçerik → Menü başlığı → Taslaktan
+geri yükle** ile içeriği bilinçli olarak geri alabilir. Dosyadan geri yükleme canlı
+menüyü değiştirmez; yayınlama ayrıca yapılır.

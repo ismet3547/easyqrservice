@@ -34,17 +34,17 @@ export function DashboardSidebar({
 
       <nav className="dashboard-nav" aria-label="Dashboard menüsü">
         <span className="dashboard-nav-label">Çalışma alanı</span>
-        <Link className={active === "overview" ? "active" : ""} href="/dashboard">
+        <Link aria-current={active === "overview" ? "page" : undefined} className={active === "overview" ? "active" : ""} href="/dashboard">
           <LayoutDashboard size={17} /> Genel bakış
         </Link>
-        <Link className={active === "menus" ? "active" : ""} href="/dashboard/menus">
+        <Link aria-current={active === "menus" ? "page" : undefined} className={active === "menus" ? "active" : ""} href="/dashboard/menus">
           <BookOpen size={17} /> Menülerim <b>{menuCount}</b>
         </Link>
-        <Link className={active === "analytics" ? "active" : ""} href="/dashboard/analytics">
+        <Link aria-current={active === "analytics" ? "page" : undefined} className={active === "analytics" ? "active" : ""} href="/dashboard/analytics">
           <BarChart3 size={17} /> Analitik
         </Link>
         <span className="dashboard-nav-label second">Hesap</span>
-        <Link className={active === "settings" ? "active" : ""} href="/dashboard/settings">
+        <Link aria-current={active === "settings" ? "page" : undefined} className={active === "settings" ? "active" : ""} href="/dashboard/settings">
           <Settings size={17} /> Ayarlar
         </Link>
         <button disabled title="Yardım merkezi sonraki sürümde">

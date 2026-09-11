@@ -71,6 +71,19 @@ export async function PATCH(request: Request, context: RouteContext) {
   if (!existingMenu) {
     return NextResponse.json({ message: "Menü bulunamadı." }, { status: 404 });
   }
+  const expectedVersion = request.headers.get("if-match");
+  if (!expectedVersion) {
+    return NextResponse.json(
+      { message: "Menü sürümü gerekli. Sayfayı yenileyip tekrar dene." },
+      { status: 428 },
+    );
+  }
+  if (expectedVersion !== `"${existingMenu.updatedAt}"`) {
+    return NextResponse.json(
+      { code: "MENU_CONFLICT", message: "Menü başka bir sekmede değişti. Taslağını indirip sayfayı yenile." },
+      { status: 409 },
+    );
+  }
   // Backward compatibility: moving a draft to published still creates a
   // snapshot. Saving an already-published menu never changes the live copy.
   const shouldPublish = body.publish === true || (
@@ -108,6 +121,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     {
       publish: shouldPublish,
       status: body.status as MenuStatus | undefined,
+      expectedUpdatedAt: existingMenu.updatedAt,
     },
   );
   if (!menu) return NextResponse.json({ message: "Menü bulunamadı." }, { status: 404 });

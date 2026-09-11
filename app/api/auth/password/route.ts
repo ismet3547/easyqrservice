@@ -3,7 +3,8 @@ import { NextResponse } from "next/server";
 import { createSession, getCurrentUser, isSameOrigin } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { isRecordWithOnlyKeys, readJsonRequest } from "@/lib/http";
-import { checkRateLimit, getClientAddress } from "@/lib/rate-limit";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { changePasswordWithCurrentHash } from "@/lib/password-reset";
 
 export const runtime = "nodejs";
 
@@ -27,7 +28,7 @@ export async function PATCH(request: Request) {
   if (!user) return NextResponse.json({ message: "Giriş gerekli." }, { status: 401 });
 
   const rateLimit = checkRateLimit(
-    `password-change:${user.id}:${getClientAddress(request)}`,
+    `password-change:${user.id}`,
     6,
     15 * 60 * 1000,
   );
@@ -83,12 +84,12 @@ export async function PATCH(request: Request) {
   }
 
   const passwordHash = await bcrypt.hash(newPassword, 12);
-  const now = new Date().toISOString();
-  db.transaction(() => {
-    db.prepare("UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?")
-      .run(passwordHash, now, user.id);
-    db.prepare("DELETE FROM sessions WHERE user_id = ?").run(user.id);
-  })();
+  if (!account || !changePasswordWithCurrentHash(user.id, account.password_hash, passwordHash)) {
+    return NextResponse.json(
+      { message: "Şifren başka bir işlemde değişti. Yeniden giriş yap." },
+      { status: 409 },
+    );
+  }
 
   await createSession(user.id);
   return NextResponse.json(

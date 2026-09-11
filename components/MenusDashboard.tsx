@@ -30,6 +30,7 @@ export function MenusDashboard({ user, initialMenus }: { user: SessionUser; init
   const [filter, setFilter] = useState<Filter>("all");
   const [copiedId, setCopiedId] = useState("");
   const [deletingId, setDeletingId] = useState("");
+  const [error, setError] = useState("");
 
   const filteredMenus = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase("tr-TR");
@@ -46,20 +47,30 @@ export function MenusDashboard({ user, initialMenus }: { user: SessionUser; init
   };
 
   const copyLink = async (menu: StoredMenu) => {
-    await navigator.clipboard.writeText(`${window.location.origin}/m/${menu.slug}`);
-    setCopiedId(menu.id);
-    window.setTimeout(() => setCopiedId(""), 1600);
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}/m/${menu.slug}`);
+      setCopiedId(menu.id);
+      setError("");
+      window.setTimeout(() => setCopiedId(""), 1600);
+    } catch { setError("Bağlantı kopyalanamadı. Menüyü Aç düğmesiyle açıp adresini kopyalayabilirsin."); }
   };
 
   const deleteMenu = async (menu: StoredMenu) => {
+    if (deletingId) return;
     if (!window.confirm(`“${menu.name}” menüsünü kalıcı olarak silmek istiyor musun?`)) return;
     setDeletingId(menu.id);
+    setError("");
     try {
       const response = await fetch(`/api/menus/${menu.id}`, { method: "DELETE" });
-      if (response.ok) {
+      if (!response.ok) {
+        const result = await response.json().catch(() => null);
+        throw new Error(result?.message || "Menü silinemedi. Yeniden dene.");
+      } else {
         setMenus((current) => current.filter((item) => item.id !== menu.id));
         router.refresh();
       }
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Menü silinemedi. Bağlantını kontrol et.");
     } finally {
       setDeletingId("");
     }
@@ -81,6 +92,7 @@ export function MenusDashboard({ user, initialMenus }: { user: SessionUser; init
           </div>
 
           <AccountAccessNotice account={user.account} />
+          {error && <p className="studio-save-error" role="alert">{error}</p>}
 
           <section className="menus-toolbar">
             <label><Search size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Menü ara…" /></label>

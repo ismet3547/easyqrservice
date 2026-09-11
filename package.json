@@ -15,7 +15,8 @@
     "db:backup": "node scripts/backup-database.cjs",
     "db:verify": "node scripts/verify-database-backup.cjs",
     "db:restore": "node scripts/restore-database.cjs",
-    "test:security": "node scripts/test-security.cjs"
+    "test:security": "node scripts/test-security.cjs",
+    "test:adversarial": "node scripts/test-adversarial.cjs"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",

@@ -81,7 +81,9 @@ export async function POST(request: Request) {
     .get(email) as LoginUserRow | undefined;
   const passwordMatches = await bcrypt.compare(password, user?.password_hash || dummyPasswordHash);
 
-  if (!user || !passwordMatches) {
+  if (!user || !passwordMatches || !db.prepare(
+    "SELECT 1 FROM users WHERE id = ? AND password_hash = ?",
+  ).get(user.id, user.password_hash)) {
     return NextResponse.json({ message: "E-posta veya şifre hatalı." }, { status: 401 });
   }
 

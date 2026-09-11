@@ -79,17 +79,20 @@ export function checkRateLimit(key: string, limit: number, windowMs: number) {
 
 function normalizeAddress(value: string | null) {
   if (!value) return null;
-  const candidate = value.split(",", 1)[0].trim().replace(/^\[|\]$/g, "");
+  const candidate = value.trim().replace(/^\[|\]$/g, "");
   return candidate.length <= 80 && isIP(candidate) ? candidate : null;
 }
 
 type HeaderReader = Pick<Headers, "get">;
 
 export function getClientAddressFromHeaders(headers: HeaderReader) {
-  return normalizeAddress(headers.get("cf-connecting-ip")) ||
-    normalizeAddress(headers.get("x-forwarded-for")) ||
-    normalizeAddress(headers.get("x-real-ip")) ||
-    "unknown";
+  // Trust exactly one explicitly configured header. The ingress must overwrite
+  // it with a single verified address and prevent direct access to this server.
+  const header = process.env.CLIENT_IP_HEADER?.trim().toLowerCase();
+  if (!header || !["cf-connecting-ip", "x-forwarded-for", "x-real-ip"].includes(header)) {
+    return "unknown";
+  }
+  return normalizeAddress(headers.get(header)) || "unknown";
 }
 
 export function getClientAddress(request: Request) {

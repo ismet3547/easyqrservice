@@ -187,7 +187,7 @@ function findCompatibleSurface(surface: string, background: string, foreground: 
   return background;
 }
 
-function repairThemeAccessibility(theme: MenuTheme): MenuTheme {
+export function repairThemeAccessibility(theme: MenuTheme): MenuTheme {
   const background = theme.background.toLowerCase();
   const preferredForeground = getColorContrastRatio("#000000", background) >=
     getColorContrastRatio("#ffffff", background)
@@ -203,6 +203,10 @@ function repairThemeAccessibility(theme: MenuTheme): MenuTheme {
     surface,
     text: findClosestAccessibleColor(theme.text, readableSurfaces),
   };
+}
+
+export function getReadableSecondaryColor(theme: MenuTheme) {
+  return findClosestAccessibleColor(mixColors(theme.text, theme.background, 0.25), [theme.background, theme.surface]);
 }
 
 export function getColorContrastRatio(first: string, second: string) {

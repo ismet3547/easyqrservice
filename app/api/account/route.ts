@@ -4,7 +4,7 @@ import { deleteUserAccount } from "@/lib/account";
 import { deleteCurrentSession, getCurrentUser, isSameOrigin } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { isRecordWithOnlyKeys, readJsonRequest } from "@/lib/http";
-import { checkRateLimit, getClientAddress } from "@/lib/rate-limit";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -26,7 +26,7 @@ export async function DELETE(request: Request) {
   if (!user) return NextResponse.json({ message: "Giriş gerekli." }, { status: 401 });
 
   const rateLimit = checkRateLimit(
-    `delete-account:${user.id}:${getClientAddress(request)}`,
+    `delete-account:${user.id}`,
     5,
     60 * 60 * 1000,
   );
@@ -70,7 +70,7 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ message: "Mevcut şifren hatalı." }, { status: 401 });
   }
 
-  const deleted = deleteUserAccount(user.id);
+  const deleted = deleteUserAccount(user.id, account!.password_hash);
   if (!deleted) {
     return NextResponse.json({ message: "Hesap bulunamadı." }, { status: 404 });
   }

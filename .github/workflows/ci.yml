@@ -46,6 +46,9 @@ jobs:
       - name: Security regression
         run: npm run test:security
 
+      - name: Adversarial regression
+        run: npm run test:adversarial
+
       - name: Production operations
         run: npm run test:ops
 
