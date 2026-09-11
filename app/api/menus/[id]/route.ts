@@ -124,7 +124,15 @@ export async function PATCH(request: Request, context: RouteContext) {
       expectedUpdatedAt: existingMenu.updatedAt,
     },
   );
-  if (!menu) return NextResponse.json({ message: "Menü bulunamadı." }, { status: 404 });
+  if (!menu) {
+    if (getUserMenu(user.id, id)) {
+      return NextResponse.json(
+        { code: "MENU_CONFLICT", message: "Menü başka bir sekmede değişti. Taslağını indirip sayfayı yenile." },
+        { status: 409 },
+      );
+    }
+    return NextResponse.json({ message: "Menü bulunamadı." }, { status: 404 });
+  }
   return NextResponse.json({ menu });
 }
 

@@ -5312,7 +5312,7 @@ a {
 .public-menu-footer nav {
   display: flex;
   gap: 14px;
-  color: #878d84;
+  color: inherit;
   font-size: 12px;
 }
 

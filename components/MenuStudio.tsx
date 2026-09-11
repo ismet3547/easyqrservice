@@ -1738,12 +1738,16 @@ export function MenuStudio({
   const flushBeforeLeaving = async () => {
     if (screen !== "studio") return;
     cancelPendingAutosave();
+    const latest = latestContentRef.current;
+    if (lastSavedRef.current?.menu === latest.menu && lastSavedRef.current?.theme === latest.theme) {
+      return;
+    }
     let menuId = activeMenuId;
-    if (!menuId) menuId = (await persistNewMenu(menu, theme)).id;
-    do {
+    if (!menuId) menuId = (await persistNewMenu(latest.menu, latest.theme)).id;
+    while (lastSavedRef.current?.menu !== latestContentRef.current.menu ||
+      lastSavedRef.current?.theme !== latestContentRef.current.theme) {
       await saveSnapshot(menuId, latestContentRef.current);
-    } while (lastSavedRef.current?.menu !== latestContentRef.current.menu ||
-      lastSavedRef.current?.theme !== latestContentRef.current.theme);
+    }
     cancelPendingAutosave();
   };
 

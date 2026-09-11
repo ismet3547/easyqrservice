@@ -351,8 +351,14 @@ export function PublicMenu({
     return getThemeAccessibilityIssues(normalized).length ? repairThemeAccessibility(normalized) : normalized;
   }, [theme]);
   const secondaryColor = useMemo(() => getReadableSecondaryColor(resolvedTheme), [resolvedTheme]);
+  const shellStyle = {
+    "--menu-accent": resolvedTheme.accent,
+    "--menu-muted": secondaryColor,
+    "--menu-text": resolvedTheme.text,
+    background: resolvedTheme.background,
+  } as CSSProperties;
   return (
-    <main className="public-menu-shell" style={{ background: resolvedTheme.background }}>
+    <main className="public-menu-shell" style={shellStyle}>
       <MenuPreview
         analyticsVisitId={analyticsVisitId}
         menu={menu}
