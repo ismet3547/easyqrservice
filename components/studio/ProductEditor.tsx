@@ -159,7 +159,7 @@ export function ProductDetailEditor({
               <input
                 autoFocus
                 className="item-name-input"
-                data-readiness-field="item-name"
+                data-readiness-field="item-name" maxLength={180}
                 value={item.name}
                 onChange={(event) => onUpdate("name", event.target.value)}
               />
@@ -169,7 +169,7 @@ export function ProductDetailEditor({
               <span className="price-input product-focus-price">
                 <input
                   aria-label={item.isCampaign ? "Kampanyalı fiyat" : "Fiyat"}
-                  data-readiness-field="item-price"
+                  data-readiness-field="item-price" maxLength={40}
                   inputMode="decimal"
                   value={item.price}
                   onChange={(event) => onUpdate("price", event.target.value)}
@@ -182,7 +182,7 @@ export function ProductDetailEditor({
           <label className="field-label product-focus-description">
             Açıklama
             <textarea
-              data-readiness-field="item-description"
+              data-readiness-field="item-description" maxLength={1000}
               placeholder="Ürünün içeriğini kısa ve anlaşılır biçimde yaz."
               rows={3}
               value={item.description}
@@ -276,7 +276,7 @@ export function ProductDetailEditor({
             <label className="field-label">
               Kısa etiket <small>İsteğe bağlı</small>
               <input
-                className="badge-input"
+                className="badge-input" maxLength={40}
                 placeholder="Örn. Yeni veya Favori"
                 value={item.badge}
                 onChange={(event) => onUpdate("badge", event.target.value)}
@@ -284,6 +284,7 @@ export function ProductDetailEditor({
             </label>
             <button
               className={`campaign-toggle ${item.isCampaign ? "active" : ""}`}
+              aria-pressed={Boolean(item.isCampaign)}
               onClick={() => onUpdate("isCampaign", !item.isCampaign)}
               type="button"
             >
@@ -299,7 +300,7 @@ export function ProductDetailEditor({
                 <span className="price-input">
                   <input
                     aria-label="Kampanya öncesi fiyat"
-                    data-readiness-field="campaign-price"
+                    data-readiness-field="campaign-price" maxLength={40}
                     inputMode="decimal"
                     placeholder="475"
                     value={item.originalPrice || ""}

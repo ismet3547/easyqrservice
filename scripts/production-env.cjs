@@ -38,6 +38,14 @@ function validateProductionEnv(environment, options = {}) {
   const errors = [];
   const warnings = [];
 
+  const clientIpHeader = environment.CLIENT_IP_HEADER?.trim().toLowerCase() || "";
+  if (clientIpHeader && !["cf-connecting-ip", "x-forwarded-for", "x-real-ip"].includes(clientIpHeader)) {
+    errors.push("CLIENT_IP_HEADER yalnızca cf-connecting-ip, x-forwarded-for veya x-real-ip olabilir.");
+  }
+  if (!clientIpHeader) {
+    warnings.push("CLIENT_IP_HEADER ayarlanmamış; tüm ziyaretçiler ortak IP limitini paylaşır. Güvenilir proxy kurulumunu tamamla.");
+  }
+
   const appUrlValue = environment.APP_URL?.trim() || "";
   let appOrigin = "";
   if (!appUrlValue) {

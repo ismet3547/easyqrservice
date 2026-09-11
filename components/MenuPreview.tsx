@@ -12,7 +12,8 @@ import {
   ShieldAlert,
   X,
 } from "lucide-react";
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { getThemeAccessibilityIssues, getReadableSecondaryColor, repairThemeAccessibility } from "@/lib/theme-design";
 import { useMenuEventTracking } from "@/components/useMenuEventTracking";
 import {
   allergenLabels,
@@ -345,16 +346,26 @@ export function PublicMenu({
   theme,
   initialLanguage = "tr",
 }: PublicMenuProps) {
-  const resolvedTheme = normalizeMenuTheme(theme);
+  const resolvedTheme = useMemo(() => {
+    const normalized = normalizeMenuTheme(theme);
+    return getThemeAccessibilityIssues(normalized).length ? repairThemeAccessibility(normalized) : normalized;
+  }, [theme]);
+  const secondaryColor = useMemo(() => getReadableSecondaryColor(resolvedTheme), [resolvedTheme]);
+  const shellStyle = {
+    "--menu-accent": resolvedTheme.accent,
+    "--menu-muted": secondaryColor,
+    "--menu-text": resolvedTheme.text,
+    background: resolvedTheme.background,
+  } as CSSProperties;
   return (
-    <main className="public-menu-shell" style={{ background: resolvedTheme.background }}>
+    <main className="public-menu-shell" style={shellStyle}>
       <MenuPreview
         analyticsVisitId={analyticsVisitId}
         menu={menu}
         theme={resolvedTheme}
         initialLanguage={initialLanguage}
       />
-      <footer className="public-menu-footer">
+      <footer className="public-menu-footer" style={{ color: secondaryColor }}>
         <div className="public-menu-powered-by">
           <span>QR menu by</span>
           <div className="brand compact">
@@ -378,7 +389,11 @@ export function MenuPreview({
   framed = false,
   initialLanguage = "tr",
 }: MenuPreviewProps) {
-  const resolvedTheme = normalizeMenuTheme(theme);
+  const resolvedTheme = useMemo(() => {
+    const normalized = normalizeMenuTheme(theme);
+    return getThemeAccessibilityIssues(normalized).length ? repairThemeAccessibility(normalized) : normalized;
+  }, [theme]);
+  const secondaryColor = useMemo(() => getReadableSecondaryColor(resolvedTheme), [resolvedTheme]);
   const canUseEnglish = hasEnglishMenuTranslation(menu);
   const previewRef = useRef<HTMLDivElement>(null);
   const seenVisibilityEventsRef = useRef(new Set<string>());
@@ -395,10 +410,10 @@ export function MenuPreview({
 
   useEffect(() => {
     if (framed || !canUseEnglish) return;
-    const savedLanguage = window.localStorage.getItem(languagePreferenceKey);
-    if (savedLanguage === "tr" || savedLanguage === "en") {
-      setLanguage(savedLanguage);
-    }
+    try {
+      const savedLanguage = window.localStorage.getItem(languagePreferenceKey);
+      if (savedLanguage === "tr" || savedLanguage === "en") setLanguage(savedLanguage);
+    } catch { /* Storage is optional; the menu must remain usable. */ }
   }, [canUseEnglish, framed]);
 
   useEffect(() => {
@@ -449,6 +464,7 @@ export function MenuPreview({
     "--menu-bg": resolvedTheme.background,
     "--menu-surface": resolvedTheme.surface,
     "--menu-text": resolvedTheme.text,
+    "--menu-muted": secondaryColor,
   } as CSSProperties;
   const visibleCategories = getVisibleMenu(menu).categories;
   const hasAllergenInfo = visibleCategories.some((category) =>
@@ -590,7 +606,9 @@ export function MenuPreview({
       trackEvent({ type: "language_change", value: nextLanguage });
     }
     setLanguage(nextLanguage);
-    if (!framed) window.localStorage.setItem(languagePreferenceKey, nextLanguage);
+    try {
+      if (!framed) window.localStorage.setItem(languagePreferenceKey, nextLanguage);
+    } catch { /* Keep the in-memory language choice. */ }
   };
 
   const toggleDietaryFilter = (tag: MenuDietaryTag) => {

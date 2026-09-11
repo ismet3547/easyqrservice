@@ -1,7 +1,7 @@
 export type JsonRequestFailure = {
   ok: false;
-  reason: "invalid" | "too-large" | "unsupported-media-type";
-  status: 400 | 413 | 415;
+  reason: "invalid" | "too-large" | "unsupported-media-type" | "timeout";
+  status: 400 | 408 | 413 | 415;
 };
 
 export type JsonRequestResult = JsonRequestFailure | {
@@ -19,9 +19,13 @@ function failure(
 export async function readJsonRequest(
   request: Request,
   maximumBytes: number,
+  maximumReadMs = 15_000,
 ): Promise<JsonRequestResult> {
   if (!Number.isSafeInteger(maximumBytes) || maximumBytes <= 0) {
     throw new RangeError("maximumBytes must be a positive safe integer.");
+  }
+  if (!Number.isSafeInteger(maximumReadMs) || maximumReadMs <= 0) {
+    throw new RangeError("maximumReadMs must be a positive safe integer.");
   }
 
   const contentType = (request.headers.get("content-type") || "")
@@ -56,21 +60,30 @@ export async function readJsonRequest(
   const decoder = new TextDecoder("utf-8", { fatal: true });
   let byteLength = 0;
   let rawBody = "";
+  const timeoutError = new Error("Request body timeout");
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => reject(timeoutError), maximumReadMs);
+  });
 
   try {
     while (true) {
-      const chunk = await reader.read();
+      const chunk = await Promise.race([reader.read(), deadline]);
       if (chunk.done) break;
       byteLength += chunk.value.byteLength;
       if (byteLength > maximumBytes) {
-        await reader.cancel().catch(() => undefined);
+        void reader.cancel().catch(() => undefined);
         return failure("too-large", 413);
       }
       rawBody += decoder.decode(chunk.value, { stream: true });
     }
     rawBody += decoder.decode();
-  } catch {
-    return failure("invalid", 400);
+  } catch (error) {
+    void reader.cancel().catch(() => undefined);
+    return error === timeoutError ? failure("timeout", 408) : failure("invalid", 400);
+  } finally {
+    clearTimeout(timer);
+    reader.releaseLock();
   }
 
   try {

@@ -43,7 +43,7 @@ export function isValidUploadedDataUrl(
   const encoded = dataUrl.slice(prefix.length);
   if (
     encoded.length % 4 !== 0 ||
-    !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(encoded)
+    !/^[A-Za-z0-9+/]*={0,2}$/.test(encoded)
   ) return false;
 
   const padding = encoded.endsWith("==") ? 2 : encoded.endsWith("=") ? 1 : 0;

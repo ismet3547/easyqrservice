@@ -512,13 +512,6 @@ function bytesToBase64Url(bytes: Uint8Array) {
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
-function base64UrlToBytes(value: string) {
-  const base64 = value.replace(/-/g, "+").replace(/_/g, "/");
-  const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
-  const binary = atob(padded);
-  return Uint8Array.from(binary, (char) => char.charCodeAt(0));
-}
-
 export async function encodePublishedMenu(payload: PublishedMenu) {
   const raw = new TextEncoder().encode(JSON.stringify(payload));
 
@@ -529,26 +522,4 @@ export async function encodePublishedMenu(payload: PublishedMenu) {
   const stream = new Blob([raw]).stream().pipeThrough(new CompressionStream("deflate-raw"));
   const compressed = new Uint8Array(await new Response(stream).arrayBuffer());
   return `zip.${bytesToBase64Url(compressed)}`;
-}
-
-export async function decodePublishedMenu(value: string): Promise<PublishedMenu> {
-  const [format, encoded] = value.split(".", 2);
-  if (!format || !encoded) throw new Error("Geçersiz menü bağlantısı");
-
-  let bytes = base64UrlToBytes(encoded);
-  if (format === "zip") {
-    if (typeof DecompressionStream === "undefined") {
-      throw new Error("Tarayıcınız bu menü bağlantısını açamıyor");
-    }
-    const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
-    bytes = new Uint8Array(await new Response(stream).arrayBuffer());
-  } else if (format !== "plain") {
-    throw new Error("Bilinmeyen menü bağlantısı");
-  }
-
-  const parsed = JSON.parse(new TextDecoder().decode(bytes)) as PublishedMenu;
-  if (!parsed?.menu?.categories || !parsed?.theme?.accent) {
-    throw new Error("Eksik menü verisi");
-  }
-  return { ...parsed, theme: normalizeMenuTheme(parsed.theme) };
 }

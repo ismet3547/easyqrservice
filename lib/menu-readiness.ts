@@ -66,6 +66,8 @@ export function parseMenuPrice(value: string) {
     const groupingSeparator = decimalSeparator === "," ? "." : ",";
     const decimalParts = withoutCurrency.split(decimalSeparator);
     if (decimalParts.length !== 2 || !/^\d{1,2}$/.test(decimalParts[1])) return null;
+    const groups = decimalParts[0].split(groupingSeparator);
+    if (!/^\d{1,3}$/.test(groups[0]) || !groups.slice(1).every((part) => /^\d{3}$/.test(part))) return null;
     normalized = `${decimalParts[0].replaceAll(groupingSeparator, "")}.${decimalParts[1]}`;
   } else {
     const separator = lastComma >= 0 ? "," : lastDot >= 0 ? "." : "";
@@ -73,9 +75,10 @@ export function parseMenuPrice(value: string) {
       const parts = withoutCurrency.split(separator);
       if (parts.some((part) => !/^\d+$/.test(part))) return null;
       if (parts.length > 2) {
-        if (!parts.slice(1).every((part) => part.length === 3)) return null;
+        if (parts[0].length > 3 || !parts.slice(1).every((part) => part.length === 3)) return null;
         normalized = parts.join("");
       } else if (parts[1].length === 3) {
+        if (parts[0].length > 3) return null;
         normalized = parts.join("");
       } else if (parts[1].length <= 2) {
         normalized = `${parts[0]}.${parts[1]}`;

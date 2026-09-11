@@ -119,6 +119,7 @@ export function Dashboard({
   const [menus, setMenus] = useState(initialMenus);
   const [copiedId, setCopiedId] = useState("");
   const [deletingId, setDeletingId] = useState("");
+  const [actionError, setActionError] = useState("");
   const [welcomeVisible, setWelcomeVisible] = useState(initialWelcome);
   const [period, setPeriod] = useState<DashboardPeriod>(7);
 
@@ -198,27 +199,44 @@ export function Dashboard({
   };
 
   const logout = async () => {
-    await fetch("/api/auth/logout", { method: "POST" });
-    router.replace("/");
-    router.refresh();
+    try {
+      const response = await fetch("/api/auth/logout", { method: "POST" });
+      if (!response.ok) throw new Error("Çıkış yapılamadı. Yeniden dene.");
+      setActionError("");
+      router.replace("/");
+      router.refresh();
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "Çıkış yapılamadı. Bağlantını kontrol et.");
+    }
   };
 
   const copyMenuLink = async (storedMenu: StoredMenu) => {
-    await navigator.clipboard.writeText(`${window.location.origin}/m/${storedMenu.slug}`);
-    setCopiedId(storedMenu.id);
-    window.setTimeout(() => setCopiedId(""), 1600);
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}/m/${storedMenu.slug}`);
+      setCopiedId(storedMenu.id);
+      setActionError("");
+      window.setTimeout(() => setCopiedId(""), 1600);
+    } catch {
+      setActionError("Bağlantı kopyalanamadı. Menüyü açıp adres çubuğundan kopyalayabilirsin.");
+    }
   };
 
   const deleteMenu = async (storedMenu: StoredMenu) => {
+    if (deletingId) return;
     const confirmed = window.confirm(`“${storedMenu.name}” menüsünü silmek istediğine emin misin?`);
     if (!confirmed) return;
     setDeletingId(storedMenu.id);
+    setActionError("");
     try {
       const response = await fetch(`/api/menus/${storedMenu.id}`, { method: "DELETE" });
-      if (response.ok) {
-        setMenus((current) => current.filter((menu) => menu.id !== storedMenu.id));
-        router.refresh();
+      if (!response.ok) {
+        const result = await response.json().catch(() => null) as { message?: string } | null;
+        throw new Error(result?.message || "Menü silinemedi. Yeniden dene.");
       }
+      setMenus((current) => current.filter((menu) => menu.id !== storedMenu.id));
+      router.refresh();
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "Menü silinemedi. Bağlantını kontrol et.");
     } finally {
       setDeletingId("");
     }
@@ -244,6 +262,7 @@ export function Dashboard({
           </div>
 
           <AccountAccessNotice account={user.account} />
+          {actionError && <p className="studio-save-error" role="alert">{actionError}</p>}
 
           {(!onboarding.isComplete || welcomeVisible) && (
             <section className={`onboarding-journey ${welcomeVisible ? "is-welcome" : ""}`} aria-labelledby="onboarding-title">
@@ -481,7 +500,13 @@ export function Dashboard({
                           {storedMenu.status === "published" && <Link className="qr" href={`/dashboard/menus/${storedMenu.id}/qr`}><QrCode size={15} /> QR kodu</Link>}
                           {storedMenu.status === "published" && <a href={`/m/${storedMenu.slug}`} target="_blank" rel="noreferrer"><Eye size={15} /> Görüntüle</a>}
                           {storedMenu.status === "published" && <button onClick={() => void copyMenuLink(storedMenu)}>{copiedId === storedMenu.id ? <Check size={15} /> : <Copy size={15} />} {copiedId === storedMenu.id ? "Kopyalandı" : "Bağlantı"}</button>}
-                          <button className="delete-menu-button" disabled={deletingId === storedMenu.id} onClick={() => void deleteMenu(storedMenu)}><Trash2 size={15} /></button>
+                          <button
+                            aria-label={`${storedMenu.name} menüsünü sil`}
+                            className="delete-menu-button"
+                            disabled={Boolean(deletingId)}
+                            onClick={() => void deleteMenu(storedMenu)}
+                            title="Menüyü sil"
+                          ><Trash2 size={15} /></button>
                         </div>
                       </div>
                     </article>

@@ -10,6 +10,7 @@ services:
     environment:
       NODE_ENV: production
       APP_URL: ${APP_URL:?APP_URL must be set in .env}
+      CLIENT_IP_HEADER: ${CLIENT_IP_HEADER:-}
       DATABASE_PATH: ${DATABASE_PATH:-/data/easyqr.db}
       BACKUP_DIR: ${BACKUP_DIR:-/data/backups}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
@@ -27,7 +28,7 @@ services:
       BACKUP_MAX_FILES: ${BACKUP_MAX_FILES:-30}
       BACKUP_INTERVAL_HOURS: ${BACKUP_INTERVAL_HOURS:-24}
     ports:
-      - "${HOST_PORT:-3000}:3000"
+      - "127.0.0.1:${HOST_PORT:-3000}:3000"
     volumes:
       - easyqr-data:/data
     security_opt:

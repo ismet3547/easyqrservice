@@ -41,6 +41,24 @@ export function revokePasswordResetToken(token: string) {
     .run(hashPasswordResetToken(token));
 }
 
+// Compare-and-swap prevents a slow password change from overwriting a reset
+// that completed while bcrypt was running. Revoke every previous credential.
+export function changePasswordWithCurrentHash(
+  userId: string,
+  currentHash: string,
+  nextHash: string,
+) {
+  return db.transaction(() => {
+    const changed = db.prepare(
+      "UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ? AND password_hash = ?",
+    ).run(nextHash, new Date().toISOString(), userId, currentHash);
+    if (changed.changes !== 1) return false;
+    db.prepare("DELETE FROM sessions WHERE user_id = ?").run(userId);
+    db.prepare("DELETE FROM password_reset_tokens WHERE user_id = ?").run(userId);
+    return true;
+  })();
+}
+
 export function resetPasswordWithToken(
   token: string,
   passwordHash: string,

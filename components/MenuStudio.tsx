@@ -59,7 +59,6 @@ import {
 } from "react";
 import {
   createId,
-  decodePublishedMenu,
   defaultTheme,
   demoMenu,
   getMenuBusinessProfile,
@@ -85,6 +84,8 @@ import {
   type MenuWeekday,
   type PublishedMenu,
 } from "@/lib/menu";
+import { decodePublishedMenu } from "@/lib/menu-link";
+import { isValidMenuData, isValidMenuTheme } from "@/lib/menu-validation";
 import { buildMenuTrafficUrl } from "@/lib/menu-tracking";
 import {
   createMenuFromStarter,
@@ -99,6 +100,9 @@ import {
 } from "@/lib/menu-readiness";
 import { aiCreditCosts } from "@/lib/ai-credit-config";
 import type { GeneratedThemeDesign } from "@/lib/theme-design";
+import { useModalFocus } from "@/components/useModalFocus";
+import { getThemeAccessibilityIssues, repairThemeAccessibility } from "@/lib/theme-design";
+import { createMenuSaveQueue } from "@/lib/menu-save-queue";
 import { PublicMenu } from "@/components/MenuPreview";
 import {
   Brand,
@@ -441,7 +445,9 @@ export function MenuStudio({
   const inputRef = useRef<HTMLInputElement>(null);
   const editorScrollRef = useRef<HTMLDivElement>(null);
   const autoSaveTimeoutRef = useRef<number | null>(null);
-  const autoSaveRequestRef = useRef<Promise<void> | null>(null);
+  const saveQueueRef = useRef<ReturnType<typeof createMenuSaveQueue> | null>(null);
+  if (!saveQueueRef.current) saveQueueRef.current = createMenuSaveQueue();
+  const lastSavedRef = useRef<PublishedMenu | null>(null);
   const publishingRef = useRef(false);
   const creatingStarterRef = useRef(false);
   const themeColorFrameRef = useRef<number | null>(null);
@@ -484,6 +490,10 @@ export function MenuStudio({
   const [activeMenuStatus, setActiveMenuStatus] = useState<"draft" | "published">("draft");
   const [hasUnpublishedChanges, setHasUnpublishedChanges] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "error">("saved");
+  const [saveError, setSaveError] = useState("");
+  const [leaving, setLeaving] = useState(false);
+  const latestContentRef = useRef({ menu, theme });
+  latestContentRef.current = { menu, theme };
   const [generatingImages, setGeneratingImages] = useState(false);
   const [generatingItemId, setGeneratingItemId] = useState("");
   const [imageGenerationProgress, setImageGenerationProgress] = useState({ done: 0, total: 0 });
@@ -495,6 +505,17 @@ export function MenuStudio({
   const [themeCreditsFailed, setThemeCreditsFailed] = useState(false);
   const [themeDesignFeedback, setThemeDesignFeedback] = useState<ThemeDesignFeedback | null>(null);
   const [previousTheme, setPreviousTheme] = useState<MenuTheme | null>(null);
+  useModalFocus(
+    mobilePreviewOpen ? "preview" : publishOpen ? "published" : publishReviewOpen ? "review" : starterPickerOpen ? "starter" : null,
+    () => {
+      if (mobilePreviewOpen) setMobilePreviewOpen(false);
+      else if (publishOpen) setPublishOpen(false);
+      else if (publishReviewOpen) setPublishReviewOpen(false);
+      else setStarterPickerOpen(false);
+    },
+    !publishing && !creatingStarter,
+  );
+  const themeAccessibilityIssues = getThemeAccessibilityIssues(theme);
   const selectedStarter = getMenuStarter(selectedStarterId);
   const SelectedStarterIcon = starterIcons[selectedStarter.id];
   const selectedStarterItemCount = selectedStarter.categories.reduce(
@@ -592,7 +613,7 @@ export function MenuStudio({
     window.requestAnimationFrame(() => {
       window.requestAnimationFrame(() => {
         const element = document.getElementById(elementId);
-        element?.scrollIntoView({ behavior: "smooth", block: "center" });
+        element?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "center" });
         if (inputSelector) {
           element?.querySelector<HTMLInputElement>(inputSelector)?.focus({ preventScroll: true });
         }
@@ -652,9 +673,10 @@ export function MenuStudio({
 
   useEffect(() => {
     if (window.location.hash.startsWith("#menu=")) return;
+    const controller = new AbortController();
     const loadUser = async () => {
       try {
-        const response = await fetch("/api/auth/me", { cache: "no-store" });
+        const response = await fetch("/api/auth/me", { cache: "no-store", signal: controller.signal });
         const result = (await response.json()) as { user: AuthUser | null };
         if (!result.user) {
           setAuthStatus("anonymous");
@@ -667,11 +689,14 @@ export function MenuStudio({
         const requestedMenuId = searchParams.get("menu");
         const shouldOpenPublishReview = searchParams.get("publish") === "1";
         if (requestedMenuId) {
-          const menuResponse = await fetch(`/api/menus/${requestedMenuId}`, { cache: "no-store" });
+          const menuResponse = await fetch(`/api/menus/${requestedMenuId}`, { cache: "no-store", signal: controller.signal });
           if (menuResponse.ok) {
             const menuResult = (await menuResponse.json()) as { menu: StoredMenu };
             setMenu(menuResult.menu.menu);
-            setTheme(normalizeMenuTheme(menuResult.menu.theme));
+            const loadedTheme = normalizeMenuTheme(menuResult.menu.theme);
+            setTheme(loadedTheme);
+            lastSavedRef.current = { menu: menuResult.menu.menu, theme: loadedTheme };
+            saveQueueRef.current!.acknowledge(menuResult.menu);
             setActiveMenuId(menuResult.menu.id);
             setActiveMenuSlug(menuResult.menu.slug);
             setActiveMenuStatus(menuResult.menu.status);
@@ -698,20 +723,23 @@ export function MenuStudio({
         if (!draft) return;
         try {
           const saved = JSON.parse(draft) as PublishedMenu;
-          if (saved?.menu?.categories && saved?.theme?.accent) {
+          if (isValidMenuData(saved?.menu) && isValidMenuTheme(saved?.theme)) {
             setMenu(saved.menu);
             setTheme(normalizeMenuTheme(saved.theme));
             setNotice("Son taslağın hesabın için geri yüklendi.");
+            setSaveStatus("error");
+            setSaveError("Bu taslak henüz hesabına kaydedilmedi. Yeniden dene düğmesiyle kaydet.");
             setScreen("studio");
           }
         } catch {
           window.localStorage.removeItem(draftKey);
         }
       } catch {
-        setAuthStatus("anonymous");
+        if (!controller.signal.aborted) setAuthStatus("anonymous");
       }
     };
     void loadUser();
+    return () => controller.abort();
   }, []);
 
   useEffect(() => {
@@ -780,34 +808,39 @@ export function MenuStudio({
     }
   }, [activeMenuId, currentUser, menu, screen, theme]);
 
+  const cancelPendingAutosave = () => {
+    if (autoSaveTimeoutRef.current !== null) {
+      window.clearTimeout(autoSaveTimeoutRef.current);
+      autoSaveTimeoutRef.current = null;
+    }
+  };
+
+  const saveSnapshot = async (id: string, snapshot: PublishedMenu, publish = false) => {
+    setSaveStatus("saving");
+    try {
+      const stored = await saveQueueRef.current!.save({ id, ...snapshot, publish });
+      lastSavedRef.current = snapshot;
+      const isCurrent = latestContentRef.current.menu === snapshot.menu &&
+        latestContentRef.current.theme === snapshot.theme;
+      setHasUnpublishedChanges(stored.hasUnpublishedChanges || (!isCurrent && stored.status === "published"));
+      setSaveStatus(isCurrent ? "saved" : "saving");
+      setSaveError("");
+      return stored;
+    } catch (error) {
+      setSaveStatus("error");
+      setSaveError(getErrorMessage(error));
+      throw error;
+    }
+  };
+
   useEffect(() => {
     if (screen !== "studio" || !currentUser || !activeMenuId) return;
+    if (lastSavedRef.current?.menu === menu && lastSavedRef.current?.theme === theme) return;
     setSaveStatus("saving");
-    const timeout = window.setTimeout(async () => {
+    if (activeMenuStatus === "published") setHasUnpublishedChanges(true);
+    const timeout = window.setTimeout(() => {
       autoSaveTimeoutRef.current = null;
-      const saveRequest = (async () => {
-        try {
-          const response = await fetch(`/api/menus/${activeMenuId}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ menu, theme }),
-          });
-          const result = (await response.json().catch(() => null)) as
-            | { menu?: StoredMenu }
-            | null;
-          if (response.ok && result?.menu) {
-            setHasUnpublishedChanges(result.menu.hasUnpublishedChanges);
-            setSaveStatus("saved");
-          } else {
-            setSaveStatus("error");
-          }
-        } catch {
-          setSaveStatus("error");
-        }
-      })();
-      autoSaveRequestRef.current = saveRequest;
-      await saveRequest;
-      if (autoSaveRequestRef.current === saveRequest) autoSaveRequestRef.current = null;
+      void saveSnapshot(activeMenuId, { menu, theme }).catch(() => undefined);
     }, 650);
     autoSaveTimeoutRef.current = timeout;
     return () => {
@@ -815,6 +848,46 @@ export function MenuStudio({
       if (autoSaveTimeoutRef.current === timeout) autoSaveTimeoutRef.current = null;
     };
   }, [activeMenuId, currentUser, menu, screen, theme]);
+
+  useEffect(() => {
+    const warnBeforeLeaving = (event: BeforeUnloadEvent) => {
+      const latest = latestContentRef.current;
+      if (screen === "studio" && (lastSavedRef.current?.menu !== latest.menu ||
+        lastSavedRef.current?.theme !== latest.theme)) {
+        event.preventDefault();
+        event.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", warnBeforeLeaving);
+    return () => window.removeEventListener("beforeunload", warnBeforeLeaving);
+  }, [screen]);
+
+  const downloadDraft = () => {
+    const url = URL.createObjectURL(new Blob([JSON.stringify(latestContentRef.current, null, 2)], {
+      type: "application/json",
+    }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "easyqr-taslak.json";
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+  const restoreDraft = async (file?: File) => {
+    if (!file) return;
+    try {
+      if (file.size > 12 * 1024 * 1024) throw new Error("Taslak dosyası 12 MB'tan küçük olmalı.");
+      const restored = JSON.parse(await file.text()) as PublishedMenu;
+      if (!isValidMenuData(restored?.menu) || !isValidMenuTheme(restored?.theme)) {
+        throw new Error("Bu dosya geçerli bir easyqr taslağı değil.");
+      }
+      if (!window.confirm("Dosyadaki içerik bu menünün taslağının yerine geçecek. Canlı menü, yeniden yayınlayana kadar değişmez. Devam edilsin mi?")) return;
+      cancelPendingAutosave();
+      setMenu(restored.menu);
+      setTheme(normalizeMenuTheme(restored.theme));
+      setNotice("Taslak dosyası geri yüklendi. Yayınlamadan önce içeriği kontrol et.");
+    } catch (error) { setNotice(getErrorMessage(error)); }
+  };
 
   const persistNewMenu = async (newMenu: MenuData, newTheme: MenuTheme) => {
     const response = await fetch("/api/menus", {
@@ -824,6 +897,8 @@ export function MenuStudio({
     });
     const result = (await response.json()) as { menu?: StoredMenu; message?: string };
     if (!response.ok || !result.menu) throw new Error(result.message || "Menü kaydedilemedi.");
+    saveQueueRef.current!.acknowledge(result.menu);
+    lastSavedRef.current = { menu: newMenu, theme: newTheme };
     setActiveMenuId(result.menu.id);
     setActiveMenuSlug(result.menu.slug);
     setActiveMenuStatus(result.menu.status);
@@ -842,24 +917,6 @@ export function MenuStudio({
       return;
     }
     inputRef.current?.click();
-  };
-
-  const openDemo = async () => {
-    if (!currentUser) {
-      goToLogin();
-      return;
-    }
-    const demo = cloneDemoMenu();
-    setMenu(demo);
-    setTheme(defaultTheme);
-    setNotice("Örnek menü açık — tüm alanları özgürce değiştirebilirsin.");
-    setScreen("studio");
-    try {
-      await persistNewMenu(demo, defaultTheme);
-    } catch (persistError) {
-      setNotice(getErrorMessage(persistError));
-      setSaveStatus("error");
-    }
   };
 
   const openStarterPicker = () => {
@@ -1479,26 +1536,8 @@ export function MenuStudio({
         const storedMenu = await persistNewMenu(menu, theme);
         menuId = storedMenu.id;
       } else {
-        setSaveStatus("saving");
-        const saveResponse = await fetch(`/api/menus/${menuId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ menu, theme }),
-        });
-        let saveResult: { menu?: StoredMenu; message?: string } = {};
-        try {
-          saveResult = (await saveResponse.json()) as typeof saveResult;
-        } catch {
-          saveResult = {};
-        }
-        if (!saveResponse.ok) {
-          setSaveStatus("error");
-          throw new Error(saveResult.message || "Menü AI tasarımından önce kaydedilemedi.");
-        }
-        if (saveResult.menu) {
-          setHasUnpublishedChanges(saveResult.menu.hasUnpublishedChanges);
-        }
-        setSaveStatus("saved");
+        cancelPendingAutosave();
+        await saveSnapshot(menuId, { menu, theme });
       }
 
       const response = await fetch("/api/generate-menu-theme", {
@@ -1611,7 +1650,7 @@ export function MenuStudio({
             ? `studio-category-${target.categoryId}`
             : `studio-content-${target.section}`;
         const targetElement = document.getElementById(elementId);
-        targetElement?.scrollIntoView({ behavior: "smooth", block: "center" });
+        targetElement?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "center" });
 
         const fieldElement = target.field
           ? targetElement?.querySelector<HTMLElement>(`[data-readiness-field="${target.field}"]`)
@@ -1635,11 +1674,7 @@ export function MenuStudio({
     setPublishError("");
     setPublishing(true);
     try {
-      if (autoSaveTimeoutRef.current !== null) {
-        window.clearTimeout(autoSaveTimeoutRef.current);
-        autoSaveTimeoutRef.current = null;
-      }
-      await autoSaveRequestRef.current;
+      cancelPendingAutosave();
 
       let menuId = activeMenuId;
       let menuSlug = activeMenuSlug;
@@ -1648,18 +1683,10 @@ export function MenuStudio({
         menuId = storedMenu.id;
         menuSlug = storedMenu.slug;
       }
-      const response = await fetch(`/api/menus/${menuId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ menu, theme, publish: true, status: "published" }),
-      });
-      const result = (await response.json()) as { menu?: StoredMenu; message?: string };
-      if (!response.ok || !result.menu) throw new Error(result.message || "Menü yayınlanamadı.");
-      menuSlug = result.menu.slug;
+      const stored = await saveSnapshot(menuId, { menu, theme }, true);
+      menuSlug = stored.slug;
       setActiveMenuStatus("published");
-      setHasUnpublishedChanges(result.menu.hasUnpublishedChanges);
       setActiveMenuSlug(menuSlug);
-      setSaveStatus("saved");
       setPublishUrl(`${window.location.origin}/m/${menuSlug}`);
       setPublishReviewOpen(false);
       setPublishOpen(true);
@@ -1676,14 +1703,20 @@ export function MenuStudio({
   };
 
   const copyLink = async () => {
-    await navigator.clipboard.writeText(publishUrl);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1800);
+    try {
+      await navigator.clipboard.writeText(publishUrl);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch { setNotice("Bağlantı kopyalanamadı. Menü bağlantısını seçerek elle kopyalayabilirsin."); }
   };
 
   const shareLink = async () => {
     if (navigator.share) {
-      await navigator.share({ title: `${menu.restaurantName} menüsü`, url: publishUrl });
+      try {
+        await navigator.share({ title: `${menu.restaurantName} menüsü`, url: publishUrl });
+      } catch (error) {
+        if (!(error instanceof Error && error.name === "AbortError")) setNotice("Paylaşım açılamadı. Bağlantıyı kopyalayabilirsin.");
+      }
       return;
     }
     await copyLink();
@@ -1702,25 +1735,40 @@ export function MenuStudio({
     URL.revokeObjectURL(url);
   };
 
-  const logout = async () => {
-    await fetch("/api/auth/logout", { method: "POST" });
-    setCurrentUser(null);
-    setAuthStatus("anonymous");
-    setScreen("upload");
-    setNotice("");
-    window.location.href = "/";
+  const flushBeforeLeaving = async () => {
+    if (screen !== "studio") return;
+    cancelPendingAutosave();
+    const latest = latestContentRef.current;
+    if (lastSavedRef.current?.menu === latest.menu && lastSavedRef.current?.theme === latest.theme) {
+      return;
+    }
+    let menuId = activeMenuId;
+    if (!menuId) menuId = (await persistNewMenu(latest.menu, latest.theme)).id;
+    while (lastSavedRef.current?.menu !== latestContentRef.current.menu ||
+      lastSavedRef.current?.theme !== latestContentRef.current.theme) {
+      await saveSnapshot(menuId, latestContentRef.current);
+    }
+    cancelPendingAutosave();
   };
 
-  const goToDashboard = async () => {
-    if (activeMenuId) {
-      await fetch(`/api/menus/${activeMenuId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ menu, theme }),
-      }).catch(() => null);
+  const leaveStudio = async (signOut: boolean) => {
+    if (leaving) return;
+    setLeaving(true);
+    try {
+      await flushBeforeLeaving();
+      if (signOut) {
+        const response = await fetch("/api/auth/logout", { method: "POST" });
+        if (!response.ok) throw new Error("Çıkış yapılamadı. Yeniden dene.");
+      }
+      window.location.href = signOut ? "/" : "/dashboard";
+    } catch (error) {
+      setSaveStatus("error");
+      setSaveError(getErrorMessage(error));
+      setLeaving(false);
     }
-    window.location.href = "/dashboard";
   };
+  const logout = () => leaveStudio(true);
+  const goToDashboard = () => leaveStudio(false);
 
   if (publicPayload) {
     return <PublicMenu menu={publicPayload.menu} theme={publicPayload.theme} />;
@@ -1968,7 +2016,7 @@ export function MenuStudio({
             <a href="#ozellikler">Özellikler</a>
             <a href="#guven">Güven</a>
             <a href="#sss">S.S.S.</a>
-            <button className="nav-demo" onClick={openDemo}>Örnek menü</button>
+            <a className="nav-demo" href="/ornek-menu">Örnek menü</a>
           </nav>
           <div className="landing-auth-actions">
             {authStatus === "loading" ? (
@@ -2050,7 +2098,7 @@ export function MenuStudio({
               />
             </div>
             {error && <div className="upload-error"><X size={16} /> {error}</div>}
-            <button className="demo-link" onClick={openDemo}>Dosyan hazır değil mi? Örnek menüyü dene <span>→</span></button>
+            <a className="demo-link" href="/ornek-menu">Dosyan hazır değil mi? Örnek menüyü dene <span>→</span></a>
           </div>
         </section>
 
@@ -2181,7 +2229,7 @@ export function MenuStudio({
             <a className="primary-button" href={currentUser ? "/studio" : "/kayit"}>
               {currentUser ? "Menü oluştur" : "Ücretsiz başla"} <ArrowRight size={16} />
             </a>
-            <button className="secondary-button" onClick={openDemo}>Örnek menüyü aç</button>
+            <a className="secondary-button" href="/ornek-menu">Örnek menüyü aç</a>
           </div>
         </section>
 
@@ -2211,12 +2259,13 @@ export function MenuStudio({
         documentName={menu.restaurantName}
         hasUnpublishedChanges={hasUnpublishedChanges}
         isPublished={activeMenuStatus === "published"}
+        busy={leaving || publishing}
         onBack={() => { void goToDashboard(); }}
         onLogout={() => { void logout(); }}
         onOpenPreview={() => setMobilePreviewOpen(true)}
         onPublish={() => {
           setPublishError("");
-          if (activeMenuStatus === "published" && !hasUnpublishedChanges && activeMenuSlug) {
+          if (activeMenuStatus === "published" && saveStatus === "saved" && !hasUnpublishedChanges && activeMenuSlug) {
             setPublishUrl(`${window.location.origin}/m/${activeMenuSlug}`);
             setPublishOpen(true);
             setCopied(false);
@@ -2228,6 +2277,15 @@ export function MenuStudio({
         userName={currentUser?.name}
       />
 
+      {saveError && <div className="studio-save-error" role="alert">
+        <span><strong>Değişiklikler kaydedilemedi</strong> {saveError}</span>
+        <button type="button" onClick={() => {
+          cancelPendingAutosave();
+          if (activeMenuId) void saveSnapshot(activeMenuId, latestContentRef.current).catch(() => undefined);
+          else void persistNewMenu(menu, theme).then(() => { setSaveError(""); setSaveStatus("saved"); }).catch((error) => setSaveError(getErrorMessage(error)));
+        }}>Yeniden dene</button>
+        <button type="button" onClick={downloadDraft}>Taslağı indir</button>
+      </div>}
       <div className="studio-body">
         <aside className="editor-panel">
           <StudioEditorTabs activeTab={tab} onChange={changeEditorTab} />
@@ -2252,11 +2310,20 @@ export function MenuStudio({
               {contentSection === "basics" && (
                 <section className="form-section studio-tool-panel" id="studio-content-basics">
                 <div className="section-heading"><div><span>İşletme</span><h2>Menü başlığı</h2></div></div>
+                <div className="draft-file-actions">
+                  <button type="button" onClick={downloadDraft}><Download size={16} /> Taslağı indir</button>
+                  <label><UploadCloud size={16} /> Taslaktan geri yükle
+                    <input className="sr-only" type="file" accept="application/json,.json" onChange={(event) => {
+                      void restoreDraft(event.target.files?.[0]);
+                      event.target.value = "";
+                    }} />
+                  </label>
+                </div>
                 <div className="menu-title-fields">
-                  <label className="field-label">İşletme adı<input data-readiness-field="restaurant-name" value={menu.restaurantName} onChange={(event) => setMenu({ ...menu, restaurantName: event.target.value })} /></label>
+                  <label className="field-label">İşletme adı<input data-readiness-field="restaurant-name" maxLength={120} value={menu.restaurantName} onChange={(event) => setMenu({ ...menu, restaurantName: event.target.value })} /></label>
                   <label className="field-label">Para birimi<input data-readiness-field="currency" maxLength={12} placeholder="₺" value={menu.currency} onChange={(event) => setMenu({ ...menu, currency: event.target.value })} /></label>
                 </div>
-                <label className="field-label">Kısa açıklama<input data-readiness-field="subtitle" value={menu.subtitle} onChange={(event) => setMenu({ ...menu, subtitle: event.target.value })} /></label>
+                <label className="field-label">Kısa açıklama<input data-readiness-field="subtitle" maxLength={240} value={menu.subtitle} onChange={(event) => setMenu({ ...menu, subtitle: event.target.value })} /></label>
                 </section>
               )}
 
@@ -2625,7 +2692,7 @@ export function MenuStudio({
                         <ChevronDown className="category-chevron" size={17} />
                         <input
                           aria-label="Kategori adı"
-                          data-readiness-field="category-name"
+                          data-readiness-field="category-name" maxLength={100}
                           value={category.name}
                           onClick={(event) => event.stopPropagation()}
                           onChange={(event) => {
@@ -2838,6 +2905,11 @@ export function MenuStudio({
                     </label>
                   ))}
                 </div>
+                {themeAccessibilityIssues.length > 0 && <div className="theme-contrast-notice" role="status">
+                  <strong>Bu renklerde bazı yazılar zor okunuyor.</strong>
+                  <p>Önizleme ve müşteri menüsü, okunabilirlik için renk tonlarını otomatik dengeler.</p>
+                  <button type="button" onClick={() => setTheme(repairThemeAccessibility(theme))}>Okunabilir renkleri uygula</button>
+                </div>}
                 <h3 className="theme-subsection-heading typography">Yazı karakteri</h3>
                 <div className="font-grid">
                   {fontOptions.map((font) => (

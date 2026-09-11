@@ -50,6 +50,7 @@ export function Brand({ compact = false }: { compact?: boolean }) {
 }
 
 export function StudioHeader({
+  busy,
   documentName,
   hasUnpublishedChanges,
   isPublished,
@@ -60,6 +61,7 @@ export function StudioHeader({
   saveStatus,
   userName,
 }: {
+  busy: boolean;
   documentName: string;
   hasUnpublishedChanges: boolean;
   isPublished: boolean;
@@ -79,14 +81,14 @@ export function StudioHeader({
         : isPublished
           ? "Canlı sürüm güncel"
           : "Tüm değişiklikler kaydedildi";
-  const publishLabel = isPublished
+  const publishLabel = isPublished && saveStatus === "saved"
     ? hasUnpublishedChanges ? "Değişiklikleri yayınla" : "QR menüyü aç"
     : "QR menüyü oluştur";
 
   return (
     <header className="studio-header">
       <div className="studio-header-left">
-        <button className="icon-button" type="button" aria-label="Dashboard'a dön" onClick={onBack}>
+        <button className="icon-button" type="button" disabled={busy} aria-label="Dashboard'a dön" onClick={onBack}>
           <ArrowLeft size={19} />
         </button>
         <Brand compact />
@@ -105,12 +107,12 @@ export function StudioHeader({
         <button className="secondary-button mobile-preview-button" type="button" onClick={onOpenPreview}>
           <Eye size={17} /> <span>Önizle</span>
         </button>
-        <button className="primary-button studio-publish-button" type="button" onClick={onPublish}>
+        <button className="primary-button studio-publish-button" type="button" disabled={busy} onClick={onPublish}>
           <QrCode size={17} />
           <span className="studio-publish-label-full">{publishLabel}</span>
-          <span className="studio-publish-label-mobile">{isPublished && !hasUnpublishedChanges ? "QR menü" : "Yayınla"}</span>
+          <span className="studio-publish-label-mobile">{isPublished && saveStatus === "saved" && !hasUnpublishedChanges ? "QR menü" : "Yayınla"}</span>
         </button>
-        <button className="icon-button logout-button" type="button" aria-label="Çıkış yap" title="Çıkış yap" onClick={onLogout}>
+        <button className="icon-button logout-button" type="button" disabled={busy} aria-label="Çıkış yap" title="Çıkış yap" onClick={onLogout}>
           <LogOut size={17} />
         </button>
       </div>
@@ -209,11 +211,11 @@ export function StudioPreviewStage({ menu, theme }: { menu: MenuData; theme: Men
     <section className="preview-stage" aria-label="Canlı telefon önizlemesi">
       <div className="preview-toolbar">
         <span><Smartphone size={16} /> Canlı önizleme</span>
-        <div><i /> 390 × 844</div>
+        <div><i /> Mobil görünüm</div>
       </div>
       <div className="phone-frame">
         <div className="phone-speaker" />
-        <div className="phone-screen"><MenuPreview menu={menu} theme={theme} framed /></div>
+        <div className="phone-screen"><div className="public-menu-shell preview-viewport"><MenuPreview menu={menu} theme={theme} framed /></div></div>
       </div>
       <p className="preview-hint">Değişikliklerin anında önizlemeye yansır.</p>
     </section>
@@ -235,7 +237,7 @@ export function StudioPreviewDialog({
         <button className="modal-close" type="button" onClick={onClose} aria-label="Önizlemeyi kapat"><X size={19} /></button>
         <div className="phone-frame">
           <div className="phone-speaker" />
-          <div className="phone-screen"><MenuPreview menu={menu} theme={theme} framed /></div>
+          <div className="phone-screen"><div className="public-menu-shell preview-viewport"><MenuPreview menu={menu} theme={theme} framed /></div></div>
         </div>
       </section>
     </div>
