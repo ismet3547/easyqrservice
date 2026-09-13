@@ -9,12 +9,12 @@ import {
 } from "@/lib/password-reset";
 import { isRecordWithOnlyKeys, readJsonRequest } from "@/lib/http";
 import { checkRateLimit, getClientAddress } from "@/lib/rate-limit";
+import { resolveRequestLocale } from "@/lib/i18n";
 
 export const runtime = "nodejs";
 
 const maximumRequestBytes = 4 * 1024;
 const minimumResponseMs = 500;
-const genericMessage = "Bu adresle eşleşen bir hesap varsa şifre yenileme bağlantısı gönderildi.";
 
 type ForgotPasswordBody = { email?: unknown };
 type UserRow = { id: string; email: string };
@@ -40,25 +40,31 @@ async function waitForMinimumResponse(startedAt: number) {
 
 export async function POST(request: Request) {
   const startedAt = Date.now();
+  const locale = resolveRequestLocale(request);
+  const t = (english: string, turkish: string) => locale === "tr" ? turkish : english;
+  const genericMessage = t(
+    "If an account matches this address, a password reset link has been sent.",
+    "Bu adresle eşleşen bir hesap varsa şifre yenileme bağlantısı gönderildi.",
+  );
   if (!isSameOrigin(request)) {
-    return NextResponse.json({ message: "Geçersiz istek kaynağı." }, { status: 403 });
+    return NextResponse.json({ message: t("Invalid request origin.", "Geçersiz istek kaynağı.") }, { status: 403 });
   }
 
   const parsed = await readJsonRequest(request, maximumRequestBytes);
   if (!parsed.ok) {
     return NextResponse.json(
-      { message: parsed.reason === "too-large" ? "İstek çok büyük." : "Geçersiz istek." },
+      { message: parsed.reason === "too-large" ? t("Request is too large.", "İstek çok büyük.") : t("Invalid request.", "Geçersiz istek.") },
       { status: parsed.status },
     );
   }
   if (!isRecordWithOnlyKeys(parsed.value, ["email"])) {
-    return NextResponse.json({ message: "Geçersiz istek." }, { status: 400 });
+    return NextResponse.json({ message: t("Invalid request.", "Geçersiz istek.") }, { status: 400 });
   }
   const body = parsed.value as ForgotPasswordBody;
 
   const email = typeof body.email === "string" ? normalizeEmail(body.email) : "";
   if (!isValidEmail(email)) {
-    return NextResponse.json({ message: "Geçerli bir e-posta adresi gir." }, { status: 400 });
+    return NextResponse.json({ message: t("Enter a valid email address.", "Geçerli bir e-posta adresi gir.") }, { status: 400 });
   }
 
   const clientAddress = getClientAddress(request);
@@ -88,8 +94,9 @@ export async function POST(request: Request) {
     const reset = createPasswordResetToken(user.id);
     try {
       await sendPasswordResetEmail({
+        locale,
         recipient: user.email,
-        resetUrl: createPasswordResetUrl(reset.token),
+        resetUrl: createPasswordResetUrl(reset.token, locale),
       });
     } catch (error) {
       revokePasswordResetToken(reset.token);

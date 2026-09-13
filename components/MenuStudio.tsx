@@ -60,7 +60,7 @@ import {
 import {
   createId,
   defaultTheme,
-  demoMenu,
+  getDemoMenu,
   getMenuBusinessProfile,
   getMenuTranslationFingerprint,
   hasEnglishMenuTranslation,
@@ -90,7 +90,7 @@ import { buildMenuTrafficUrl } from "@/lib/menu-tracking";
 import {
   createMenuFromStarter,
   getMenuStarter,
-  menuStarters,
+  getMenuStarters,
   type MenuStarterCurrency,
   type MenuStarterId,
 } from "@/lib/menu-starters";
@@ -104,6 +104,7 @@ import { useModalFocus } from "@/components/useModalFocus";
 import { getThemeAccessibilityIssues, repairThemeAccessibility } from "@/lib/theme-design";
 import { createMenuSaveQueue } from "@/lib/menu-save-queue";
 import { PublicMenu } from "@/components/MenuPreview";
+import { LocaleSwitcher } from "@/components/LocaleSwitcher";
 import {
   Brand,
   StudioEditorTabs,
@@ -118,6 +119,8 @@ import {
   ProductListItem,
 } from "@/components/studio/ProductEditor";
 import type { StoredMenu } from "@/lib/menus";
+import { useAppLocale } from "@/components/LocaleProvider";
+import { getLocalizedAppPath, type AppLocale } from "@/lib/i18n";
 
 type AuthUser = { id: string; name: string; email: string; createdAt: string };
 
@@ -213,6 +216,55 @@ const heroStyleOptions: Array<ThemeChoiceOption<MenuHeroStyle>> = [
   { id: "pattern", label: "Desenli" },
 ];
 
+const studioOptionLabelsEn: Record<string, string> = {
+  "AI tasarım": "AI design",
+  "Alt çizgi": "Underline",
+  "Arka plan": "Background",
+  "Botanik": "Botanical",
+  "Buton": "Pills",
+  "Dengeli": "Comfortable",
+  "Desenli": "Pattern",
+  "Dikey": "Portrait",
+  "Doğal ve ferah": "Natural and fresh",
+  "Düz": "Flat",
+  "Editoryal": "Editorial",
+  "Enerjik": "Playful",
+  "Ferah": "Airy",
+  "Gölgeli": "Elevated",
+  "Hazır stiller": "Presets",
+  "İngilizce": "English",
+  "İnce ayar": "Fine tuning",
+  "İşletme profili": "Business profile",
+  "Kare": "Square",
+  "Kartlar": "Cards",
+  "Keskin": "Square",
+  "Koyu ve premium": "Dark and premium",
+  "Metin": "Text",
+  "Menü bilgileri": "Menu details",
+  "Renk ve yazı": "Color and type",
+  "Renkli": "Tinted",
+  "Renkli ve hareketli": "Colorful and lively",
+  "Rozet": "Pill",
+  "Sade": "Plain",
+  "Samimi": "Friendly",
+  "Sıcak ve dengeli": "Warm and balanced",
+  "Sıkı": "Compact",
+  "Şık ve karakterli": "Elegant and distinctive",
+  "Temiz ve hızlı okunan": "Clean and easy to scan",
+  "Ürünler": "Items",
+  "Vurgu": "Accent",
+  "Yerleşim": "Layout",
+  "Yatay": "Landscape",
+  "Yumuşak": "Soft",
+  "Yuvarlak": "Rounded",
+  "Çizgili": "Outlined",
+};
+
+function localizeStudioOption<Value extends { label: string }>(option: Value, locale: AppLocale): Value {
+  if (locale === "tr") return option;
+  return { ...option, label: studioOptionLabelsEn[option.label] || option.label };
+}
+
 type ThemeColorKey = "accent" | "background" | "surface" | "text";
 
 const themeColorOptions: Array<{
@@ -225,11 +277,18 @@ const themeColorOptions: Array<{
   { id: "text", label: "Metin" },
 ];
 
-const themeBriefSuggestions = [
+const themeBriefSuggestionsTr = [
   "Sıcak ve modern",
   "Minimal ve premium",
   "Doğal ve ferah",
   "Renkli ve enerjik",
+] as const;
+
+const themeBriefSuggestionsEn = [
+  "Warm and modern",
+  "Minimal and premium",
+  "Natural and fresh",
+  "Colorful and energetic",
 ] as const;
 
 const starterIcons: Record<MenuStarterId, typeof FileText> = {
@@ -242,12 +301,35 @@ const starterIcons: Record<MenuStarterId, typeof FileText> = {
   blank: FilePlus2,
 };
 
-const starterCurrencyOptions: Array<{ label: string; value: MenuStarterCurrency }> = [
-  { value: "₺", label: "₺ Türk lirası" },
-  { value: "$", label: "$ ABD doları" },
-  { value: "€", label: "€ Euro" },
-  { value: "£", label: "£ İngiliz sterlini" },
+const starterCurrencyOptions: Array<{ en: string; tr: string; value: MenuStarterCurrency }> = [
+  { value: "₺", en: "₺ Turkish lira", tr: "₺ Türk lirası" },
+  { value: "$", en: "$ US dollar", tr: "$ ABD doları" },
+  { value: "€", en: "€ Euro", tr: "€ Euro" },
+  { value: "£", en: "£ British pound", tr: "£ İngiliz sterlini" },
 ];
+
+const menuSourceLanguageOptions = [
+  { value: "en", label: "English" },
+  { value: "es", label: "Español" },
+  { value: "de", label: "Deutsch" },
+  { value: "fr", label: "Français" },
+  { value: "it", label: "Italiano" },
+  { value: "pt", label: "Português" },
+  { value: "tr", label: "Türkçe" },
+  { value: "ar", label: "العربية" },
+  { value: "zh", label: "中文" },
+  { value: "ja", label: "日本語" },
+  { value: "ko", label: "한국어" },
+  { value: "nl", label: "Nederlands" },
+  { value: "pl", label: "Polski" },
+  { value: "ru", label: "Русский" },
+  { value: "uk", label: "Українська" },
+  { value: "el", label: "Ελληνικά" },
+  { value: "he", label: "עברית" },
+  { value: "id", label: "Bahasa Indonesia" },
+  { value: "vi", label: "Tiếng Việt" },
+  { value: "th", label: "ไทย" },
+] as const;
 
 type ContentSectionId = "products" | "basics" | "business" | "language";
 type DesignSectionId = "presets" | "ai" | "brand" | "layout" | "advanced";
@@ -308,34 +390,75 @@ const weekdayLabels: Record<MenuWeekday, string> = {
   sunday: "Pazar",
 };
 
+const weekdayLabelsEn: Record<MenuWeekday, string> = {
+  monday: "Monday",
+  tuesday: "Tuesday",
+  wednesday: "Wednesday",
+  thursday: "Thursday",
+  friday: "Friday",
+  saturday: "Saturday",
+  sunday: "Sunday",
+};
+
 const timezoneOptions = [
-  { value: "Europe/Istanbul", label: "Türkiye · İstanbul" },
-  { value: "Europe/London", label: "Birleşik Krallık · Londra" },
-  { value: "Europe/Berlin", label: "Orta Avrupa · Berlin" },
-  { value: "Europe/Paris", label: "Orta Avrupa · Paris" },
-  { value: "Asia/Dubai", label: "BAE · Dubai" },
-  { value: "America/New_York", label: "ABD · New York" },
-  { value: "America/Los_Angeles", label: "ABD · Los Angeles" },
+  { value: "UTC", en: "UTC", tr: "UTC" },
+  { value: "Europe/Istanbul", en: "Türkiye · Istanbul", tr: "Türkiye · İstanbul" },
+  { value: "Europe/London", en: "United Kingdom · London", tr: "Birleşik Krallık · Londra" },
+  { value: "Europe/Berlin", en: "Germany · Berlin", tr: "Almanya · Berlin" },
+  { value: "Europe/Paris", en: "France · Paris", tr: "Fransa · Paris" },
+  { value: "Europe/Madrid", en: "Spain · Madrid", tr: "İspanya · Madrid" },
+  { value: "Europe/Rome", en: "Italy · Rome", tr: "İtalya · Roma" },
+  { value: "Europe/Amsterdam", en: "Netherlands · Amsterdam", tr: "Hollanda · Amsterdam" },
+  { value: "Europe/Athens", en: "Greece · Athens", tr: "Yunanistan · Atina" },
+  { value: "Europe/Warsaw", en: "Poland · Warsaw", tr: "Polonya · Varşova" },
+  { value: "Europe/Kyiv", en: "Ukraine · Kyiv", tr: "Ukrayna · Kyiv" },
+  { value: "Europe/Moscow", en: "Russia · Moscow", tr: "Rusya · Moskova" },
+  { value: "Asia/Dubai", en: "United Arab Emirates · Dubai", tr: "BAE · Dubai" },
+  { value: "Asia/Riyadh", en: "Saudi Arabia · Riyadh", tr: "Suudi Arabistan · Riyad" },
+  { value: "Asia/Jerusalem", en: "Israel · Jerusalem", tr: "İsrail · Kudüs" },
+  { value: "Asia/Singapore", en: "Singapore", tr: "Singapur" },
+  { value: "Asia/Shanghai", en: "China · Shanghai", tr: "Çin · Şanghay" },
+  { value: "Asia/Hong_Kong", en: "Hong Kong", tr: "Hong Kong" },
+  { value: "Asia/Tokyo", en: "Japan · Tokyo", tr: "Japonya · Tokyo" },
+  { value: "Asia/Seoul", en: "South Korea · Seoul", tr: "Güney Kore · Seul" },
+  { value: "Asia/Kolkata", en: "India · Kolkata", tr: "Hindistan · Kolkata" },
+  { value: "Asia/Bangkok", en: "Thailand · Bangkok", tr: "Tayland · Bangkok" },
+  { value: "Asia/Ho_Chi_Minh", en: "Vietnam · Ho Chi Minh City", tr: "Vietnam · Ho Chi Minh" },
+  { value: "Asia/Jakarta", en: "Indonesia · Jakarta", tr: "Endonezya · Cakarta" },
+  { value: "America/New_York", en: "USA · New York", tr: "ABD · New York" },
+  { value: "America/Chicago", en: "USA · Chicago", tr: "ABD · Chicago" },
+  { value: "America/Denver", en: "USA · Denver", tr: "ABD · Denver" },
+  { value: "America/Los_Angeles", en: "USA · Los Angeles", tr: "ABD · Los Angeles" },
+  { value: "America/Toronto", en: "Canada · Toronto", tr: "Kanada · Toronto" },
+  { value: "America/Mexico_City", en: "Mexico · Mexico City", tr: "Meksika · Meksiko" },
+  { value: "America/Bogota", en: "Colombia · Bogotá", tr: "Kolombiya · Bogotá" },
+  { value: "America/Lima", en: "Peru · Lima", tr: "Peru · Lima" },
+  { value: "America/Sao_Paulo", en: "Brazil · São Paulo", tr: "Brezilya · São Paulo" },
+  { value: "America/Argentina/Buenos_Aires", en: "Argentina · Buenos Aires", tr: "Arjantin · Buenos Aires" },
+  { value: "America/Santiago", en: "Chile · Santiago", tr: "Şili · Santiago" },
+  { value: "Africa/Johannesburg", en: "South Africa · Johannesburg", tr: "Güney Afrika · Johannesburg" },
+  { value: "Australia/Sydney", en: "Australia · Sydney", tr: "Avustralya · Sydney" },
+  { value: "Pacific/Auckland", en: "New Zealand · Auckland", tr: "Yeni Zelanda · Auckland" },
 ] as const;
 
-function cloneDemoMenu() {
-  return JSON.parse(JSON.stringify(demoMenu)) as MenuData;
+function cloneDemoMenu(locale: AppLocale) {
+  return JSON.parse(JSON.stringify(getDemoMenu(locale))) as MenuData;
 }
 
-function fileToDataUrl(file: File) {
+function fileToDataUrl(file: File, locale: AppLocale) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(new Error("Dosya okunamadı."));
+    reader.onerror = () => reject(new Error(locale === "tr" ? "Dosya okunamadı." : "Could not read the file."));
     reader.readAsDataURL(file);
   });
 }
 
-function loadBrowserImage(source: string) {
+function loadBrowserImage(source: string, locale: AppLocale) {
   return new Promise<HTMLImageElement>((resolve, reject) => {
     const image = new Image();
     image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error("Görsel açılamadı."));
+    image.onerror = () => reject(new Error(locale === "tr" ? "Görsel açılamadı." : "Could not open the image."));
     image.src = source;
   });
 }
@@ -344,14 +467,15 @@ async function prepareProductImageSource(
   source: string,
   maxDimension = 900,
   maxDataUrlLength = 750_000,
+  locale: AppLocale = "en",
 ) {
-  const image = await loadBrowserImage(source);
+  const image = await loadBrowserImage(source, locale);
   const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
   const canvas = document.createElement("canvas");
   canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
   canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
   const context = canvas.getContext("2d");
-  if (!context) throw new Error("Görsel işlenemedi.");
+  if (!context) throw new Error(locale === "tr" ? "Görsel işlenemedi." : "Could not process the image.");
   context.fillStyle = "#ffffff";
   context.fillRect(0, 0, canvas.width, canvas.height);
   context.drawImage(image, 0, 0, canvas.width, canvas.height);
@@ -362,29 +486,29 @@ async function prepareProductImageSource(
     result = canvas.toDataURL("image/jpeg", quality);
     if (result.length <= maxDataUrlLength) return result;
   }
-  throw new Error("Görsel menü için yeterince küçültülemedi.");
+  throw new Error(locale === "tr" ? "Görsel menü için yeterince küçültülemedi." : "The image could not be reduced enough for the menu.");
 }
 
-async function prepareProductImage(file: File) {
+async function prepareProductImage(file: File, locale: AppLocale) {
   if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-    throw new Error("Ürün görseli JPG, PNG veya WEBP olmalı.");
+    throw new Error(locale === "tr" ? "Ürün görseli JPG, PNG veya WEBP olmalı." : "The item image must be JPG, PNG, or WEBP.");
   }
   if (file.size > 8 * 1024 * 1024) {
-    throw new Error("Ürün görseli 8 MB’tan küçük olmalı.");
+    throw new Error(locale === "tr" ? "Ürün görseli 8 MB’tan küçük olmalı." : "The item image must be smaller than 8 MB.");
   }
 
-  return prepareProductImageSource(await fileToDataUrl(file));
+  return prepareProductImageSource(await fileToDataUrl(file, locale), 900, 750_000, locale);
 }
 
-async function prepareBusinessLogo(file: File) {
+async function prepareBusinessLogo(file: File, locale: AppLocale) {
   if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-    throw new Error("Logo JPG, PNG veya WEBP olmalı.");
+    throw new Error(locale === "tr" ? "Logo JPG, PNG veya WEBP olmalı." : "The logo must be JPG, PNG, or WEBP.");
   }
   if (file.size > 5 * 1024 * 1024) {
-    throw new Error("Logo 5 MB’tan küçük olmalı.");
+    throw new Error(locale === "tr" ? "Logo 5 MB’tan küçük olmalı." : "The logo must be smaller than 5 MB.");
   }
 
-  const image = await loadBrowserImage(await fileToDataUrl(file));
+  const image = await loadBrowserImage(await fileToDataUrl(file, locale), locale);
   const dimensions = [480, 360, 280, 220];
   const qualities = [0.88, 0.76, 0.64];
 
@@ -394,7 +518,7 @@ async function prepareBusinessLogo(file: File) {
     canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
     canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
     const context = canvas.getContext("2d");
-    if (!context) throw new Error("Logo işlenemedi.");
+    if (!context) throw new Error(locale === "tr" ? "Logo işlenemedi." : "Could not process the logo.");
     context.drawImage(image, 0, 0, canvas.width, canvas.height);
 
     for (const quality of qualities) {
@@ -403,11 +527,11 @@ async function prepareBusinessLogo(file: File) {
     }
   }
 
-  throw new Error("Logo menü için yeterince küçültülemedi.");
+  throw new Error(locale === "tr" ? "Logo menü için yeterince küçültülemedi." : "The logo could not be reduced enough for the menu.");
 }
 
-function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "Beklenmeyen bir sorun oluştu.";
+function getErrorMessage(error: unknown, locale: AppLocale = "en") {
+  return error instanceof Error ? error.message : locale === "tr" ? "Beklenmeyen bir sorun oluştu." : "Something unexpected happened.";
 }
 
 function getEnglishTranslationCoverage(menu: MenuData) {
@@ -442,11 +566,13 @@ export function MenuStudio({
   workspaceMode?: boolean;
   initialUser?: AuthUser | null;
 }) {
+  const { intlLocale, locale } = useAppLocale();
+  const t = (english: string, turkish: string) => locale === "tr" ? turkish : english;
   const inputRef = useRef<HTMLInputElement>(null);
   const editorScrollRef = useRef<HTMLDivElement>(null);
   const autoSaveTimeoutRef = useRef<number | null>(null);
   const saveQueueRef = useRef<ReturnType<typeof createMenuSaveQueue> | null>(null);
-  if (!saveQueueRef.current) saveQueueRef.current = createMenuSaveQueue();
+  if (!saveQueueRef.current) saveQueueRef.current = createMenuSaveQueue(fetch, locale);
   const lastSavedRef = useRef<PublishedMenu | null>(null);
   const publishingRef = useRef(false);
   const creatingStarterRef = useRef(false);
@@ -456,7 +582,9 @@ export function MenuStudio({
   const [starterPickerOpen, setStarterPickerOpen] = useState(false);
   const [selectedStarterId, setSelectedStarterId] = useState<MenuStarterId>("restaurant");
   const [starterBusinessName, setStarterBusinessName] = useState("");
-  const [starterCurrency, setStarterCurrency] = useState<MenuStarterCurrency>("₺");
+  const [starterCurrency, setStarterCurrency] = useState<MenuStarterCurrency>(
+    () => locale === "tr" ? "₺" : "$",
+  );
   const [creatingStarter, setCreatingStarter] = useState(false);
   const [starterError, setStarterError] = useState("");
   const [tab, setTab] = useState<StudioEditorTab>("content");
@@ -465,7 +593,7 @@ export function MenuStudio({
   const [productQuery, setProductQuery] = useState("");
   const [expandedItemId, setExpandedItemId] = useState("");
   const [categoryOpenState, setCategoryOpenState] = useState<Record<string, boolean>>({});
-  const [menu, setMenu] = useState<MenuData>(() => cloneDemoMenu());
+  const [menu, setMenu] = useState<MenuData>(() => cloneDemoMenu(locale));
   const [theme, setTheme] = useState<MenuTheme>(defaultTheme);
   const [dragging, setDragging] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -516,7 +644,20 @@ export function MenuStudio({
     !publishing && !creatingStarter,
   );
   const themeAccessibilityIssues = getThemeAccessibilityIssues(theme);
-  const selectedStarter = getMenuStarter(selectedStarterId);
+  const sourceIsEnglish = /^en(?:-|$)/i.test(menu.sourceLanguage || "");
+  const sourceLanguageLabel = menuSourceLanguageOptions.find((option) => option.value === menu.sourceLanguage)?.label || menu.sourceLanguage || t("source language", "kaynak dil");
+  const localizedContentSectionLinks = contentSectionLinks
+    .filter((section) => section.id !== "language" || !sourceIsEnglish)
+    .map((section) => localizeStudioOption(section, locale));
+  const localizedDesignSectionLinks = designSectionLinks.map((section) => localizeStudioOption(section, locale));
+  const localizedThemePresetOptions = themePresetOptions.map((option) => ({
+    ...localizeStudioOption(option, locale),
+    description: locale === "tr" ? option.description : studioOptionLabelsEn[option.description] || option.description,
+  }));
+  const localizedWeekdayLabels = locale === "tr" ? weekdayLabels : weekdayLabelsEn;
+  const localizedThemeBriefSuggestions = locale === "tr" ? themeBriefSuggestionsTr : themeBriefSuggestionsEn;
+  const availableMenuStarters = getMenuStarters(locale);
+  const selectedStarter = getMenuStarter(selectedStarterId, locale);
   const SelectedStarterIcon = starterIcons[selectedStarter.id];
   const selectedStarterItemCount = selectedStarter.categories.reduce(
     (sum, category) => sum + category.items.length,
@@ -528,16 +669,16 @@ export function MenuStudio({
       sum + category.items.filter((item) => !item.image && item.availability !== "hidden").length,
     0,
   );
-  const normalizedProductQuery = productQuery.trim().toLocaleLowerCase("tr-TR");
+  const normalizedProductQuery = productQuery.trim().toLocaleLowerCase(intlLocale);
   const editorCategories = menu.categories
     .map((category, categoryIndex) => {
-      const categoryMatches = category.name.toLocaleLowerCase("tr-TR").includes(normalizedProductQuery);
+      const categoryMatches = category.name.toLocaleLowerCase(intlLocale).includes(normalizedProductQuery);
       const items = category.items
         .map((item, itemIndex) => ({ item, itemIndex }))
         .filter(({ item }) => {
           if (!normalizedProductQuery || categoryMatches) return true;
           return [item.name, item.description, item.badge, item.price]
-            .some((value) => value.toLocaleLowerCase("tr-TR").includes(normalizedProductQuery));
+            .some((value) => value.toLocaleLowerCase(intlLocale).includes(normalizedProductQuery));
         });
       return { category, categoryIndex, categoryMatches, items };
     })
@@ -563,7 +704,7 @@ export function MenuStudio({
     englishCoverage.percentage === 100 &&
     menu.translations?.en?.sourceFingerprint === getMenuTranslationFingerprint(menu);
   const businessProfile = getMenuBusinessProfile(menu);
-  const publishReadiness = getMenuReadiness(menu);
+  const publishReadiness = getMenuReadiness(menu, locale);
   const themeCreditsInsufficient = themeCreditBalance !== null &&
     themeCreditBalance < aiCreditCosts.themeDesign;
   const changeEditorTab = (nextTab: StudioEditorTab) => {
@@ -662,14 +803,14 @@ export function MenuStudio({
     const readHash = async () => {
       if (!window.location.hash.startsWith("#menu=")) return;
       try {
-        const payload = await decodePublishedMenu(window.location.hash.slice(6));
+        const payload = await decodePublishedMenu(window.location.hash.slice(6), locale);
         setPublicPayload(payload);
       } catch (decodeError) {
-        setPublicError(getErrorMessage(decodeError));
+        setPublicError(getErrorMessage(decodeError, locale));
       }
     };
     void readHash();
-  }, []);
+  }, [locale]);
 
   useEffect(() => {
     if (window.location.hash.startsWith("#menu=")) return;
@@ -707,7 +848,7 @@ export function MenuStudio({
               setPublishReviewOpen(true);
             }
           } else {
-            setError("Açmak istediğin menü bulunamadı.");
+            setError(t("The menu you tried to open could not be found.", "Açmak istediğin menü bulunamadı."));
           }
           return;
         }
@@ -726,9 +867,9 @@ export function MenuStudio({
           if (isValidMenuData(saved?.menu) && isValidMenuTheme(saved?.theme)) {
             setMenu(saved.menu);
             setTheme(normalizeMenuTheme(saved.theme));
-            setNotice("Son taslağın hesabın için geri yüklendi.");
+            setNotice(t("Your latest draft was restored for this account.", "Son taslağın hesabın için geri yüklendi."));
             setSaveStatus("error");
-            setSaveError("Bu taslak henüz hesabına kaydedilmedi. Yeniden dene düğmesiyle kaydet.");
+            setSaveError(t("This draft has not been saved to your account yet. Use Retry to save it.", "Bu taslak henüz hesabına kaydedilmedi. Yeniden dene düğmesiyle kaydet."));
             setScreen("studio");
           }
         } catch {
@@ -757,7 +898,7 @@ export function MenuStudio({
         const result = (await response.json()) as {
           credits?: { balance: number };
         };
-        if (!response.ok || !result.credits) throw new Error("Kredi bilgisi alınamadı.");
+        if (!response.ok || !result.credits) throw new Error(t("Could not load credit information.", "Kredi bilgisi alınamadı."));
         setThemeCreditBalance(result.credits.balance);
       } catch (creditError) {
         if ((creditError as Error).name !== "AbortError") setThemeCreditsFailed(true);
@@ -828,7 +969,7 @@ export function MenuStudio({
       return stored;
     } catch (error) {
       setSaveStatus("error");
-      setSaveError(getErrorMessage(error));
+      setSaveError(getErrorMessage(error, locale));
       throw error;
     }
   };
@@ -876,17 +1017,17 @@ export function MenuStudio({
   const restoreDraft = async (file?: File) => {
     if (!file) return;
     try {
-      if (file.size > 12 * 1024 * 1024) throw new Error("Taslak dosyası 12 MB'tan küçük olmalı.");
+      if (file.size > 12 * 1024 * 1024) throw new Error(t("The draft file must be smaller than 12 MB.", "Taslak dosyası 12 MB'tan küçük olmalı."));
       const restored = JSON.parse(await file.text()) as PublishedMenu;
       if (!isValidMenuData(restored?.menu) || !isValidMenuTheme(restored?.theme)) {
-        throw new Error("Bu dosya geçerli bir easyqr taslağı değil.");
+        throw new Error(t("This is not a valid easyqr draft file.", "Bu dosya geçerli bir easyqr taslağı değil."));
       }
-      if (!window.confirm("Dosyadaki içerik bu menünün taslağının yerine geçecek. Canlı menü, yeniden yayınlayana kadar değişmez. Devam edilsin mi?")) return;
+      if (!window.confirm(t("The file will replace this draft. The live menu will stay unchanged until you publish again. Continue?", "Dosyadaki içerik bu menünün taslağının yerine geçecek. Canlı menü, yeniden yayınlayana kadar değişmez. Devam edilsin mi?"))) return;
       cancelPendingAutosave();
       setMenu(restored.menu);
       setTheme(normalizeMenuTheme(restored.theme));
-      setNotice("Taslak dosyası geri yüklendi. Yayınlamadan önce içeriği kontrol et.");
-    } catch (error) { setNotice(getErrorMessage(error)); }
+      setNotice(t("Draft restored. Review the content before publishing.", "Taslak dosyası geri yüklendi. Yayınlamadan önce içeriği kontrol et."));
+    } catch (error) { setNotice(getErrorMessage(error, locale)); }
   };
 
   const persistNewMenu = async (newMenu: MenuData, newTheme: MenuTheme) => {
@@ -896,7 +1037,7 @@ export function MenuStudio({
       body: JSON.stringify({ menu: newMenu, theme: newTheme }),
     });
     const result = (await response.json()) as { menu?: StoredMenu; message?: string };
-    if (!response.ok || !result.menu) throw new Error(result.message || "Menü kaydedilemedi.");
+    if (!response.ok || !result.menu) throw new Error(result.message || t("Could not save the menu.", "Menü kaydedilemedi."));
     saveQueueRef.current!.acknowledge(result.menu);
     lastSavedRef.current = { menu: newMenu, theme: newTheme };
     setActiveMenuId(result.menu.id);
@@ -908,7 +1049,7 @@ export function MenuStudio({
   };
 
   const goToLogin = () => {
-    window.location.href = "/giris?next=%2Fstudio%3Fnew%3D1";
+    window.location.href = `${getLocalizedAppPath(locale, "login")}?next=%2Fstudio%3Fnew%3D1`;
   };
 
   const requestUpload = () => {
@@ -935,6 +1076,7 @@ export function MenuStudio({
       selectedStarterId,
       starterBusinessName,
       starterCurrency,
+      locale,
     );
     const starterTheme = { ...menuThemePresets[selectedStarter.themePresetId] };
     creatingStarterRef.current = true;
@@ -956,13 +1098,13 @@ export function MenuStudio({
       );
       setNotice(
         selectedStarter.id === "blank"
-          ? "Boş taslağın hazır — ilk kategorini ve ürünlerini ekleyebilirsin."
-          : `${selectedStarter.label} şablonu hazır — örnek içerikleri işletmene göre düzenle.`,
+          ? t("Your blank draft is ready — add your first category and item.", "Boş taslağın hazır — ilk kategorini ve ürünlerini ekleyebilirsin.")
+          : t(`${selectedStarter.label} is ready — customize the sample content for your venue.`, `${selectedStarter.label} şablonu hazır — örnek içerikleri işletmene göre düzenle.`),
       );
       setStarterPickerOpen(false);
       setScreen("studio");
     } catch (starterCreateError) {
-      setStarterError(getErrorMessage(starterCreateError));
+      setStarterError(getErrorMessage(starterCreateError, locale));
       setSaveStatus("error");
     } finally {
       creatingStarterRef.current = false;
@@ -978,11 +1120,11 @@ export function MenuStudio({
     }
     const supported = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
     if (!supported.includes(file.type)) {
-      setError("Lütfen JPG, PNG, WEBP veya PDF biçiminde bir dosya seç.");
+      setError(t("Choose a JPG, PNG, WEBP, or PDF file.", "Lütfen JPG, PNG, WEBP veya PDF biçiminde bir dosya seç."));
       return;
     }
     if (file.size > 12 * 1024 * 1024) {
-      setError("Dosya 12 MB’tan küçük olmalı.");
+      setError(t("The file must be smaller than 12 MB.", "Dosya 12 MB’tan küçük olmalı."));
       return;
     }
 
@@ -992,7 +1134,7 @@ export function MenuStudio({
     setLoading(true);
 
     try {
-      const dataUrl = await fileToDataUrl(file);
+      const dataUrl = await fileToDataUrl(file, locale);
       const response = await fetch("/api/extract-menu", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1013,28 +1155,28 @@ export function MenuStudio({
           return;
         }
         if (result.code === "AI_NOT_CONFIGURED") {
-          const demo = cloneDemoMenu();
+          const demo = cloneDemoMenu(locale);
           setMenu(demo);
           setNotice(
-            "Demo modu açık: API anahtarı eklenene kadar örnek ürünlerle tasarım yapabilirsin.",
+            t("Demo mode is active: you can design with sample items until an API key is configured.", "Demo modu açık: API anahtarı eklenene kadar örnek ürünlerle tasarım yapabilirsin."),
           );
           setScreen("studio");
           await persistNewMenu(demo, theme);
           return;
         }
-        throw new Error(result.message || "Menü analiz edilemedi.");
+        throw new Error(result.message || t("The menu could not be analyzed.", "Menü analiz edilemedi."));
       }
-      if (!result.menu) throw new Error("Menü verisi alınamadı.");
+      if (!result.menu) throw new Error(t("No menu data was returned.", "Menü verisi alınamadı."));
       setMenu(result.menu);
       setNotice(
         cacheHit
-          ? `${file.name} daha önce analiz edilmişti; menü önbellekten anında getirildi.`
-          : `${file.name} başarıyla okundu. Fiyatları yayınlamadan önce kontrol et.`,
+          ? t(`${file.name} was analyzed before, so the menu was restored instantly from cache.`, `${file.name} daha önce analiz edilmişti; menü önbellekten anında getirildi.`)
+          : t(`${file.name} was read successfully. Review prices before publishing.`, `${file.name} başarıyla okundu. Fiyatları yayınlamadan önce kontrol et.`),
       );
       setScreen("studio");
       await persistNewMenu(result.menu, theme);
     } catch (uploadError) {
-      setError(getErrorMessage(uploadError));
+      setError(getErrorMessage(uploadError, locale));
     } finally {
       setLoading(false);
     }
@@ -1086,11 +1228,11 @@ export function MenuStudio({
   const updateBusinessLogo = async (file?: File) => {
     if (!file) return;
     try {
-      const logo = await prepareBusinessLogo(file);
+      const logo = await prepareBusinessLogo(file, locale);
       updateBusinessProfile({ logo });
-      setNotice("İşletme logosu menü için optimize edildi ve eklendi.");
+      setNotice(t("The business logo was optimized and added to the menu.", "İşletme logosu menü için optimize edildi ve eklendi."));
     } catch (logoError) {
-      setNotice(`Logo eklenemedi: ${getErrorMessage(logoError)}`);
+      setNotice(`${t("Could not add logo:", "Logo eklenemedi:")} ${getErrorMessage(logoError, locale)}`);
     }
   };
 
@@ -1184,7 +1326,7 @@ export function MenuStudio({
   };
 
   const addItem = (categoryIndex: number) => {
-    const itemId = createId("urun");
+    const itemId = createId("item");
     const categoryId = menu.categories[categoryIndex]?.id;
     setProductQuery("");
     setExpandedItemId(itemId);
@@ -1201,8 +1343,8 @@ export function MenuStudio({
                 ...category.items,
                 {
                   id: itemId,
-                  name: "Yeni ürün",
-                  description: "Ürün açıklaması",
+                  name: t("New item", "Yeni ürün"),
+                  description: t("Item description", "Ürün açıklaması"),
                   price: "0",
                   badge: "",
                   originalPrice: "",
@@ -1223,11 +1365,11 @@ export function MenuStudio({
   const updateItemImage = async (categoryIndex: number, itemIndex: number, file?: File) => {
     if (!file) return;
     try {
-      const image = await prepareProductImage(file);
+      const image = await prepareProductImage(file, locale);
       updateItem(categoryIndex, itemIndex, "image", image);
-      setNotice("Ürün görseli menü için optimize edildi ve eklendi.");
+      setNotice(t("The item image was optimized and added to the menu.", "Ürün görseli menü için optimize edildi ve eklendi."));
     } catch (imageError) {
-      setNotice(`Görsel eklenemedi: ${getErrorMessage(imageError)}`);
+      setNotice(`${t("Could not add image:", "Görsel eklenemedi:")} ${getErrorMessage(imageError, locale)}`);
     }
   };
 
@@ -1246,7 +1388,7 @@ export function MenuStudio({
     );
 
     if (missingItems.length === 0) {
-      setNotice("Tüm ürünlerin görseli zaten hazır.");
+      setNotice(t("Every item already has an image.", "Tüm ürünlerin görseli zaten hazır."));
       return;
     }
 
@@ -1259,7 +1401,7 @@ export function MenuStudio({
     const queue = missingItems.slice(0, Math.min(6, capacity));
 
     if (queue.length === 0) {
-      setNotice("Menü görsel depolama sınırına yaklaştı. Devam etmek için bazı büyük görselleri kaldır veya değiştir.");
+      setNotice(t("The menu is near its image storage limit. Remove or replace some large images to continue.", "Menü görsel depolama sınırına yaklaştı. Devam etmek için bazı büyük görselleri kaldır veya değiştir."));
       return;
     }
 
@@ -1281,6 +1423,7 @@ export function MenuStudio({
             description: target.description,
             categoryName: target.categoryName,
             restaurantName: menu.restaurantName,
+            sourceLanguage: menu.sourceLanguage,
           }),
         });
         const cacheHit = response.headers.get("X-AI-Cache") === "HIT";
@@ -1294,14 +1437,14 @@ export function MenuStudio({
 
         if (!response.ok) {
           if ([401, 403, 429, 503].includes(response.status) || result.code === "AI_NOT_CONFIGURED") {
-            throw new Error(result.message || "Görsel servisine şu anda ulaşılamıyor.");
+            throw new Error(result.message || t("The image service is currently unavailable.", "Görsel servisine şu anda ulaşılamıyor."));
           }
           failed += 1;
         } else if (!result.imageDataUrl) {
           failed += 1;
         } else {
           try {
-            const optimizedImage = await prepareProductImageSource(result.imageDataUrl, 720, 420_000);
+            const optimizedImage = await prepareProductImageSource(result.imageDataUrl, 720, 420_000, locale);
             setMenu((current) => ({
               ...current,
               categories: current.categories.map((category) => ({
@@ -1322,18 +1465,18 @@ export function MenuStudio({
       }
 
       if (completed === 0) {
-        setNotice("Görseller üretilemedi. Ürün adlarını ve açıklamalarını kontrol edip tekrar dene.");
+        setNotice(t("Images could not be generated. Review the item names and descriptions, then try again.", "Görseller üretilemedi. Ürün adlarını ve açıklamalarını kontrol edip tekrar dene."));
       } else {
         const remaining = Math.max(0, missingItems.length - completed);
-        let message = completed + " ürün görseli otomatik oluşturuldu.";
-        if (cacheHits > 0) message += " " + cacheHits + " tanesi önbellekten getirildi.";
-        if (failed > 0) message += " " + failed + " ürün atlandı.";
-        if (remaining > 0) message += " Kalan " + remaining + " ürün için düğmeye tekrar basabilirsin.";
+        let message = t(`${completed} item images were generated automatically.`, `${completed} ürün görseli otomatik oluşturuldu.`);
+        if (cacheHits > 0) message += t(` ${cacheHits} came from cache.`, ` ${cacheHits} tanesi önbellekten getirildi.`);
+        if (failed > 0) message += t(` ${failed} items were skipped.`, ` ${failed} ürün atlandı.`);
+        if (remaining > 0) message += t(` Run it again for the remaining ${remaining} items.`, ` Kalan ${remaining} ürün için düğmeye tekrar basabilirsin.`);
         setNotice(message);
       }
     } catch (generationError) {
-      const prefix = completed > 0 ? completed + " görsel hazırlandı. " : "";
-      setNotice(prefix + getErrorMessage(generationError));
+      const prefix = completed > 0 ? t(`${completed} images are ready. `, `${completed} görsel hazırlandı. `) : "";
+      setNotice(prefix + getErrorMessage(generationError, locale));
     } finally {
       setGeneratingImages(false);
     }
@@ -1353,7 +1496,7 @@ export function MenuStudio({
       0,
     ) + (menu.businessProfile?.logo?.length || 0);
     if (currentImageSize - (item.image?.length || 0) + 420_000 > 8_000_000) {
-      setNotice("Menü görsel depolama sınırına yaklaştı. Önce bazı büyük görselleri kaldır veya değiştir.");
+      setNotice(t("The menu is near its image storage limit. Remove or replace some large images first.", "Menü görsel depolama sınırına yaklaştı. Önce bazı büyük görselleri kaldır veya değiştir."));
       return;
     }
 
@@ -1368,6 +1511,7 @@ export function MenuStudio({
           description: item.description,
           categoryName: category.name,
           restaurantName: menu.restaurantName,
+          sourceLanguage: menu.sourceLanguage,
           refresh: true,
         }),
       });
@@ -1380,10 +1524,10 @@ export function MenuStudio({
       }
 
       if (!response.ok || !result.imageDataUrl) {
-        throw new Error(result.message || "Bu ürün için görsel üretilemedi.");
+        throw new Error(result.message || t("Could not generate an image for this item.", "Bu ürün için görsel üretilemedi."));
       }
 
-      const optimizedImage = await prepareProductImageSource(result.imageDataUrl, 720, 420_000);
+      const optimizedImage = await prepareProductImageSource(result.imageDataUrl, 720, 420_000, locale);
       setMenu((current) => ({
         ...current,
         categories: current.categories.map((currentCategory) =>
@@ -1397,9 +1541,9 @@ export function MenuStudio({
             : currentCategory,
         ),
       }));
-      setNotice((item.name.trim() || "Ürün") + " için yeni AI görseli hazırlandı.");
+      setNotice(t(`A new AI image is ready for ${item.name.trim() || "the item"}.`, `${item.name.trim() || "Ürün"} için yeni AI görseli hazırlandı.`));
     } catch (generationError) {
-      setNotice("Görsel yenilenemedi: " + getErrorMessage(generationError));
+      setNotice(t("Could not refresh image: ", "Görsel yenilenemedi: ") + getErrorMessage(generationError, locale));
     } finally {
       setGeneratingItemId("");
     }
@@ -1439,7 +1583,7 @@ export function MenuStudio({
         result = {};
       }
       if (!response.ok || !result.translation) {
-        throw new Error(result.message || "İngilizce çeviri oluşturulamadı.");
+        throw new Error(result.message || t("Could not create the English translation.", "İngilizce çeviri oluşturulamadı."));
       }
 
       const translation = result.translation;
@@ -1488,11 +1632,11 @@ export function MenuStudio({
       }));
       setNotice(
         cacheHit
-          ? "Aynı içerik daha önce çevrilmişti; İngilizce menü önbellekten anında getirildi."
-          : "İngilizce çeviri hazır. Yabancı ziyaretçiler menüyü otomatik olarak İngilizce görecek.",
+          ? t("This content was translated before, so the English menu was restored instantly from cache.", "Aynı içerik daha önce çevrilmişti; İngilizce menü önbellekten anında getirildi.")
+          : t("The English translation is ready. Visitors using English will see it automatically.", "İngilizce çeviri hazır. Yabancı ziyaretçiler menüyü otomatik olarak İngilizce görecek."),
       );
     } catch (translationError) {
-      setNotice("Çeviri oluşturulamadı: " + getErrorMessage(translationError));
+      setNotice(t("Could not create translation: ", "Çeviri oluşturulamadı: ") + getErrorMessage(translationError, locale));
     } finally {
       setTranslatingEnglish(false);
     }
@@ -1509,8 +1653,8 @@ export function MenuStudio({
     if (brief.length < 3) {
       setThemeDesignFeedback({
         tone: "error",
-        title: "Kısa bir yön tarif et",
-        message: "Örneğin “sıcak, modern ve kahve tonlarında” yazabilirsin.",
+        title: t("Describe a direction", "Kısa bir yön tarif et"),
+        message: t("For example: “warm, modern, with coffee tones.”", "Örneğin “sıcak, modern ve kahve tonlarında” yazabilirsin."),
       });
       return;
     }
@@ -1520,8 +1664,8 @@ export function MenuStudio({
     ) {
       setThemeDesignFeedback({
         tone: "error",
-        title: "Kredi bakiyesi yetersiz",
-        message: `Bu tasarım için ${aiCreditCosts.themeDesign} kredi gerekiyor.`,
+        title: t("Insufficient credit balance", "Kredi bakiyesi yetersiz"),
+        message: t(`This design requires ${aiCreditCosts.themeDesign} credits.`, `Bu tasarım için ${aiCreditCosts.themeDesign} kredi gerekiyor.`),
       });
       return;
     }
@@ -1561,7 +1705,7 @@ export function MenuStudio({
         setThemeCreditsFailed(false);
       }
       if (!response.ok || !result.design) {
-        throw new Error(result.message || "AI tasarımı oluşturulamadı.");
+        throw new Error(result.message || t("Could not create the AI design.", "AI tasarımı oluşturulamadı."));
       }
 
       setPreviousTheme(theme);
@@ -1574,8 +1718,8 @@ export function MenuStudio({
     } catch (designError) {
       setThemeDesignFeedback({
         tone: "error",
-        title: "Tasarım oluşturulamadı",
-        message: getErrorMessage(designError),
+        title: t("Could not create the design", "Tasarım oluşturulamadı"),
+        message: getErrorMessage(designError, locale),
       });
     } finally {
       setGeneratingTheme(false);
@@ -1596,7 +1740,7 @@ export function MenuStudio({
   };
 
   const addCategory = () => {
-    const categoryId = createId("kategori");
+    const categoryId = createId("category");
     setCategoryOpenState({ [categoryId]: true });
     setMenu((current) => ({
       ...current,
@@ -1604,7 +1748,7 @@ export function MenuStudio({
         ...current.categories,
         {
           id: categoryId,
-          name: "Yeni kategori",
+          name: t("New category", "Yeni kategori"),
           items: [],
         },
       ],
@@ -1692,7 +1836,7 @@ export function MenuStudio({
       setPublishOpen(true);
       setCopied(false);
     } catch (publishError) {
-      const message = getErrorMessage(publishError);
+      const message = getErrorMessage(publishError, locale);
       setPublishError(message);
       setNotice(message);
       setSaveStatus("error");
@@ -1707,15 +1851,15 @@ export function MenuStudio({
       await navigator.clipboard.writeText(publishUrl);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1800);
-    } catch { setNotice("Bağlantı kopyalanamadı. Menü bağlantısını seçerek elle kopyalayabilirsin."); }
+    } catch { setNotice(t("Could not copy the link. Select the menu URL and copy it manually.", "Bağlantı kopyalanamadı. Menü bağlantısını seçerek elle kopyalayabilirsin.")); }
   };
 
   const shareLink = async () => {
     if (navigator.share) {
       try {
-        await navigator.share({ title: `${menu.restaurantName} menüsü`, url: publishUrl });
+        await navigator.share({ title: t(`${menu.restaurantName} menu`, `${menu.restaurantName} menüsü`), url: publishUrl });
       } catch (error) {
-        if (!(error instanceof Error && error.name === "AbortError")) setNotice("Paylaşım açılamadı. Bağlantıyı kopyalayabilirsin.");
+        if (!(error instanceof Error && error.name === "AbortError")) setNotice(t("Could not open sharing. You can copy the link instead.", "Paylaşım açılamadı. Bağlantıyı kopyalayabilirsin."));
       }
       return;
     }
@@ -1730,7 +1874,7 @@ export function MenuStudio({
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `${menu.restaurantName.toLocaleLowerCase("tr-TR").replace(/\s+/g, "-")}-qr.svg`;
+    link.download = `${menu.restaurantName.toLocaleLowerCase(intlLocale).replace(/\s+/g, "-")}-qr.svg`;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -1758,12 +1902,12 @@ export function MenuStudio({
       await flushBeforeLeaving();
       if (signOut) {
         const response = await fetch("/api/auth/logout", { method: "POST" });
-        if (!response.ok) throw new Error("Çıkış yapılamadı. Yeniden dene.");
+        if (!response.ok) throw new Error(t("Could not log out. Please try again.", "Çıkış yapılamadı. Yeniden dene."));
       }
       window.location.href = signOut ? "/" : "/dashboard";
     } catch (error) {
       setSaveStatus("error");
-      setSaveError(getErrorMessage(error));
+      setSaveError(getErrorMessage(error, locale));
       setLeaving(false);
     }
   };
@@ -1779,10 +1923,10 @@ export function MenuStudio({
       <main className="link-error-page">
         <div className="link-error-card">
           <div className="brand-mark"><QrCode size={22} /></div>
-          <h1>Bu menü bağlantısı açılamadı</h1>
+          <h1>{t("This menu link could not be opened", "Bu menü bağlantısı açılamadı")}</h1>
           <p>{publicError}</p>
           <button className="primary-button" onClick={() => { window.location.hash = ""; window.location.reload(); }}>
-            easyqr ana sayfasına dön
+            {t("Back to easyqr home", "easyqr ana sayfasına dön")}
           </button>
         </div>
       </main>
@@ -1794,21 +1938,22 @@ export function MenuStudio({
       <main className="studio-new-shell">
         <header className="studio-new-header">
           <Brand />
-          <nav aria-label="Uygulama yolu">
-            <a href="/dashboard">Dashboard</a><span>/</span><a href="/dashboard/menus">Menülerim</a><span>/</span><strong>Yeni menü</strong>
+          <nav aria-label={t("Breadcrumb", "Uygulama yolu")}>
+            <a href="/dashboard">Dashboard</a><span>/</span><a href="/dashboard/menus">{t("My menus", "Menülerim")}</a><span>/</span><strong>{t("New menu", "Yeni menü")}</strong>
           </nav>
           <div className="studio-new-user">
+            <LocaleSwitcher compact />
             <span><UserRound size={16} /> {currentUser?.name}</span>
-            <button className="icon-button" aria-label="Çıkış yap" onClick={() => void logout()}><LogOut size={16} /></button>
+            <button className="icon-button" aria-label={t("Log out", "Çıkış yap")} onClick={() => void logout()}><LogOut size={16} /></button>
           </div>
         </header>
 
         <section className="studio-new-content">
-          <a className="studio-new-back" href="/dashboard/menus"><ArrowLeft size={16} /> Menülerime dön</a>
+          <a className="studio-new-back" href="/dashboard/menus"><ArrowLeft size={16} /> {t("Back to my menus", "Menülerime dön")}</a>
           <div className="studio-new-title">
-            <span><Sparkles size={14} /> Yeni menü</span>
-            <h1>Menünü nasıl oluşturmak istersin?</h1>
-            <p>Mevcut dosyanı yapay zekâ ile dönüştür veya örnek içerikle başlayıp kendin düzenle.</p>
+            <span><Sparkles size={14} /> {t("New menu", "Yeni menü")}</span>
+            <h1>{t("How would you like to create your menu?", "Menünü nasıl oluşturmak istersin?")}</h1>
+            <p>{t("Convert an existing file with AI or start from editable sample content.", "Mevcut dosyanı yapay zekâ ile dönüştür veya örnek içerikle başlayıp kendin düzenle.")}</p>
           </div>
 
           <div className="studio-create-grid">
@@ -1822,22 +1967,22 @@ export function MenuStudio({
               {loading ? (
                 <div className="analysis-state" aria-live="polite">
                   <div className="scan-document"><FileText size={48} strokeWidth={1.5} /><span className="scan-line" /></div>
-                  <h2>Menün okunuyor</h2>
+                  <h2>{t("Reading your menu", "Menün okunuyor")}</h2>
                   <p>{fileName}</p>
                   <div className="analysis-steps">
-                    <span className="done"><Check size={14} /> Dosya alındı</span>
-                    <span className="active"><Loader2 size={14} /> Ürünler ayrıştırılıyor</span>
-                    <span>Tasarım hazırlanıyor</span>
+                    <span className="done"><Check size={14} /> {t("File received", "Dosya alındı")}</span>
+                    <span className="active"><Loader2 size={14} /> {t("Extracting items", "Ürünler ayrıştırılıyor")}</span>
+                    <span>{t("Preparing the design", "Tasarım hazırlanıyor")}</span>
                   </div>
                 </div>
               ) : (
                 <>
                   <div className="workspace-upload-icon"><UploadCloud size={30} /></div>
-                  <span className="workspace-option-label">Önerilen</span>
-                  <h2>Menü dosyanı yükle</h2>
-                  <p>PDF veya menü fotoğrafını bırak; ürünleri ve fiyatları yapay zekâ ayırsın.</p>
-                  <button className="primary-button" onClick={requestUpload}><Sparkles size={17} /> Dosya seç ve dönüştür</button>
-                  <div className="file-types"><span>PDF</span><span>JPG</span><span>PNG</span><small>Maks. 12 MB</small></div>
+                  <span className="workspace-option-label">{t("Recommended", "Önerilen")}</span>
+                  <h2>{t("Upload your menu file", "Menü dosyanı yükle")}</h2>
+                  <p>{t("Drop a PDF or menu photo and let AI extract the items and prices.", "PDF veya menü fotoğrafını bırak; ürünleri ve fiyatları yapay zekâ ayırsın.")}</p>
+                  <button className="primary-button" onClick={requestUpload}><Sparkles size={17} /> {t("Choose and convert file", "Dosya seç ve dönüştür")}</button>
+                  <div className="file-types"><span>PDF</span><span>JPG</span><span>PNG</span><small>{t("Max 12 MB", "Maks. 12 MB")}</small></div>
                 </>
               )}
               <input ref={inputRef} className="sr-only" type="file" accept=".pdf,image/jpeg,image/png,image/webp" onChange={onInputChange} />
@@ -1845,25 +1990,25 @@ export function MenuStudio({
 
             <div className="workspace-manual-card">
               <div className="workspace-manual-icon"><FileText size={27} /></div>
-              <span className="workspace-option-label neutral">Alternatif</span>
-              <h2>Sektör şablonuyla başla</h2>
-              <p>İşletme türünü seç; uygun kategoriler, örnek ürünler ve tasarım stili hazır gelsin.</p>
-              <div className="workspace-starter-chips" aria-label="Şablon örnekleri">
-                <span>Restoran</span><span>Kafe</span><span>Pastane</span><span>+4</span>
+              <span className="workspace-option-label neutral">{t("Alternative", "Alternatif")}</span>
+              <h2>{t("Start with an industry template", "Sektör şablonuyla başla")}</h2>
+              <p>{t("Choose your venue type and start with sample categories, items, and a matching design.", "İşletme türünü seç; uygun kategoriler, örnek ürünler ve tasarım stili hazır gelsin.")}</p>
+              <div className="workspace-starter-chips" aria-label={t("Template examples", "Şablon örnekleri")}>
+                <span>{t("Restaurant", "Restoran")}</span><span>{t("Cafe", "Kafe")}</span><span>{t("Bakery", "Pastane")}</span><span>+4</span>
               </div>
-              <button className="secondary-button" onClick={openStarterPicker}><Plus size={17} /> Şablonları görüntüle</button>
-              <small>İstersen tamamen boş bir menüyle de başlayabilirsin.</small>
+              <button className="secondary-button" onClick={openStarterPicker}><Plus size={17} /> {t("View templates", "Şablonları görüntüle")}</button>
+              <small>{t("You can also start with a completely blank menu.", "İstersen tamamen boş bir menüyle de başlayabilirsin.")}</small>
             </div>
           </div>
 
           {error && <div className="workspace-error"><X size={16} /> {error}</div>}
 
           <div className="studio-new-steps">
-            <article><span>1</span><div><strong>İçeriği aktar</strong><small>Dosyadan veya örnekten başla</small></div></article>
+            <article><span>1</span><div><strong>{t("Import content", "İçeriği aktar")}</strong><small>{t("Start from a file or template", "Dosyadan veya örnekten başla")}</small></div></article>
             <i />
-            <article><span>2</span><div><strong>Tasarımı düzenle</strong><small>Renk ve görünümü seç</small></div></article>
+            <article><span>2</span><div><strong>{t("Customize the design", "Tasarımı düzenle")}</strong><small>{t("Choose colors and layout", "Renk ve görünümü seç")}</small></div></article>
             <i />
-            <article><span>3</span><div><strong>QR kodunu yayınla</strong><small>Kalıcı bağlantını paylaş</small></div></article>
+            <article><span>3</span><div><strong>{t("Publish the QR code", "QR kodunu yayınla")}</strong><small>{t("Share your permanent link", "Kalıcı bağlantını paylaş")}</small></div></article>
           </div>
         </section>
 
@@ -1881,7 +2026,7 @@ export function MenuStudio({
               role="dialog"
             >
               <button
-                aria-label="Şablon seçimini kapat"
+                aria-label={t("Close template selection", "Şablon seçimini kapat")}
                 className="modal-close"
                 disabled={creatingStarter}
                 onClick={() => setStarterPickerOpen(false)}
@@ -1889,14 +2034,14 @@ export function MenuStudio({
               ><X size={19} /></button>
 
               <div className="starter-picker-heading">
-                <span><Sparkles size={13} /> Hızlı başlangıç</span>
-                <h2 id="starter-picker-title">İşletmene uygun bir temel seç</h2>
-                <p>Tüm örnek alanları Studio’da değiştirebilir, silebilir veya yenilerini ekleyebilirsin.</p>
+                <span><Sparkles size={13} /> {t("Quick start", "Hızlı başlangıç")}</span>
+                <h2 id="starter-picker-title">{t("Choose a foundation for your venue", "İşletmene uygun bir temel seç")}</h2>
+                <p>{t("You can edit, delete, or add to every sample field in Studio.", "Tüm örnek alanları Studio’da değiştirebilir, silebilir veya yenilerini ekleyebilirsin.")}</p>
               </div>
 
               <div className="starter-setup-fields">
                 <label>
-                  <span>İşletme adı <small>İsteğe bağlı</small></span>
+                  <span>{t("Venue name", "İşletme adı")} <small>{t("Optional", "İsteğe bağlı")}</small></span>
                   <input
                     autoComplete="organization"
                     maxLength={80}
@@ -1906,21 +2051,21 @@ export function MenuStudio({
                   />
                 </label>
                 <label>
-                  <span>Para birimi</span>
+                  <span>{t("Currency", "Para birimi")}</span>
                   <select
-                    aria-label="Menü para birimi"
+                    aria-label={t("Menu currency", "Menü para birimi")}
                     onChange={(event) => setStarterCurrency(event.target.value as MenuStarterCurrency)}
                     value={starterCurrency}
                   >
                     {starterCurrencyOptions.map((option) => (
-                      <option key={option.value} value={option.value}>{option.label}</option>
+                      <option key={option.value} value={option.value}>{option[locale]}</option>
                     ))}
                   </select>
                 </label>
               </div>
 
-              <div className="starter-template-grid" role="group" aria-label="Sektör şablonları">
-                {menuStarters.map((starter) => {
+              <div className="starter-template-grid" role="group" aria-label={t("Industry templates", "Sektör şablonları")}>
+                {availableMenuStarters.map((starter) => {
                   const StarterIcon = starterIcons[starter.id];
                   const itemCount = starter.categories.reduce(
                     (sum, category) => sum + category.items.length,
@@ -1946,8 +2091,8 @@ export function MenuStudio({
                       </span>
                       <span className="starter-template-meta">
                         {starter.id === "blank"
-                          ? "Sıfırdan"
-                          : `${starter.categories.length} kategori · ${itemCount} ürün`}
+                          ? t("From scratch", "Sıfırdan")
+                          : t(`${starter.categories.length} categories · ${itemCount} items`, `${starter.categories.length} kategori · ${itemCount} ürün`)}
                       </span>
                       {selected && <CheckCircle2 className="starter-template-check" size={17} />}
                     </button>
@@ -1960,12 +2105,12 @@ export function MenuStudio({
                   <SelectedStarterIcon size={18} />
                 </span>
                 <div>
-                  <span>Seçili başlangıç</span>
+                  <span>{t("Selected starting point", "Seçili başlangıç")}</span>
                   <strong>{selectedStarter.label}</strong>
                   <small>
                     {selectedStarter.id === "blank"
-                      ? "Kategori ve ürünleri kendin oluşturacaksın."
-                      : `${selectedStarter.categories.length} kategori ve ${selectedStarterItemCount} örnek ürün eklenecek.`}
+                      ? t("You will create the categories and items yourself.", "Kategori ve ürünleri kendin oluşturacaksın.")
+                      : t(`${selectedStarter.categories.length} categories and ${selectedStarterItemCount} sample items will be added.`, `${selectedStarter.categories.length} kategori ve ${selectedStarterItemCount} örnek ürün eklenecek.`)}
                   </small>
                 </div>
                 {selectedStarter.categories.length > 0 && (
@@ -1987,7 +2132,7 @@ export function MenuStudio({
                   disabled={creatingStarter}
                   onClick={() => setStarterPickerOpen(false)}
                   type="button"
-                >Vazgeç</button>
+                >{t("Cancel", "Vazgeç")}</button>
                 <button
                   className="primary-button"
                   disabled={creatingStarter}
@@ -1995,8 +2140,8 @@ export function MenuStudio({
                   type="button"
                 >
                   {creatingStarter
-                    ? <><Loader2 className="auto-image-spinner" size={16} /> Taslak hazırlanıyor…</>
-                    : <><ArrowRight size={16} /> {selectedStarter.label} ile başla</>}
+                    ? <><Loader2 className="auto-image-spinner" size={16} /> {t("Preparing draft…", "Taslak hazırlanıyor…")}</>
+                    : <><ArrowRight size={16} /> {t(`Start with ${selectedStarter.label}`, `${selectedStarter.label} ile başla`)}</>}
                 </button>
               </div>
             </section>
@@ -2011,25 +2156,26 @@ export function MenuStudio({
       <main className="landing-shell">
         <header className="landing-header">
           <Brand />
-          <nav aria-label="Ana menü">
-            <a href="#nasil-calisir">Nasıl çalışır?</a>
-            <a href="#ozellikler">Özellikler</a>
-            <a href="#guven">Güven</a>
-            <a href="#sss">S.S.S.</a>
-            <a className="nav-demo" href="/ornek-menu">Örnek menü</a>
+          <nav aria-label={t("Main navigation", "Ana menü")}>
+            <a href="#nasil-calisir">{t("How it works", "Nasıl çalışır?")}</a>
+            <a href="#ozellikler">{t("Features", "Özellikler")}</a>
+            <a href="#guven">{t("Trust", "Güven")}</a>
+            <a href="#sss">{t("FAQ", "S.S.S.")}</a>
+            <a className="nav-demo" href={getLocalizedAppPath(locale, "sampleMenu")}>{t("Sample menu", "Örnek menü")}</a>
           </nav>
           <div className="landing-auth-actions">
+            <LocaleSwitcher compact />
             {authStatus === "loading" ? (
               <span className="auth-status-skeleton" />
             ) : currentUser ? (
               <>
                 <a className="landing-user" href="/dashboard"><UserRound size={15} /> Dashboard</a>
-                <button className="header-cta" onClick={requestUpload}>Menü oluştur</button>
+                <button className="header-cta" onClick={requestUpload}>{t("Create menu", "Menü oluştur")}</button>
               </>
             ) : (
               <>
-                <a className="login-link" href="/giris">Giriş yap</a>
-                <a className="header-cta" href="/kayit">Ücretsiz başla</a>
+                <a className="login-link" href={getLocalizedAppPath(locale, "login")}>{t("Log in", "Giriş yap")}</a>
+                <a className="header-cta" href={getLocalizedAppPath(locale, "register")}>{t("Start free", "Ücretsiz başla")}</a>
               </>
             )}
           </div>
@@ -2037,16 +2183,18 @@ export function MenuStudio({
 
         <section className="hero">
           <div className="hero-copy">
-            <div className="eyebrow"><Sparkles size={15} /> 7 gün ücretsiz QR menü</div>
-            <h1>Menün değişsin.<br /><span>QR kodun aynı kalsın.</span></h1>
+            <div className="eyebrow"><Sparkles size={15} /> {t("Free QR menu for 7 days", "7 gün ücretsiz QR menü")}</div>
+            <h1>{t("Your menu changes.", "Menün değişsin.")}<br /><span>{t("Your QR code stays.", "QR kodun aynı kalsın.")}</span></h1>
             <p>
-              PDF veya fotoğraf menünü yükle. Ürünleri, fiyatları ve kampanyaları tek
-              yerden yönet; masadaki QR kodunu yeniden bastırmadan menünü güncelle.
+              {t(
+                "Upload a PDF or photo. Manage items, prices, and promotions in one place, and update the menu without reprinting the QR code.",
+                "PDF veya fotoğraf menünü yükle. Ürünleri, fiyatları ve kampanyaları tek yerden yönet; masadaki QR kodunu yeniden bastırmadan menünü güncelle.",
+              )}
             </p>
             <div className="hero-proof">
-              <span><Check size={16} /> 7 gün ücretsiz</span>
-              <span><Check size={16} /> Kredi kartı gerekmez</span>
-              <span><Check size={16} /> Tasarım bilgisi gerekmez</span>
+              <span><Check size={16} /> {t("Free for 7 days", "7 gün ücretsiz")}</span>
+              <span><Check size={16} /> {t("No credit card required", "Kredi kartı gerekmez")}</span>
+              <span><Check size={16} /> {t("No design skills needed", "Tasarım bilgisi gerekmez")}</span>
             </div>
           </div>
 
@@ -2066,26 +2214,26 @@ export function MenuStudio({
                     <FileText size={48} strokeWidth={1.5} />
                     <span className="scan-line" />
                   </div>
-                  <h2>Menün okunuyor</h2>
+                  <h2>{t("Reading your menu", "Menün okunuyor")}</h2>
                   <p>{fileName}</p>
                   <div className="analysis-steps">
-                    <span className="done"><Check size={14} /> Dosya alındı</span>
-                    <span className="active"><Loader2 size={14} /> Ürünler ayrıştırılıyor</span>
-                    <span>Tasarım hazırlanıyor</span>
+                    <span className="done"><Check size={14} /> {t("File received", "Dosya alındı")}</span>
+                    <span className="active"><Loader2 size={14} /> {t("Extracting items", "Ürünler ayrıştırılıyor")}</span>
+                    <span>{t("Preparing the design", "Tasarım hazırlanıyor")}</span>
                   </div>
                 </div>
               ) : (
                 <>
                   <div className="upload-icon"><UploadCloud size={28} /></div>
                   <div>
-                    <h2>Menünü buraya bırak</h2>
-                    <p>ya da bilgisayarından bir dosya seç</p>
+                    <h2>{t("Drop your menu here", "Menünü buraya bırak")}</h2>
+                    <p>{t("or choose a file from your device", "ya da bilgisayarından bir dosya seç")}</p>
                   </div>
                   <button className="primary-button upload-button" onClick={requestUpload}>
-                    <Sparkles size={17} /> Menüyü dönüştür
+                    <Sparkles size={17} /> {t("Convert menu", "Menüyü dönüştür")}
                   </button>
                   <div className="file-types">
-                    <span>PDF</span><span>JPG</span><span>PNG</span><small>Maks. 12 MB</small>
+                    <span>PDF</span><span>JPG</span><span>PNG</span><small>{t("Max 12 MB", "Maks. 12 MB")}</small>
                   </div>
                 </>
               )}
@@ -2098,29 +2246,31 @@ export function MenuStudio({
               />
             </div>
             {error && <div className="upload-error"><X size={16} /> {error}</div>}
-            <a className="demo-link" href="/ornek-menu">Dosyan hazır değil mi? Örnek menüyü dene <span>→</span></a>
+            <a className="demo-link" href={getLocalizedAppPath(locale, "sampleMenu")}>{t("No file ready? Try the sample menu", "Dosyan hazır değil mi? Örnek menüyü dene")} <span>→</span></a>
           </div>
         </section>
 
         <section className="how-it-works" id="nasil-calisir">
           <div className="section-intro">
-            <span>Üç basit adım</span>
-            <h2>Menün, yeniden tasarlanmış halde.</h2>
+            <span>{t("Three simple steps", "Üç basit adım")}</span>
+            <h2>{t("Your menu, redesigned and ready.", "Menün, yeniden tasarlanmış halde.")}</h2>
           </div>
           <div className="feature-grid">
-            <article><div className="feature-number">01</div><ScanLine size={25} /><h3>Yükle</h3><p>Fotoğrafını çek veya PDF menünü yükle.</p></article>
-            <article><div className="feature-number">02</div><Palette size={25} /><h3>Kişiselleştir</h3><p>Renkleri, yazı stilini ve görünümü markana uyarla.</p></article>
-            <article><div className="feature-number">03</div><QrCode size={25} /><h3>Paylaş</h3><p>QR kodunu indir, masalara yerleştir ve yayına al.</p></article>
+            <article><div className="feature-number">01</div><ScanLine size={25} /><h3>{t("Upload", "Yükle")}</h3><p>{t("Take a photo or upload your PDF menu.", "Fotoğrafını çek veya PDF menünü yükle.")}</p></article>
+            <article><div className="feature-number">02</div><Palette size={25} /><h3>{t("Customize", "Kişiselleştir")}</h3><p>{t("Match the colors, typography, and layout to your brand.", "Renkleri, yazı stilini ve görünümü markana uyarla.")}</p></article>
+            <article><div className="feature-number">03</div><QrCode size={25} /><h3>{t("Share", "Paylaş")}</h3><p>{t("Download the QR code, place it at your venue, and go live.", "QR kodunu indir, masalara yerleştir ve yayına al.")}</p></article>
           </div>
         </section>
 
         <section className="landing-value" id="ozellikler">
           <div className="landing-section-heading">
-            <span>Bir kez kur, her gün kullan</span>
-            <h2>Sadece QR üretmez. Menünü çalışır halde tutar.</h2>
+            <span>{t("Set it up once, use it every day", "Bir kez kur, her gün kullan")}</span>
+            <h2>{t("More than a QR code. A menu that stays useful.", "Sadece QR üretmez. Menünü çalışır halde tutar.")}</h2>
             <p>
-              Fiyat değişikliği, tükenen ürün, yeni kampanya veya İngilizce menü için
-              yeniden tasarım ve baskıyla uğraşmazsın.
+              {t(
+                "Change prices, hide sold-out items, launch offers, and serve international guests without redesigning or reprinting.",
+                "Fiyat değişikliği, tükenen ürün, yeni kampanya veya İngilizce menü için yeniden tasarım ve baskıyla uğraşmazsın.",
+              )}
             </p>
           </div>
 
@@ -2128,41 +2278,41 @@ export function MenuStudio({
             <article className="landing-value-card is-highlighted">
               <span className="landing-value-icon"><RefreshCcw size={22} /></span>
               <div>
-                <small>Aynı bağlantı, aynı baskı</small>
-                <h3>QR kodun hep güncel</h3>
-                <p>Menünü düzenle, kontrol et ve yayınla. Masadaki QR kodu değiştirmeden müşterine yeni halini göster.</p>
+                <small>{t("Same link, same printed code", "Aynı bağlantı, aynı baskı")}</small>
+                <h3>{t("Your QR code stays current", "QR kodun hep güncel")}</h3>
+                <p>{t("Edit, review, and publish. Guests see the new version without you replacing the QR code.", "Menünü düzenle, kontrol et ve yayınla. Masadaki QR kodu değiştirmeden müşterine yeni halini göster.")}</p>
               </div>
               <ul>
-                <li><CheckCircle2 size={15} /> Taslak ve canlı menü birbirinden ayrı</li>
-                <li><CheckCircle2 size={15} /> Yayınlamadan önce kalite kontrolü</li>
-                <li><CheckCircle2 size={15} /> Kısa ve kalıcı menü bağlantısı</li>
+                <li><CheckCircle2 size={15} /> {t("Separate draft and live versions", "Taslak ve canlı menü birbirinden ayrı")}</li>
+                <li><CheckCircle2 size={15} /> {t("Quality checks before publishing", "Yayınlamadan önce kalite kontrolü")}</li>
+                <li><CheckCircle2 size={15} /> {t("Short, permanent menu link", "Kısa ve kalıcı menü bağlantısı")}</li>
               </ul>
             </article>
 
             <article className="landing-value-card">
               <span className="landing-value-icon"><Smartphone size={22} /></span>
               <div>
-                <small>Müşterinin gördüğü yüz</small>
-                <h3>Telefona hazır menü</h3>
-                <p>Ürün arama, alerjen filtreleri, açık-kapalı bilgisi ve TR/EN desteği her ekrana uyum sağlar.</p>
+                <small>{t("The guest-facing experience", "Müşterinin gördüğü yüz")}</small>
+                <h3>{t("Made for every phone", "Telefona hazır menü")}</h3>
+                <p>{t("Item search, allergen filters, opening hours, and multilingual menus adapt to every screen.", "Ürün arama, alerjen filtreleri, açık-kapalı bilgisi ve TR/EN desteği her ekrana uyum sağlar.")}</p>
               </div>
             </article>
 
             <article className="landing-value-card">
               <span className="landing-value-icon"><BarChart3 size={22} /></span>
               <div>
-                <small>Tahmin değil, gerçek ilgi</small>
-                <h3>Neye bakıldığını gör</h3>
-                <p>QR açılışlarını, popüler ürünleri ve sonuçsuz aramaları gör; menünü gerçek kullanıma göre iyileştir.</p>
+                <small>{t("Real engagement, not guesses", "Tahmin değil, gerçek ilgi")}</small>
+                <h3>{t("See what guests notice", "Neye bakıldığını gör")}</h3>
+                <p>{t("Track QR visits, popular items, and searches with no results, then improve the menu using real behavior.", "QR açılışlarını, popüler ürünleri ve sonuçsuz aramaları gör; menünü gerçek kullanıma göre iyileştir.")}</p>
               </div>
             </article>
 
             <article className="landing-value-card">
               <span className="landing-value-icon"><QrCode size={22} /></span>
               <div>
-                <small>Masaya çıkmaya hazır</small>
-                <h3>Baskı merkezinden indir</h3>
-                <p>Masa kartı, sticker ve poster tasarımlarını yüksek çözünürlüklü PNG, SVG veya A4/PDF olarak hazırla.</p>
+                <small>{t("Ready for your venue", "Masaya çıkmaya hazır")}</small>
+                <h3>{t("Download from the Print Center", "Baskı merkezinden indir")}</h3>
+                <p>{t("Create table cards, stickers, and posters as high-resolution PNG, SVG, or A4 PDF files.", "Masa kartı, sticker ve poster tasarımlarını yüksek çözünürlüklü PNG, SVG veya A4/PDF olarak hazırla.")}</p>
               </div>
             </article>
           </div>
@@ -2170,82 +2320,84 @@ export function MenuStudio({
 
         <section className="landing-trust" id="guven">
           <div className="landing-trust-copy">
-            <span>Güvenli çalışma alanı</span>
-            <h2>Değişiklik sende, yayın kararı sende.</h2>
+            <span>{t("A secure workspace", "Güvenli çalışma alanı")}</span>
+            <h2>{t("You control every edit and every publish.", "Değişiklik sende, yayın kararı sende.")}</h2>
             <p>
-              Yapay zekâ başlangıcı hızlandırır; ürün adını, fiyatını ve içeriğini sen
-              kontrol edersin. Taslak değişiklikler açıkça yayınlayana kadar canlı menüye geçmez.
+              {t(
+                "AI speeds up the first draft, while you stay in control of every item, price, and detail. Draft changes never reach the live menu until you publish them.",
+                "Yapay zekâ başlangıcı hızlandırır; ürün adını, fiyatını ve içeriğini sen kontrol edersin. Taslak değişiklikler açıkça yayınlayana kadar canlı menüye geçmez.",
+              )}
             </p>
-            <a className="secondary-button" href="/kayit">Ücretsiz hesabını oluştur <ArrowRight size={16} /></a>
+            <a className="secondary-button" href={getLocalizedAppPath(locale, "register")}>{t("Create your free account", "Ücretsiz hesabını oluştur")} <ArrowRight size={16} /></a>
           </div>
           <div className="landing-trust-list">
             <article>
               <LockKeyhole size={20} />
-              <div><strong>Hesabına özel erişim</strong><span>Parolalar hash’lenir; oturum anahtarı güvenli HTTP-only çerezde tutulur.</span></div>
+              <div><strong>{t("Private account access", "Hesabına özel erişim")}</strong><span>{t("Passwords are hashed and session tokens stay in secure HTTP-only cookies.", "Parolalar hash’lenir; oturum anahtarı güvenli HTTP-only çerezde tutulur.")}</span></div>
             </article>
             <article>
               <BarChart3 size={20} />
-              <div><strong>Gizlilik odaklı analitik</strong><span>Ham IP adresi, yönlendiren adres ve tarayıcı bilgisi saklanmaz.</span></div>
+              <div><strong>{t("Privacy-first analytics", "Gizlilik odaklı analitik")}</strong><span>{t("Raw IP addresses, referrer URLs, and browser details are not stored.", "Ham IP adresi, yönlendiren adres ve tarayıcı bilgisi saklanmaz.")}</span></div>
             </article>
             <article>
               <CheckCircle2 size={20} />
-              <div><strong>Yayın öncesi kontrol</strong><span>Eksik ürün, geçersiz fiyat ve görünür içerik sorunları yayından önce gösterilir.</span></div>
+              <div><strong>{t("Pre-publish review", "Yayın öncesi kontrol")}</strong><span>{t("Missing items, invalid prices, and visible-content issues are flagged before publishing.", "Eksik ürün, geçersiz fiyat ve görünür içerik sorunları yayından önce gösterilir.")}</span></div>
             </article>
           </div>
         </section>
 
         <section className="landing-faq" id="sss">
           <div className="landing-section-heading">
-            <span>Sık sorulanlar</span>
-            <h2>Başlamadan önce bilmen gerekenler.</h2>
+            <span>{t("Frequently asked questions", "Sık sorulanlar")}</span>
+            <h2>{t("What to know before you start.", "Başlamadan önce bilmen gerekenler.")}</h2>
           </div>
           <div className="landing-faq-list">
             <details>
-              <summary>Neden tek seferlik bir QR yerine sürekli kullanayım?<ChevronDown size={18} /></summary>
-              <p>Çünkü fiyat, stok, kampanya ve ürünlerin değişir. easyqr aynı QR kodla menünü güncel tutar; ayrıca kullanım ve ürün ilgisini görmeni sağlar.</p>
+              <summary>{t("Why use this instead of a one-off QR code?", "Neden tek seferlik bir QR yerine sürekli kullanayım?")}<ChevronDown size={18} /></summary>
+              <p>{t("Prices, availability, offers, and items change. easyqr keeps the same QR code current and shows you what guests engage with.", "Çünkü fiyat, stok, kampanya ve ürünlerin değişir. easyqr aynı QR kodla menünü güncel tutar; ayrıca kullanım ve ürün ilgisini görmeni sağlar.")}</p>
             </details>
             <details>
-              <summary>Menüyü güncelleyince QR kodu yeniden basmam gerekir mi?<ChevronDown size={18} /></summary>
-              <p>Hayır. Yayınlanan menünün kısa bağlantısı kalıcıdır; yaptığın yeni yayınlar aynı QR kodunda görünür.</p>
+              <summary>{t("Do I need to reprint the QR code after an update?", "Menüyü güncelleyince QR kodu yeniden basmam gerekir mi?")}<ChevronDown size={18} /></summary>
+              <p>{t("No. Your published menu has a permanent short link, and every new release appears on the same QR code.", "Hayır. Yayınlanan menünün kısa bağlantısı kalıcıdır; yaptığın yeni yayınlar aynı QR kodunda görünür.")}</p>
             </details>
             <details>
-              <summary>Hangi dosyaları yükleyebilirim?<ChevronDown size={18} /></summary>
-              <p>12 MB’a kadar PDF, JPG, PNG ve WEBP menüler desteklenir. İstersen sektör şablonuyla veya tamamen boş menüyle de başlayabilirsin.</p>
+              <summary>{t("Which file types can I upload?", "Hangi dosyaları yükleyebilirim?")}<ChevronDown size={18} /></summary>
+              <p>{t("PDF, JPG, PNG, and WEBP menus up to 12 MB are supported. You can also start from an industry template or a blank menu.", "12 MB’a kadar PDF, JPG, PNG ve WEBP menüler desteklenir. İstersen sektör şablonuyla veya tamamen boş menüyle de başlayabilirsin.")}</p>
             </details>
             <details>
-              <summary>Yapay zekânın çıkardığı içeriği değiştirebilir miyim?<ChevronDown size={18} /></summary>
-              <p>Evet. Kategorileri, ürünleri, fiyatları, görselleri ve tasarımı düzenleyebilir; yalnızca hazır olduğunda yayınlayabilirsin.</p>
+              <summary>{t("Can I edit the content extracted by AI?", "Yapay zekânın çıkardığı içeriği değiştirebilir miyim?")}<ChevronDown size={18} /></summary>
+              <p>{t("Yes. Edit categories, items, prices, images, and design, then publish only when everything is ready.", "Evet. Kategorileri, ürünleri, fiyatları, görselleri ve tasarımı düzenleyebilir; yalnızca hazır olduğunda yayınlayabilirsin.")}</p>
             </details>
           </div>
         </section>
 
         <section className="landing-final-cta">
           <div>
-            <span>İlk menün için hazır mısın?</span>
-            <h2>QR menünü bugün masaya çıkar.</h2>
-            <p>7 gün ücretsiz dene. Kredi kartı gerekmez.</p>
+            <span>{t("Ready for your first menu?", "İlk menün için hazır mısın?")}</span>
+            <h2>{t("Put your QR menu in front of guests today.", "QR menünü bugün masaya çıkar.")}</h2>
+            <p>{t("Try it free for 7 days. No credit card required.", "7 gün ücretsiz dene. Kredi kartı gerekmez.")}</p>
           </div>
           <div className="landing-final-actions">
-            <a className="primary-button" href={currentUser ? "/studio" : "/kayit"}>
-              {currentUser ? "Menü oluştur" : "Ücretsiz başla"} <ArrowRight size={16} />
+            <a className="primary-button" href={currentUser ? "/studio" : getLocalizedAppPath(locale, "register")}>
+              {currentUser ? t("Create menu", "Menü oluştur") : t("Start free", "Ücretsiz başla")} <ArrowRight size={16} />
             </a>
-            <a className="secondary-button" href="/ornek-menu">Örnek menüyü aç</a>
+            <a className="secondary-button" href={getLocalizedAppPath(locale, "sampleMenu")}>{t("Open sample menu", "Örnek menüyü aç")}</a>
           </div>
         </section>
 
         <footer className="landing-footer">
           <div>
             <Brand />
-            <p>Restoran ve kafeler için güncellenebilir, ölçülebilir ve telefona hazır QR menü.</p>
+            <p>{t("An editable, measurable, mobile-ready QR menu for restaurants and cafes.", "Restoran ve kafeler için güncellenebilir, ölçülebilir ve telefona hazır QR menü.")}</p>
           </div>
-          <nav aria-label="Alt menü">
-            <a href="#nasil-calisir">Nasıl çalışır?</a>
-            <a href="#ozellikler">Özellikler</a>
-            <a href="#guven">Güven</a>
-            <a href="/gizlilik">Gizlilik</a>
-            <a href="/cerez-politikasi">Çerezler</a>
-            <a href="/kullanim-kosullari">Koşullar</a>
-            <a href="/giris">Giriş yap</a>
+          <nav aria-label={t("Footer navigation", "Alt menü")}>
+            <a href="#nasil-calisir">{t("How it works", "Nasıl çalışır?")}</a>
+            <a href="#ozellikler">{t("Features", "Özellikler")}</a>
+            <a href="#guven">{t("Trust", "Güven")}</a>
+            <a href={getLocalizedAppPath(locale, "privacy")}>{t("Privacy", "Gizlilik")}</a>
+            <a href={getLocalizedAppPath(locale, "cookies")}>{t("Cookies", "Çerezler")}</a>
+            <a href={getLocalizedAppPath(locale, "terms")}>{t("Terms", "Koşullar")}</a>
+            <a href={getLocalizedAppPath(locale, "login")}>{t("Log in", "Giriş yap")}</a>
           </nav>
           <small>© {new Date().getFullYear()} easyqr</small>
         </footer>
@@ -2278,19 +2430,19 @@ export function MenuStudio({
       />
 
       {saveError && <div className="studio-save-error" role="alert">
-        <span><strong>Değişiklikler kaydedilemedi</strong> {saveError}</span>
+        <span><strong>{t("Changes could not be saved", "Değişiklikler kaydedilemedi")}</strong> {saveError}</span>
         <button type="button" onClick={() => {
           cancelPendingAutosave();
           if (activeMenuId) void saveSnapshot(activeMenuId, latestContentRef.current).catch(() => undefined);
-          else void persistNewMenu(menu, theme).then(() => { setSaveError(""); setSaveStatus("saved"); }).catch((error) => setSaveError(getErrorMessage(error)));
-        }}>Yeniden dene</button>
-        <button type="button" onClick={downloadDraft}>Taslağı indir</button>
+          else void persistNewMenu(menu, theme).then(() => { setSaveError(""); setSaveStatus("saved"); }).catch((error) => setSaveError(getErrorMessage(error, locale)));
+        }}>{t("Retry", "Yeniden dene")}</button>
+        <button type="button" onClick={downloadDraft}>{t("Download draft", "Taslağı indir")}</button>
       </div>}
       <div className="studio-body">
         <aside className="editor-panel">
           <StudioEditorTabs activeTab={tab} onChange={changeEditorTab} />
 
-          {notice && <div className="notice"><Sparkles size={16} /><span>{notice}</span><button onClick={() => setNotice("")} aria-label="Bildirimi kapat"><X size={14} /></button></div>}
+          {notice && <div className="notice"><Sparkles size={16} /><span>{notice}</span><button onClick={() => setNotice("")} aria-label={t("Dismiss notification", "Bildirimi kapat")}><X size={14} /></button></div>}
 
           {tab === "content" ? (
             <div
@@ -2302,17 +2454,17 @@ export function MenuStudio({
             >
               <StudioSectionNav
                 activeSection={contentSection}
-                label="İçerik bölümleri"
+                label={t("Content sections", "İçerik bölümleri")}
                 onChange={changeContentSection}
-                sections={contentSectionLinks}
+                sections={localizedContentSectionLinks}
               />
 
               {contentSection === "basics" && (
                 <section className="form-section studio-tool-panel" id="studio-content-basics">
-                <div className="section-heading"><div><span>İşletme</span><h2>Menü başlığı</h2></div></div>
+                <div className="section-heading"><div><span>{t("Business", "İşletme")}</span><h2>{t("Menu heading", "Menü başlığı")}</h2></div></div>
                 <div className="draft-file-actions">
-                  <button type="button" onClick={downloadDraft}><Download size={16} /> Taslağı indir</button>
-                  <label><UploadCloud size={16} /> Taslaktan geri yükle
+                  <button type="button" onClick={downloadDraft}><Download size={16} /> {t("Download draft", "Taslağı indir")}</button>
+                  <label><UploadCloud size={16} /> {t("Restore from draft", "Taslaktan geri yükle")}
                     <input className="sr-only" type="file" accept="application/json,.json" onChange={(event) => {
                       void restoreDraft(event.target.files?.[0]);
                       event.target.value = "";
@@ -2320,36 +2472,44 @@ export function MenuStudio({
                   </label>
                 </div>
                 <div className="menu-title-fields">
-                  <label className="field-label">İşletme adı<input data-readiness-field="restaurant-name" maxLength={120} value={menu.restaurantName} onChange={(event) => setMenu({ ...menu, restaurantName: event.target.value })} /></label>
-                  <label className="field-label">Para birimi<input data-readiness-field="currency" maxLength={12} placeholder="₺" value={menu.currency} onChange={(event) => setMenu({ ...menu, currency: event.target.value })} /></label>
+                  <label className="field-label">{t("Business name", "İşletme adı")}<input data-readiness-field="restaurant-name" maxLength={120} value={menu.restaurantName} onChange={(event) => setMenu({ ...menu, restaurantName: event.target.value })} /></label>
+                  <label className="field-label">{t("Currency", "Para birimi")}<input data-readiness-field="currency" maxLength={12} placeholder={locale === "tr" ? "₺" : "$"} value={menu.currency} onChange={(event) => setMenu({ ...menu, currency: event.target.value })} /></label>
+                  <label className="field-label">{t("Menu content language", "Menü içerik dili")}<select value={menu.sourceLanguage || (locale === "tr" ? "tr" : "en")} onChange={(event) => {
+                    setMenu({ ...menu, sourceLanguage: event.target.value });
+                  }}>
+                    {menu.sourceLanguage && !menuSourceLanguageOptions.some((option) => option.value === menu.sourceLanguage) && (
+                      <option value={menu.sourceLanguage}>{menu.sourceLanguage.toLocaleUpperCase("en-US")}</option>
+                    )}
+                    {menuSourceLanguageOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                  </select></label>
                 </div>
-                <label className="field-label">Kısa açıklama<input data-readiness-field="subtitle" maxLength={240} value={menu.subtitle} onChange={(event) => setMenu({ ...menu, subtitle: event.target.value })} /></label>
+                <label className="field-label">{t("Short description", "Kısa açıklama")}<input data-readiness-field="subtitle" maxLength={240} value={menu.subtitle} onChange={(event) => setMenu({ ...menu, subtitle: event.target.value })} /></label>
                 </section>
               )}
 
               {contentSection === "business" && (
                 <section className="form-section business-profile-section studio-tool-panel" id="studio-content-business">
                 <div className="section-heading">
-                  <div><span>İşletme profili</span><h2>Logo, iletişim ve saatler</h2></div>
-                  <div className="business-profile-status">İsteğe bağlı</div>
+                  <div><span>{t("Business profile", "İşletme profili")}</span><h2>{t("Logo, contact, and hours", "Logo, iletişim ve saatler")}</h2></div>
+                  <div className="business-profile-status">{t("Optional", "İsteğe bağlı")}</div>
                 </div>
                 <p className="business-profile-help">
-                  Doldurduğun bilgiler müşteri menüsünde görünür. Boş bıraktığın bağlantılar gizlenir.
+                  {t("Completed details appear on the guest menu. Empty links stay hidden.", "Doldurduğun bilgiler müşteri menüsünde görünür. Boş bıraktığın bağlantılar gizlenir.")}
                 </p>
 
                 <div className="business-logo-editor">
                   <div className={`business-logo-preview ${businessProfile.logo ? "has-logo" : ""}`}>
                     {businessProfile.logo
-                      ? <img src={businessProfile.logo} alt="İşletme logosu önizlemesi" />
+                      ? <img src={businessProfile.logo} alt={t("Business logo preview", "İşletme logosu önizlemesi")} />
                       : <ImagePlus aria-hidden="true" size={22} />}
                   </div>
                   <div className="business-logo-copy">
-                    <strong>İşletme logosu</strong>
-                    <small>Şeffaf PNG kullanabilirsin · otomatik küçültülür</small>
+                    <strong>{t("Business logo", "İşletme logosu")}</strong>
+                    <small>{t("Transparent PNG supported · resized automatically", "Şeffaf PNG kullanabilirsin · otomatik küçültülür")}</small>
                   </div>
                   <div className="business-logo-actions">
                     <label>
-                      <UploadCloud size={14} /> {businessProfile.logo ? "Değiştir" : "Logo yükle"}
+                      <UploadCloud size={14} /> {businessProfile.logo ? t("Change", "Değiştir") : t("Upload logo", "Logo yükle")}
                       <input
                         className="sr-only"
                         type="file"
@@ -2363,19 +2523,19 @@ export function MenuStudio({
                     </label>
                     {businessProfile.logo && (
                       <button
-                        aria-label="İşletme logosunu kaldır"
+                        aria-label={t("Remove business logo", "İşletme logosunu kaldır")}
                         onClick={() => updateBusinessProfile({ logo: "" })}
                         type="button"
-                      ><Trash2 size={14} /> Kaldır</button>
+                      ><Trash2 size={14} /> {t("Remove", "Kaldır")}</button>
                     )}
                   </div>
                 </div>
 
                 <label className="field-label business-field-with-icon">
-                  <span><MapPin size={14} /> Adres</span>
+                  <span><MapPin size={14} /> {t("Address", "Adres")}</span>
                   <textarea
                     maxLength={300}
-                    placeholder="Örn. Caferağa Mah. Moda Cad. No: 12, Kadıköy / İstanbul"
+                    placeholder={t("e.g. 123 Market Street, San Francisco, CA", "Örn. Caferağa Mah. Moda Cad. No: 12, Kadıköy / İstanbul")}
                     rows={3}
                     value={businessProfile.address}
                     onChange={(event) => updateBusinessProfile({ address: event.target.value })}
@@ -2384,10 +2544,10 @@ export function MenuStudio({
 
                 <div className="business-contact-grid">
                   <label className="field-label business-field-with-icon">
-                    <span><Phone size={14} /> Telefon</span>
+                    <span><Phone size={14} /> {t("Phone", "Telefon")}</span>
                     <input
                       maxLength={60}
-                      placeholder="+90 212 000 00 00"
+                      placeholder={t("+1 415 555 0100", "+90 212 000 00 00")}
                       type="tel"
                       value={businessProfile.phone}
                       onChange={(event) => updateBusinessProfile({ phone: event.target.value })}
@@ -2397,7 +2557,7 @@ export function MenuStudio({
                     <span><MessageCircle size={14} /> WhatsApp</span>
                     <input
                       maxLength={120}
-                      placeholder="+90 555 000 00 00"
+                      placeholder={t("+1 415 555 0100", "+90 555 000 00 00")}
                       value={businessProfile.whatsapp}
                       onChange={(event) => updateBusinessProfile({ whatsapp: event.target.value })}
                     />
@@ -2406,13 +2566,13 @@ export function MenuStudio({
                     <span><Instagram size={14} /> Instagram</span>
                     <input
                       maxLength={120}
-                      placeholder="@kullaniciadi"
+                      placeholder={t("@username", "@kullaniciadi")}
                       value={businessProfile.instagram}
                       onChange={(event) => updateBusinessProfile({ instagram: event.target.value })}
                     />
                   </label>
                   <label className="field-label business-field-with-icon">
-                    <span><MapPin size={14} /> Google Maps bağlantısı</span>
+                    <span><MapPin size={14} /> {t("Google Maps link", "Google Maps bağlantısı")}</span>
                     <input
                       maxLength={500}
                       placeholder="https://maps.app.goo.gl/..."
@@ -2426,8 +2586,8 @@ export function MenuStudio({
                 <div className="business-hours-card">
                   <label className="toggle-row business-hours-toggle">
                     <span>
-                      <strong><Clock3 size={15} /> Çalışma saatleri</strong>
-                      <small>Açık/kapalı durumu müşterinin bulunduğu anda hesaplanır</small>
+                      <strong><Clock3 size={15} /> {t("Business hours", "Çalışma saatleri")}</strong>
+                      <small>{t("Open/closed status is calculated at the guest's current time", "Açık/kapalı durumu müşterinin bulunduğu anda hesaplanır")}</small>
                     </span>
                     <input
                       type="checkbox"
@@ -2440,13 +2600,16 @@ export function MenuStudio({
                   {businessProfile.hoursEnabled && (
                     <div className="business-hours-settings">
                       <label className="field-label business-timezone-field">
-                        Saat dilimi
+                        {t("Time zone", "Saat dilimi")}
                         <select
                           value={businessProfile.timezone}
                           onChange={(event) => updateBusinessProfile({ timezone: event.target.value })}
                         >
+                          {!timezoneOptions.some((option) => option.value === businessProfile.timezone) && (
+                            <option value={businessProfile.timezone}>{businessProfile.timezone}</option>
+                          )}
                           {timezoneOptions.map((option) => (
-                            <option key={option.value} value={option.value}>{option.label}</option>
+                            <option key={option.value} value={option.value}>{option[locale]}</option>
                           ))}
                         </select>
                       </label>
@@ -2461,12 +2624,12 @@ export function MenuStudio({
                                   onChange={(event) => updateBusinessHours(weekday, { isOpen: event.target.checked })}
                                   type="checkbox"
                                 />
-                                <span>{weekdayLabels[weekday]}</span>
+                                <span>{localizedWeekdayLabels[weekday]}</span>
                               </label>
                               {hours.isOpen ? (
                                 <div className="weekly-time-inputs">
                                   <input
-                                    aria-label={`${weekdayLabels[weekday]} açılış saati`}
+                                    aria-label={t(`${localizedWeekdayLabels[weekday]} opening time`, `${localizedWeekdayLabels[weekday]} açılış saati`)}
                                     type="time"
                                     value={hours.opensAt}
                                     onChange={(event) => {
@@ -2475,7 +2638,7 @@ export function MenuStudio({
                                   />
                                   <span>—</span>
                                   <input
-                                    aria-label={`${weekdayLabels[weekday]} kapanış saati`}
+                                    aria-label={t(`${localizedWeekdayLabels[weekday]} closing time`, `${localizedWeekdayLabels[weekday]} kapanış saati`)}
                                     type="time"
                                     value={hours.closesAt}
                                     onChange={(event) => {
@@ -2483,12 +2646,12 @@ export function MenuStudio({
                                     }}
                                   />
                                 </div>
-                              ) : <span className="weekly-closed-label">Kapalı</span>}
+                              ) : <span className="weekly-closed-label">{t("Closed", "Kapalı")}</span>}
                             </div>
                           );
                         })}
                       </div>
-                      <p className="overnight-hours-note">Gece yarısını aşan saatler desteklenir; örneğin 18:00 — 02:00.</p>
+                      <p className="overnight-hours-note">{t("Hours that cross midnight are supported; for example, 6:00 PM — 2:00 AM.", "Gece yarısını aşan saatler desteklenir; örneğin 18:00 — 02:00.")}</p>
                     </div>
                   )}
                 </div>
@@ -2498,9 +2661,9 @@ export function MenuStudio({
               {contentSection === "language" && (
                 <section className="form-section translation-section studio-tool-panel" id="studio-content-language">
                 <div className="section-heading">
-                  <div><span>Dil desteği</span><h2>İngilizce menü</h2></div>
+                  <div><span>{t("Language support", "Dil desteği")}</span><h2>{t("English menu", "İngilizce menü")}</h2></div>
                   <div className={`translation-status ${englishTranslationCurrent ? "ready" : hasEnglishTranslation ? "stale" : "empty"}`}>
-                    {englishTranslationCurrent ? "Güncel" : hasEnglishTranslation ? "Güncelle" : "Hazır değil"}
+                    {englishTranslationCurrent ? t("Current", "Güncel") : hasEnglishTranslation ? t("Update", "Güncelle") : t("Not ready", "Hazır değil")}
                   </div>
                 </div>
                 <div className={`translation-assistant ${englishTranslationCurrent ? "is-ready" : hasEnglishTranslation ? "is-stale" : ""}`} aria-live="polite">
@@ -2509,17 +2672,17 @@ export function MenuStudio({
                     <div>
                       <strong>
                         {englishTranslationCurrent
-                          ? "İngilizce çeviri yayına hazır"
+                          ? t("The English translation is ready to publish", "İngilizce çeviri yayına hazır")
                           : hasEnglishTranslation
-                            ? "Türkçe içerik değişti"
-                            : "Menüyü tek tıkla İngilizceye çevir"}
+                            ? t(`${sourceLanguageLabel} content has changed`, "Kaynak içerik değişti")
+                            : t("Translate the menu into English with one click", "Menüyü tek tıkla İngilizceye çevir")}
                       </strong>
                       <p>
                         {englishTranslationCurrent
-                          ? "Tarayıcı dili Türkçe olmayan ziyaretçiler İngilizce menüyü doğrudan görür."
+                          ? t("Visitors using English will see the translated menu automatically.", "Tarayıcı dili Türkçe olmayan ziyaretçiler İngilizce menüyü doğrudan görür.")
                           : hasEnglishTranslation
-                            ? "Son değişikliklerin İngilizce menüye yansıması için çeviriyi güncelle."
-                            : "Ürün adları, açıklamalar, kategoriler ve etiketler çevrilir; fiyatlar ile görseller değişmez."}
+                            ? t("Update the translation to include your latest changes.", "Son değişikliklerin İngilizce menüye yansıması için çeviriyi güncelle.")
+                            : t("Item names, descriptions, categories, and labels are translated; prices and images stay unchanged.", "Ürün adları, açıklamalar, kategoriler ve etiketler çevrilir; fiyatlar ile görseller değişmez.")}
                       </p>
                     </div>
                   </div>
@@ -2527,20 +2690,20 @@ export function MenuStudio({
                     className="translation-button"
                     disabled={translatingEnglish}
                     onClick={() => { void generateEnglishTranslation(); }}
-                    title="OpenAI kullanım kotanı kullanır"
+                    title={t("Uses your OpenAI quota", "OpenAI kullanım kotanı kullanır")}
                   >
                     {translatingEnglish ? <Loader2 className="auto-image-spinner" size={16} /> : <Languages size={16} />}
                     {translatingEnglish
-                      ? "Çevriliyor…"
+                      ? t("Translating…", "Çevriliyor…")
                       : englishTranslationCurrent
-                        ? "Çeviriyi yenile"
+                        ? t("Refresh translation", "Çeviriyi yenile")
                         : hasEnglishTranslation
-                          ? "Çeviriyi güncelle"
-                          : "İngilizceyi oluştur"}
+                          ? t("Update translation", "Çeviriyi güncelle")
+                          : t("Create English version", "İngilizceyi oluştur")}
                   </button>
                   <div className="translation-progress">
                     <span aria-hidden="true"><i style={{ width: englishCoverage.percentage + "%" }} /></span>
-                    <small>{englishCoverage.percentage}% çevrildi</small>
+                    <small>{englishCoverage.percentage}% {t("translated", "çevrildi")}</small>
                   </div>
                 </div>
                 </section>
@@ -2549,8 +2712,8 @@ export function MenuStudio({
               {contentSection === "products" && (
                 <section className="form-section categories-section studio-tool-panel" id="studio-content-products">
                 <div className="section-heading">
-                  <div><span>İçerik</span><h2>Kategoriler ve ürünler</h2></div>
-                  <div className="item-count">{totalItemCount} ürün</div>
+                  <div><span>{t("Content", "İçerik")}</span><h2>{t("Categories and items", "Kategoriler ve ürünler")}</h2></div>
+                  <div className="item-count">{totalItemCount} {t("items", "ürün")}</div>
                 </div>
                 {activeProductEditor ? (
                   <ProductDetailEditor
@@ -2589,6 +2752,7 @@ export function MenuStudio({
                       value,
                     )}
                     position={activeProductIndex + 1}
+                    sourceLanguage={menu.sourceLanguage || "tr"}
                     total={productEditorItems.length}
                   />
                 ) : (
@@ -2597,13 +2761,13 @@ export function MenuStudio({
                   <div className="auto-image-copy">
                     <span className="auto-image-icon"><Sparkles size={17} /></span>
                     <div>
-                      <strong>AI görsel asistanı</strong>
+                      <strong>{t("AI image assistant", "AI görsel asistanı")}</strong>
                       <p>
                         {totalItemCount === 0
-                          ? <>Önce ilk ürününü ekle; ardından görselleri tek tuşla hazırlayabilirsin.</>
+                          ? <>{t("Add your first item, then create images in one click.", "Önce ilk ürününü ekle; ardından görselleri tek tuşla hazırlayabilirsin.")}</>
                           : missingImageCount > 0
-                          ? <>{missingImageCount} üründe görsel eksik. Tek seferde en fazla 6 görsel üretilir; eklediklerin korunur.</>
-                          : <>Tüm ürünlerin görseli hazır.</>}
+                          ? <>{t(`${missingImageCount} items are missing images. Up to 6 are generated at a time; existing images are preserved.`, `${missingImageCount} üründe görsel eksik. Tek seferde en fazla 6 görsel üretilir; eklediklerin korunur.`)}</>
+                          : <>{t("Every item has an image.", "Tüm ürünlerin görseli hazır.")}</>}
                       </p>
                     </div>
                   </div>
@@ -2611,12 +2775,12 @@ export function MenuStudio({
                     className="auto-image-button"
                     disabled={generatingImages || Boolean(generatingItemId) || missingImageCount === 0}
                     onClick={() => { void generateMissingImages(); }}
-                    title="OpenAI kullanım kotanı kullanır"
+                    title={t("Uses your OpenAI quota", "OpenAI kullanım kotanı kullanır")}
                   >
                     {generatingImages ? <Loader2 className="auto-image-spinner" size={16} /> : <Sparkles size={16} />}
                     {generatingImages
-                      ? <>{imageGenerationProgress.done}/{imageGenerationProgress.total} hazırlanıyor</>
-                      : <>AI ile tamamla</>}
+                      ? <>{imageGenerationProgress.done}/{imageGenerationProgress.total} {t("preparing", "hazırlanıyor")}</>
+                      : <>{t("Complete with AI", "AI ile tamamla")}</>}
                   </button>
                   {generatingImages && (
                     <div className="auto-image-progress">
@@ -2629,7 +2793,7 @@ export function MenuStudio({
                           }}
                         />
                       </span>
-                      <small>{imageGenerationProgress.done} / {imageGenerationProgress.total} ürün işlendi</small>
+                      <small>{imageGenerationProgress.done} / {imageGenerationProgress.total} {t("items processed", "ürün işlendi")}</small>
                     </div>
                   )}
                 </div>
@@ -2638,30 +2802,30 @@ export function MenuStudio({
                     <label className="product-editor-search">
                       <Search aria-hidden="true" size={16} />
                       <input
-                        aria-label="Ürünlerde ara"
+                        aria-label={t("Search items", "Ürünlerde ara")}
                         onChange={(event) => setProductQuery(event.target.value)}
-                        placeholder="Ürün veya kategori ara"
+                        placeholder={t("Search items or categories", "Ürün veya kategori ara")}
                         type="search"
                         value={productQuery}
                       />
                     </label>
                     <button className="product-toolbar-add" onClick={addCategory} type="button">
-                      <Plus size={15} /> Kategori
+                      <Plus size={15} /> {t("Category", "Kategori")}
                     </button>
-                    <span>{normalizedProductQuery ? `${filteredItemCount} sonuç` : `${menu.categories.length} kategori`}</span>
+                    <span>{normalizedProductQuery ? t(`${filteredItemCount} results`, `${filteredItemCount} sonuç`) : t(`${menu.categories.length} categories`, `${menu.categories.length} kategori`)}</span>
                   </div>
                   {menu.categories.length > 1 && (
-                    <nav className="category-jump-nav" aria-label="Kategori kısayolları">
+                    <nav className="category-jump-nav" aria-label={t("Category shortcuts", "Kategori kısayolları")}>
                       {menu.categories.map((category) => (
                         <button
                           aria-current={categoryOpenState[category.id] ? "true" : undefined}
                           className={categoryOpenState[category.id] ? "active" : ""}
                           key={category.id}
                           onClick={() => openCategory(category.id)}
-                          title={`${category.name || "İsimsiz kategori"} kategorisini aç`}
+                          title={t(`Open ${category.name || "unnamed category"}`, `${category.name || "İsimsiz kategori"} kategorisini aç`)}
                           type="button"
                         >
-                          <span>{category.name || "İsimsiz kategori"}</span>
+                          <span>{category.name || t("Unnamed category", "İsimsiz kategori")}</span>
                           <b>{category.items.length}</b>
                         </button>
                       ))}
@@ -2691,7 +2855,7 @@ export function MenuStudio({
                       <summary>
                         <ChevronDown className="category-chevron" size={17} />
                         <input
-                          aria-label="Kategori adı"
+                          aria-label={t("Category name", "Kategori adı")}
                           data-readiness-field="category-name" maxLength={100}
                           value={category.name}
                           onClick={(event) => event.stopPropagation()}
@@ -2702,24 +2866,25 @@ export function MenuStudio({
                         />
                         <span>{category.items.length}</span>
                         <button
-                          aria-label={`${category.name || "Kategori"} kategorisine ürün ekle`}
+                          aria-label={t(`Add an item to ${category.name || "category"}`, `${category.name || "Kategori"} kategorisine ürün ekle`)}
                           className="category-quick-add"
                           onClick={(event) => {
                             event.preventDefault();
                             event.stopPropagation();
                             addItem(categoryIndex);
                           }}
-                          title="Bu kategoriye ürün ekle"
+                          title={t("Add an item to this category", "Bu kategoriye ürün ekle")}
                           type="button"
                         ><Plus size={16} /></button>
                         <button
-                          aria-label="Kategoriyi sil"
+                          aria-label={t("Delete category", "Kategoriyi sil")}
                           onClick={(event) => {
                             event.preventDefault();
                             event.stopPropagation();
-                            if (window.confirm(
+                            if (window.confirm(t(
+                              `Delete “${category.name || "this category"}” and its ${category.items.length} items?`,
                               `“${category.name || "Bu kategori"}” ve içindeki ${category.items.length} ürün silinsin mi?`,
-                            )) {
+                            ))) {
                               removeCategory(categoryIndex);
                             }
                           }}
@@ -2733,26 +2898,27 @@ export function MenuStudio({
                             item={item}
                             key={item.id}
                             onOpen={() => openProductEditor(item.id)}
+                            sourceLanguage={menu.sourceLanguage || "tr"}
                           />
                         ))}
-                        <button className="add-row-button" onClick={() => addItem(categoryIndex)}><Plus size={16} /> Ürün ekle</button>
+                        <button className="add-row-button" onClick={() => addItem(categoryIndex)}><Plus size={16} /> {t("Add item", "Ürün ekle")}</button>
                       </div>
                     </details>
                   ))}
                   {menu.categories.length === 0 && !normalizedProductQuery && (
                     <div className="product-editor-empty">
                       <FilePlus2 aria-hidden="true" size={19} />
-                      <strong>İlk kategorini oluştur</strong>
-                      <span>Örneğin Kahvaltı, Ana Yemekler veya İçecekler ile başlayabilirsin.</span>
-                      <button type="button" onClick={addCategory}>Kategori ekle</button>
+                      <strong>{t("Create your first category", "İlk kategorini oluştur")}</strong>
+                      <span>{t("Try starting with Breakfast, Mains, or Drinks.", "Örneğin Kahvaltı, Ana Yemekler veya İçecekler ile başlayabilirsin.")}</span>
+                      <button type="button" onClick={addCategory}>{t("Add category", "Kategori ekle")}</button>
                     </div>
                   )}
                   {editorCategories.length === 0 && Boolean(normalizedProductQuery) && (
                     <div className="product-editor-empty">
                       <Search aria-hidden="true" size={19} />
-                      <strong>Sonuç bulunamadı</strong>
-                      <span>Farklı bir ürün veya kategori adı deneyebilirsin.</span>
-                      <button type="button" onClick={() => setProductQuery("")}>Aramayı temizle</button>
+                      <strong>{t("No results", "Sonuç bulunamadı")}</strong>
+                      <span>{t("Try a different item or category name.", "Farklı bir ürün veya kategori adı deneyebilirsin.")}</span>
+                      <button type="button" onClick={() => setProductQuery("")}>{t("Clear search", "Aramayı temizle")}</button>
                     </div>
                   )}
                 </div>
@@ -2771,35 +2937,35 @@ export function MenuStudio({
             >
               <StudioSectionNav
                 activeSection={designSection}
-                label="Tasarım bölümleri"
+                label={t("Design sections", "Tasarım bölümleri")}
                 onChange={changeDesignSection}
-                sections={designSectionLinks}
+                sections={localizedDesignSectionLinks}
               />
 
               {designSection === "ai" && (
                 <section className="form-section ai-theme-designer-section studio-tool-panel" id="studio-design-ai">
                 <div className="ai-theme-designer-heading">
                   <div className="ai-theme-designer-icon"><Sparkles size={19} /></div>
-                  <div><span>AI tasarım asistanı</span><h2>Markana özel görünüm</h2></div>
-                  <div className="ai-theme-credit-cost"><Coins size={13} /> {aiCreditCosts.themeDesign} kredi</div>
+                  <div><span>{t("AI design assistant", "AI tasarım asistanı")}</span><h2>{t("A look made for your brand", "Markana özel görünüm")}</h2></div>
+                  <div className="ai-theme-credit-cost"><Coins size={13} /> {aiCreditCosts.themeDesign} {t("credits", "kredi")}</div>
                 </div>
                 <p className="ai-theme-designer-description">
-                  İstediğin atmosferi anlat; renkleri ve tüm görünüm ayarlarını menüne göre birlikte hazırlasın.
+                  {t("Describe the atmosphere you want and let AI create the colors and visual settings around your menu.", "İstediğin atmosferi anlat; renkleri ve tüm görünüm ayarlarını menüne göre birlikte hazırlasın.")}
                 </p>
                 <label className="ai-theme-brief" htmlFor="ai-theme-brief">
-                  <span>Tasarım yönü</span>
+                  <span>{t("Design direction", "Tasarım yönü")}</span>
                   <textarea
                     id="ai-theme-brief"
                     maxLength={400}
                     onChange={(event) => setThemeBrief(event.target.value)}
-                    placeholder="Örn. Ahşap tonları kullanan, sıcak ama premium bir kahve dükkânı tasarımı"
+                    placeholder={t("e.g. A warm but premium coffee shop with natural wood tones", "Örn. Ahşap tonları kullanan, sıcak ama premium bir kahve dükkânı tasarımı")}
                     rows={3}
                     value={themeBrief}
                   />
                   <small>{themeBrief.length} / 400</small>
                 </label>
-                <div className="ai-theme-suggestions" aria-label="Tasarım yönü önerileri">
-                  {themeBriefSuggestions.map((suggestion) => (
+                <div className="ai-theme-suggestions" aria-label={t("Design direction suggestions", "Tasarım yönü önerileri")}>
+                  {localizedThemeBriefSuggestions.map((suggestion) => (
                     <button
                       key={suggestion}
                       onClick={() => setThemeBrief(suggestion)}
@@ -2812,10 +2978,10 @@ export function MenuStudio({
                     <Coins size={15} />
                     <span>
                       {themeCreditsLoading && themeCreditBalance === null
-                        ? "Bakiye yükleniyor…"
+                        ? t("Loading balance…", "Bakiye yükleniyor…")
                         : themeCreditsFailed && themeCreditBalance === null
-                          ? "Bakiye alınamadı"
-                          : `${themeCreditBalance ?? "—"} kredi mevcut`}
+                          ? t("Could not load balance", "Bakiye alınamadı")
+                          : `${themeCreditBalance ?? "—"} ${t("credits available", "kredi mevcut")}`}
                     </span>
                   </div>
                   <button
@@ -2825,11 +2991,11 @@ export function MenuStudio({
                     type="button"
                   >
                     {generatingTheme
-                      ? <><Loader2 className="auto-image-spinner" size={16} /> Tasarım hazırlanıyor</>
-                      : <><Sparkles size={16} /> Özel tasarım üret</>}
+                      ? <><Loader2 className="auto-image-spinner" size={16} /> {t("Creating design", "Tasarım hazırlanıyor")}</>
+                      : <><Sparkles size={16} /> {t("Generate custom design", "Özel tasarım üret")}</>}
                   </button>
                 </div>
-                <p className="ai-theme-charge-note">Yalnızca doğrulanmış bir tasarım hazırlandığında kredi düşer.</p>
+                <p className="ai-theme-charge-note">{t("Credits are charged only after a valid design is ready.", "Yalnızca doğrulanmış bir tasarım hazırlandığında kredi düşer.")}</p>
                 {themeDesignFeedback && (
                   <div className={`ai-theme-feedback ${themeDesignFeedback.tone}`} aria-live="polite">
                     <div>
@@ -2844,7 +3010,7 @@ export function MenuStudio({
                           setThemeDesignFeedback(null);
                         }}
                         type="button"
-                      ><Undo2 size={14} /> Geri al</button>
+                      ><Undo2 size={14} /> {t("Undo", "Geri al")}</button>
                     )}
                   </div>
                 )}
@@ -2853,10 +3019,10 @@ export function MenuStudio({
 
               {designSection === "presets" && (
                 <section className="form-section theme-preset-section studio-tool-panel" id="studio-design-presets">
-                <div className="section-heading"><div><span>Hızlı başlangıç</span><h2>Hazır stiller</h2></div></div>
-                <p className="theme-section-description">Renk, tipografi ve görünüm ayarlarını tek seçimle uygula; ardından istediğin ayrıntıyı değiştirebilirsin.</p>
+                <div className="section-heading"><div><span>{t("Quick start", "Hızlı başlangıç")}</span><h2>{t("Style presets", "Hazır stiller")}</h2></div></div>
+                <p className="theme-section-description">{t("Apply color, typography, and layout settings in one click, then fine-tune any detail.", "Renk, tipografi ve görünüm ayarlarını tek seçimle uygula; ardından istediğin ayrıntıyı değiştirebilirsin.")}</p>
                 <div className="theme-grid">
-                  {themePresetOptions.map((preset) => {
+                  {localizedThemePresetOptions.map((preset) => {
                     const presetTheme = menuThemePresets[preset.id];
                     const isActive = theme.stylePreset === preset.id;
                     return (
@@ -2886,16 +3052,18 @@ export function MenuStudio({
 
               {designSection === "brand" && (
                 <section className="form-section studio-tool-panel" id="studio-design-brand">
-                <div className="section-heading"><div><span>Marka kimliği</span><h2>Renk ve yazı</h2></div>{theme.stylePreset === "custom" && <div className="theme-custom-badge">Özel</div>}</div>
-                <p className="theme-section-description">Menünün renk paletini ve yazı karakterini tek yerden markana uyarla.</p>
-                <h3 className="theme-subsection-heading">Renk paleti</h3>
+                <div className="section-heading"><div><span>{t("Brand identity", "Marka kimliği")}</span><h2>{t("Color and typography", "Renk ve yazı")}</h2></div>{theme.stylePreset === "custom" && <div className="theme-custom-badge">{t("Custom", "Özel")}</div>}</div>
+                <p className="theme-section-description">{t("Match the menu's color palette and typeface to your brand in one place.", "Menünün renk paletini ve yazı karakterini tek yerden markana uyarla.")}</p>
+                <h3 className="theme-subsection-heading">{t("Color palette", "Renk paleti")}</h3>
                 <div className="theme-color-grid">
-                  {themeColorOptions.map((color) => (
+                  {themeColorOptions.map((sourceColor) => {
+                    const color = localizeStudioOption(sourceColor, locale);
+                    return (
                     <label className="theme-color-control" key={color.id}>
                       <span>{color.label}</span>
                       <div>
                         <input
-                          aria-label={`${color.label} rengini seç`}
+                          aria-label={t(`Choose ${color.label.toLocaleLowerCase("en-US")} color`, `${color.label} rengini seç`)}
                           type="color"
                           value={theme[color.id]}
                           onChange={(event) => updateThemeColor(color.id, event.target.value)}
@@ -2903,50 +3071,52 @@ export function MenuStudio({
                         <code>{theme[color.id].toLocaleUpperCase("en-US")}</code>
                       </div>
                     </label>
-                  ))}
+                  );})}
                 </div>
                 {themeAccessibilityIssues.length > 0 && <div className="theme-contrast-notice" role="status">
-                  <strong>Bu renklerde bazı yazılar zor okunuyor.</strong>
-                  <p>Önizleme ve müşteri menüsü, okunabilirlik için renk tonlarını otomatik dengeler.</p>
-                  <button type="button" onClick={() => setTheme(repairThemeAccessibility(theme))}>Okunabilir renkleri uygula</button>
+                  <strong>{t("Some text is difficult to read with these colors.", "Bu renklerde bazı yazılar zor okunuyor.")}</strong>
+                  <p>{t("The preview and guest menu automatically balance tones for readability.", "Önizleme ve müşteri menüsü, okunabilirlik için renk tonlarını otomatik dengeler.")}</p>
+                  <button type="button" onClick={() => setTheme(repairThemeAccessibility(theme))}>{t("Apply readable colors", "Okunabilir renkleri uygula")}</button>
                 </div>}
-                <h3 className="theme-subsection-heading typography">Yazı karakteri</h3>
+                <h3 className="theme-subsection-heading typography">{t("Typeface", "Yazı karakteri")}</h3>
                 <div className="font-grid">
-                  {fontOptions.map((font) => (
+                  {fontOptions.map((sourceFont) => {
+                    const font = localizeStudioOption(sourceFont, locale);
+                    return (
                     <button aria-pressed={theme.font === font.id} key={font.id} className={`${font.id} ${theme.font === font.id ? "active" : ""}`} onClick={() => updateThemeOption("font", font.id)} type="button">
                       <strong>{font.sample}</strong><span>{font.label}</span>
                     </button>
-                  ))}
+                  );})}
                 </div>
                 </section>
               )}
 
               {designSection === "layout" && (
                 <section className="form-section studio-tool-panel" id="studio-design-layout">
-                <div className="section-heading"><div><span>En sık kullanılan</span><h2>Menü düzeni</h2></div></div>
-                <p className="theme-section-description">Ürünlerin müşterinin telefonunda nasıl sıralanacağını seç.</p>
+                <div className="section-heading"><div><span>{t("Most used", "En sık kullanılan")}</span><h2>{t("Menu layout", "Menü düzeni")}</h2></div></div>
+                <p className="theme-section-description">{t("Choose how items are arranged on your guest's phone.", "Ürünlerin müşterinin telefonunda nasıl sıralanacağını seç.")}</p>
                 <div className="layout-grid">
-                  <button aria-pressed={theme.layout === "cards"} className={theme.layout === "cards" ? "active" : ""} onClick={() => updateThemeOption("layout", "cards")} type="button"><LayoutGrid size={22} /><span><strong>Kartlar</strong><small>Rahat ve dengeli</small></span></button>
-                  <button aria-pressed={theme.layout === "compact"} className={theme.layout === "compact" ? "active" : ""} onClick={() => updateThemeOption("layout", "compact")} type="button"><List size={22} /><span><strong>Kompakt</strong><small>Uzun menüler için</small></span></button>
-                  <button aria-pressed={theme.layout === "tiles"} className={theme.layout === "tiles" ? "active" : ""} onClick={() => updateThemeOption("layout", "tiles")} type="button"><Grid2X2 size={22} /><span><strong>Izgara</strong><small>İki sütunlu vitrin</small></span></button>
-                  <button aria-pressed={theme.layout === "showcase"} className={theme.layout === "showcase" ? "active" : ""} onClick={() => updateThemeOption("layout", "showcase")} type="button"><GalleryVerticalEnd size={22} /><span><strong>Öne çıkan</strong><small>İlk ürünü vurgular</small></span></button>
+                  <button aria-pressed={theme.layout === "cards"} className={theme.layout === "cards" ? "active" : ""} onClick={() => updateThemeOption("layout", "cards")} type="button"><LayoutGrid size={22} /><span><strong>{t("Cards", "Kartlar")}</strong><small>{t("Comfortable and balanced", "Rahat ve dengeli")}</small></span></button>
+                  <button aria-pressed={theme.layout === "compact"} className={theme.layout === "compact" ? "active" : ""} onClick={() => updateThemeOption("layout", "compact")} type="button"><List size={22} /><span><strong>{t("Compact", "Kompakt")}</strong><small>{t("For long menus", "Uzun menüler için")}</small></span></button>
+                  <button aria-pressed={theme.layout === "tiles"} className={theme.layout === "tiles" ? "active" : ""} onClick={() => updateThemeOption("layout", "tiles")} type="button"><Grid2X2 size={22} /><span><strong>{t("Grid", "Izgara")}</strong><small>{t("Two-column showcase", "İki sütunlu vitrin")}</small></span></button>
+                  <button aria-pressed={theme.layout === "showcase"} className={theme.layout === "showcase" ? "active" : ""} onClick={() => updateThemeOption("layout", "showcase")} type="button"><GalleryVerticalEnd size={22} /><span><strong>{t("Showcase", "Öne çıkan")}</strong><small>{t("Highlights the first item", "İlk ürünü vurgular")}</small></span></button>
                 </div>
-                <label className="toggle-row"><span><strong>Ürün açıklamaları</strong><small>Menüde açıklamaları göster</small></span><input type="checkbox" checked={theme.showDescriptions} onChange={(event) => updateThemeOption("showDescriptions", event.target.checked)} /><i /></label>
+                <label className="toggle-row"><span><strong>{t("Item descriptions", "Ürün açıklamaları")}</strong><small>{t("Show descriptions on the menu", "Menüde açıklamaları göster")}</small></span><input type="checkbox" checked={theme.showDescriptions} onChange={(event) => updateThemeOption("showDescriptions", event.target.checked)} /><i /></label>
                 </section>
               )}
 
               {designSection === "advanced" && (
                 <section className="form-section advanced-theme-section studio-tool-panel" id="studio-design-advanced">
-                <div className="section-heading"><div><span>İnce ayar</span><h2>Kart ve görünüm detayları</h2></div><Sparkles size={17} /></div>
-                <p className="theme-section-description">Köşe, yoğunluk ve fiyat gibi ayrıntıları canlı önizlemede karşılaştır.</p>
+                <div className="section-heading"><div><span>{t("Fine tuning", "İnce ayar")}</span><h2>{t("Card and layout details", "Kart ve görünüm detayları")}</h2></div><Sparkles size={17} /></div>
+                <p className="theme-section-description">{t("Compare details such as corners, density, and price styling in the live preview.", "Köşe, yoğunluk ve fiyat gibi ayrıntıları canlı önizlemede karşılaştır.")}</p>
                 <div className="theme-choice-list">
-                  <ThemeChoiceGroup description="Kartların yüzey etkisi" label="Kart stili" onChange={(value) => updateThemeOption("cardStyle", value)} options={cardStyleOptions} value={theme.cardStyle} />
-                  <ThemeChoiceGroup description="Kart ve görsel köşeleri" label="Köşeler" onChange={(value) => updateThemeOption("cornerStyle", value)} options={cornerStyleOptions} value={theme.cornerStyle} />
-                  <ThemeChoiceGroup description="Ekrandaki içerik aralığı" label="Yoğunluk" onChange={(value) => updateThemeOption("density", value)} options={densityOptions} value={theme.density} />
-                  <ThemeChoiceGroup description="Ürün fotoğraflarının biçimi" label="Görsel oranı" onChange={(value) => updateThemeOption("imageRatio", value)} options={imageRatioOptions} value={theme.imageRatio} />
-                  <ThemeChoiceGroup description="Fiyatın vurgulanma biçimi" label="Fiyat stili" onChange={(value) => updateThemeOption("priceStyle", value)} options={priceStyleOptions} value={theme.priceStyle} />
-                  <ThemeChoiceGroup description="Yatay kategori menüsü" label="Kategori stili" onChange={(value) => updateThemeOption("categoryStyle", value)} options={categoryStyleOptions} value={theme.categoryStyle} />
-                  <ThemeChoiceGroup description="Menünün üst karşılama alanı" label="Kapak alanı" onChange={(value) => updateThemeOption("heroStyle", value)} options={heroStyleOptions} value={theme.heroStyle} />
+                  <ThemeChoiceGroup description={t("Card surface treatment", "Kartların yüzey etkisi")} label={t("Card style", "Kart stili")} onChange={(value) => updateThemeOption("cardStyle", value)} options={cardStyleOptions.map((option) => localizeStudioOption(option, locale))} value={theme.cardStyle} />
+                  <ThemeChoiceGroup description={t("Card and image corners", "Kart ve görsel köşeleri")} label={t("Corners", "Köşeler")} onChange={(value) => updateThemeOption("cornerStyle", value)} options={cornerStyleOptions.map((option) => localizeStudioOption(option, locale))} value={theme.cornerStyle} />
+                  <ThemeChoiceGroup description={t("Spacing between content", "Ekrandaki içerik aralığı")} label={t("Density", "Yoğunluk")} onChange={(value) => updateThemeOption("density", value)} options={densityOptions.map((option) => localizeStudioOption(option, locale))} value={theme.density} />
+                  <ThemeChoiceGroup description={t("Shape of item photos", "Ürün fotoğraflarının biçimi")} label={t("Image ratio", "Görsel oranı")} onChange={(value) => updateThemeOption("imageRatio", value)} options={imageRatioOptions.map((option) => localizeStudioOption(option, locale))} value={theme.imageRatio} />
+                  <ThemeChoiceGroup description={t("How the price is emphasized", "Fiyatın vurgulanma biçimi")} label={t("Price style", "Fiyat stili")} onChange={(value) => updateThemeOption("priceStyle", value)} options={priceStyleOptions.map((option) => localizeStudioOption(option, locale))} value={theme.priceStyle} />
+                  <ThemeChoiceGroup description={t("Horizontal category navigation", "Yatay kategori menüsü")} label={t("Category style", "Kategori stili")} onChange={(value) => updateThemeOption("categoryStyle", value)} options={categoryStyleOptions.map((option) => localizeStudioOption(option, locale))} value={theme.categoryStyle} />
+                  <ThemeChoiceGroup description={t("Top welcome area of the menu", "Menünün üst karşılama alanı")} label={t("Hero area", "Kapak alanı")} onChange={(value) => updateThemeOption("heroStyle", value)} options={heroStyleOptions.map((option) => localizeStudioOption(option, locale))} value={theme.heroStyle} />
                 </div>
                 </section>
               )}
@@ -2974,28 +3144,28 @@ export function MenuStudio({
               className="modal-close"
               disabled={publishing}
               onClick={() => setPublishReviewOpen(false)}
-              aria-label="Pencereyi kapat"
+              aria-label={t("Close dialog", "Pencereyi kapat")}
               type="button"
             ><X size={19} /></button>
 
             <div className="readiness-modal-heading">
-              <span className="modal-kicker">Yayın öncesi kontrol</span>
-              <h2 id="publish-readiness-title">QR menünü son kez kontrol et</h2>
-              <p>Zorunlu alanları ve müşteri deneyimini iyileştirecek önerileri tek yerde gör.</p>
+              <span className="modal-kicker">{t("Pre-publish review", "Yayın öncesi kontrol")}</span>
+              <h2 id="publish-readiness-title">{t("Give your QR menu one final review", "QR menünü son kez kontrol et")}</h2>
+              <p>{t("See required fixes and suggestions that improve the guest experience in one place.", "Zorunlu alanları ve müşteri deneyimini iyileştirecek önerileri tek yerde gör.")}</p>
             </div>
 
             <div className={`readiness-overview ${publishReadiness.canPublish ? "ready" : "blocked"}`}>
-              <div className="readiness-score" aria-label={`Menü kalite puanı ${publishReadiness.score}/100`}>
+              <div className="readiness-score" aria-label={t(`Menu quality score ${publishReadiness.score} out of 100`, `Menü kalite puanı ${publishReadiness.score}/100`)}>
                 <strong>{publishReadiness.score}</strong>
                 <span>/100</span>
               </div>
               <div className="readiness-overview-copy">
-                <span>Menü kalite puanı</span>
+                <span>{t("Menu quality score", "Menü kalite puanı")}</span>
                 <strong>{publishReadiness.statusLabel}</strong>
                 <small>
                   {publishReadiness.canPublish
-                    ? `${publishReadiness.visibleItemCount} görünür ürün yayınlanmaya hazır.`
-                    : `${publishReadiness.blockers.length} zorunlu sorun düzeltilmeli.`}
+                    ? t(`${publishReadiness.visibleItemCount} visible items are ready to publish.`, `${publishReadiness.visibleItemCount} görünür ürün yayınlanmaya hazır.`)
+                    : t(`${publishReadiness.blockers.length} required issues must be fixed.`, `${publishReadiness.blockers.length} zorunlu sorun düzeltilmeli.`)}
                 </small>
                 <div className="readiness-meter" aria-hidden="true">
                   <i style={{ width: `${publishReadiness.score}%` }} />
@@ -3006,8 +3176,8 @@ export function MenuStudio({
             {publishReadiness.blockers.length > 0 && (
               <div className="readiness-issue-section">
                 <div className="readiness-section-heading">
-                  <div><span>Zorunlu</span><strong>Yayından önce düzelt</strong></div>
-                  <small>{publishReadiness.blockers.length} sorun</small>
+                  <div><span>{t("Required", "Zorunlu")}</span><strong>{t("Fix before publishing", "Yayından önce düzelt")}</strong></div>
+                  <small>{publishReadiness.blockers.length} {t("issues", "sorun")}</small>
                 </div>
                 <div className="readiness-issue-list">
                   {publishReadiness.blockers.map((issue) => (
@@ -3018,7 +3188,7 @@ export function MenuStudio({
                         <small>{issue.description}</small>
                       </span>
                       <button onClick={() => goToReadinessTarget(issue.target)} type="button">
-                        Düzelt <ArrowRight size={14} />
+                        {t("Fix", "Düzelt")} <ArrowRight size={14} />
                       </button>
                     </article>
                   ))}
@@ -3029,8 +3199,8 @@ export function MenuStudio({
             {publishReadiness.recommendations.length > 0 ? (
               <div className="readiness-issue-section recommendations">
                 <div className="readiness-section-heading">
-                  <div><span>İyileştirmeler</span><strong>Menünü güçlendir</strong></div>
-                  <small>Yayını engellemez</small>
+                  <div><span>{t("Improvements", "İyileştirmeler")}</span><strong>{t("Strengthen your menu", "Menünü güçlendir")}</strong></div>
+                  <small>{t("Does not block publishing", "Yayını engellemez")}</small>
                 </div>
                 <div className="readiness-issue-list">
                   {publishReadiness.recommendations.map((issue) => (
@@ -3041,7 +3211,7 @@ export function MenuStudio({
                         <small>{issue.description}</small>
                       </span>
                       <button onClick={() => goToReadinessTarget(issue.target)} type="button">
-                        Aç <ArrowRight size={14} />
+                        {t("Open", "Aç")} <ArrowRight size={14} />
                       </button>
                     </article>
                   ))}
@@ -3050,14 +3220,14 @@ export function MenuStudio({
             ) : (
               <div className="readiness-all-clear">
                 <CheckCircle2 size={20} />
-                <div><strong>Tüm kontroller tamam</strong><small>Menün paylaşmaya hazır görünüyor.</small></div>
+                <div><strong>{t("All checks complete", "Tüm kontroller tamam")}</strong><small>{t("Your menu looks ready to share.", "Menün paylaşmaya hazır görünüyor.")}</small></div>
               </div>
             )}
 
             {publishError && (
               <div className="readiness-publish-error" role="alert">
                 <AlertTriangle size={17} />
-                <span><strong>Menü yayınlanamadı</strong><small>{publishError}</small></span>
+                <span><strong>{t("Could not publish menu", "Menü yayınlanamadı")}</strong><small>{publishError}</small></span>
               </div>
             )}
 
@@ -3067,7 +3237,7 @@ export function MenuStudio({
                 disabled={publishing}
                 onClick={() => setPublishReviewOpen(false)}
                 type="button"
-              >Düzenlemeye dön</button>
+              >{t("Back to editing", "Düzenlemeye dön")}</button>
               {publishReadiness.canPublish ? (
                 <button
                   className="primary-button"
@@ -3076,8 +3246,8 @@ export function MenuStudio({
                   type="button"
                 >
                   {publishing
-                    ? <><Loader2 className="auto-image-spinner" size={16} /> Yayınlanıyor…</>
-                    : <><QrCode size={16} /> {activeMenuStatus === "published" ? "Değişiklikleri yayınla" : "Şimdi yayınla"}</>}
+                    ? <><Loader2 className="auto-image-spinner" size={16} /> {t("Publishing…", "Yayınlanıyor…")}</>
+                    : <><QrCode size={16} /> {activeMenuStatus === "published" ? t("Publish changes", "Değişiklikleri yayınla") : t("Publish now", "Şimdi yayınla")}</>}
                 </button>
               ) : (
                 <button
@@ -3087,7 +3257,7 @@ export function MenuStudio({
                     if (firstBlocker) goToReadinessTarget(firstBlocker.target);
                   }}
                   type="button"
-                ><ArrowRight size={16} /> İlk sorunu düzelt</button>
+                ><ArrowRight size={16} /> {t("Fix first issue", "İlk sorunu düzelt")}</button>
               )}
             </div>
           </section>
@@ -3097,22 +3267,22 @@ export function MenuStudio({
       {publishOpen && (
         <div className="modal-backdrop" role="presentation" onMouseDown={() => setPublishOpen(false)}>
           <section className="publish-modal" role="dialog" aria-modal="true" aria-labelledby="publish-title" onMouseDown={(event) => event.stopPropagation()}>
-            <button className="modal-close" onClick={() => setPublishOpen(false)} aria-label="Pencereyi kapat"><X size={19} /></button>
+            <button className="modal-close" onClick={() => setPublishOpen(false)} aria-label={t("Close dialog", "Pencereyi kapat")}><X size={19} /></button>
             <div className="publish-icon"><QrCode size={25} /></div>
-            <span className="modal-kicker">Paylaşmaya hazır</span>
-            <h2 id="publish-title">QR menün hazır!</h2>
-            <p>Müşterilerin kodu okuttuğunda menünün bu sürümünü telefonunda görecek.</p>
+            <span className="modal-kicker">{t("Ready to share", "Paylaşmaya hazır")}</span>
+            <h2 id="publish-title">{t("Your QR menu is ready!", "QR menün hazır!")}</h2>
+            <p>{t("When guests scan the code, they'll see this version of your menu on their phone.", "Müşterilerin kodu okuttuğunda menünün bu sürümünü telefonunda görecek.")}</p>
             <div className="qr-wrap" id="menu-qr">
               <QRCodeSVG value={publishQrUrl} size={184} level="M" marginSize={2} fgColor="#20251f" bgColor="#ffffff" />
               <div className="qr-brand"><QrCode size={13} /></div>
             </div>
             <div className="link-box"><span>{publishUrl}</span><button onClick={() => void copyLink()}>{copied ? <Check size={17} /> : <Copy size={17} />}</button></div>
             <div className="publish-actions">
-              <button className="primary-button" onClick={downloadQr}><Download size={17} /> QR kodu indir</button>
-              <button className="secondary-button" onClick={() => void shareLink()}><Share2 size={17} /> Paylaş</button>
+              <button className="primary-button" onClick={downloadQr}><Download size={17} /> {t("Download QR code", "QR kodu indir")}</button>
+              <button className="secondary-button" onClick={() => void shareLink()}><Share2 size={17} /> {t("Share", "Paylaş")}</button>
             </div>
-            {activeMenuId && <a className="publish-print-link" href={`/dashboard/menus/${activeMenuId}/qr`}><Printer size={16} /> Masa kartı ve baskı şablonlarını aç</a>}
-            <small>Bu kısa bağlantı kalıcıdır. Editördeki değişiklikler yalnızca “Yayınla” dediğinde aynı QR koda yansır.</small>
+            {activeMenuId && <a className="publish-print-link" href={`/dashboard/menus/${activeMenuId}/qr`}><Printer size={16} /> {t("Open table cards and print templates", "Masa kartı ve baskı şablonlarını aç")}</a>}
+            <small>{t("This short link is permanent. Editor changes reach the same QR code only after you publish.", "Bu kısa bağlantı kalıcıdır. Editördeki değişiklikler yalnızca “Yayınla” dediğinde aynı QR koda yansır.")}</small>
           </section>
         </div>
       )}

@@ -3,6 +3,7 @@ import {
   type MenuData,
   type MenuThemePresetId,
 } from "@/lib/menu";
+import type { AppLocale } from "@/lib/i18n";
 
 export const menuStarterIds = [
   "restaurant",
@@ -39,7 +40,7 @@ export type MenuStarter = {
   themePresetId: MenuThemePresetId;
 };
 
-export const menuStarters: MenuStarter[] = [
+const menuStartersTr: MenuStarter[] = [
   {
     id: "restaurant",
     label: "Restoran",
@@ -237,36 +238,194 @@ export const menuStarters: MenuStarter[] = [
   },
 ];
 
-export function getMenuStarter(id: MenuStarterId) {
-  return menuStarters.find((starter) => starter.id === id) || menuStarters[0];
+const menuStartersEn: MenuStarter[] = [
+  {
+    id: "restaurant",
+    label: "Restaurant",
+    description: "Starters, mains and drinks",
+    defaultName: "New Restaurant",
+    subtitle: "Thoughtfully prepared food",
+    themePresetId: "bistro",
+    categories: [
+      { name: "Starters", items: [
+        { name: "Soup of the Day", description: "Made daily with seasonal ingredients", price: "8", badge: "Chef's pick" },
+        { name: "Crispy Dumplings", description: "Herb yogurt and spiced butter", price: "11" },
+      ] },
+      { name: "Mains", items: [
+        { name: "Grilled Meatballs", description: "Served with potatoes, peppers and rice", price: "19", badge: "Popular" },
+        { name: "Chicken Schnitzel", description: "Seasonal salad and fries", price: "18" },
+      ] },
+      { name: "Drinks", items: [
+        { name: "House Lemonade", description: "Fresh lemon and mint", price: "6" },
+        { name: "Sparkling Water", description: "Chilled mineral water", price: "4" },
+      ] },
+    ],
+  },
+  {
+    id: "cafe",
+    label: "Cafe",
+    description: "Coffee, cold drinks and light bites",
+    defaultName: "New Cafe",
+    subtitle: "Great coffee, better breaks",
+    themePresetId: "botanical",
+    categories: [
+      { name: "Hot Coffee", items: [
+        { name: "Espresso", description: "Rich double shot", price: "4" },
+        { name: "Flat White", description: "Double espresso and silky milk", price: "6", badge: "Popular" },
+      ] },
+      { name: "Cold Coffee", items: [
+        { name: "Iced Latte", description: "Espresso, milk and ice", price: "6" },
+        { name: "Cold Brew", description: "Slow-steeped for 18 hours", price: "7" },
+      ] },
+      { name: "Light Bites", items: [
+        { name: "Croissant Sandwich", description: "Cheese, greens and tomato", price: "10" },
+        { name: "Granola Bowl", description: "Yogurt, seasonal fruit and granola", price: "9" },
+      ] },
+    ],
+  },
+  {
+    id: "patisserie",
+    label: "Dessert Shop",
+    description: "Cakes, desserts and hot drinks",
+    defaultName: "New Dessert Shop",
+    subtitle: "Fresh every day, joy in every slice",
+    themePresetId: "playful",
+    categories: [
+      { name: "Cake Slices", items: [
+        { name: "Chocolate Cake", description: "Dark chocolate and cocoa sponge", price: "9", badge: "Most loved" },
+        { name: "Seasonal Fruit Tart", description: "Pastry cream and fresh fruit", price: "9" },
+      ] },
+      { name: "Desserts", items: [
+        { name: "Burnt Cheesecake", description: "Basque-style cheesecake with chocolate sauce", price: "10" },
+        { name: "Banana Pudding", description: "Banana, vanilla cream and biscuit", price: "8" },
+      ] },
+      { name: "Hot Drinks", items: [
+        { name: "Americano", description: "Double espresso and hot water", price: "5" },
+        { name: "Tea", description: "Freshly brewed selection", price: "4" },
+      ] },
+    ],
+  },
+  {
+    id: "bakery",
+    label: "Bakery",
+    description: "Bread, pastries and sandwiches",
+    defaultName: "New Bakery",
+    subtitle: "Fresh from the oven every day",
+    themePresetId: "editorial",
+    categories: [
+      { name: "Bread", items: [
+        { name: "Sourdough Loaf", description: "Long-fermented with a crisp crust", price: "7", badge: "Baked daily" },
+        { name: "Whole Wheat Loaf", description: "Whole grain and high in fiber", price: "6" },
+      ] },
+      { name: "Pastries", items: [
+        { name: "Butter Croissant", description: "Flaky and buttery", price: "5" },
+        { name: "Cinnamon Roll", description: "Soft dough and cinnamon filling", price: "5" },
+      ] },
+      { name: "Sandwiches", items: [
+        { name: "Turkey Sandwich", description: "Sourdough, cheese and greens", price: "10" },
+        { name: "Grilled Vegetable Sandwich", description: "Seasonal vegetables, pesto and rocket", price: "9" },
+      ] },
+    ],
+  },
+  {
+    id: "fast-food",
+    label: "Fast Casual",
+    description: "Burgers, sides and cold drinks",
+    defaultName: "New Fast Casual",
+    subtitle: "Big flavor, served fast",
+    themePresetId: "dark-luxe",
+    categories: [
+      { name: "Burgers", items: [
+        { name: "Classic Burger", description: "Beef patty, cheddar, pickles and house sauce", price: "14", badge: "Popular" },
+        { name: "Crispy Chicken Burger", description: "Crispy chicken, slaw and spicy mayo", price: "13" },
+      ] },
+      { name: "Sides", items: [
+        { name: "Seasoned Fries", description: "Classic or spicy", price: "5" },
+        { name: "Onion Rings", description: "Served with house dip", price: "6" },
+      ] },
+      { name: "Drinks", items: [
+        { name: "House Iced Tea", description: "Peach or lemon", price: "5" },
+        { name: "Soft Drink", description: "Ask the team for today's selection", price: "4" },
+      ] },
+    ],
+  },
+  {
+    id: "hotel",
+    label: "Hotel",
+    description: "Breakfast, all-day dining and drinks",
+    defaultName: "New Hotel",
+    subtitle: "A thoughtful stay, from morning to night",
+    themePresetId: "minimal",
+    categories: [
+      { name: "Breakfast", items: [
+        { name: "Continental Breakfast", description: "Croissant, preserves, cheese, fruit and a hot drink", price: "22" },
+        { name: "Granola Breakfast", description: "Granola, yogurt, fruit and fresh juice", price: "18" },
+      ] },
+      { name: "All-Day Dining", items: [
+        { name: "Club Sandwich", description: "Chicken, turkey, egg and fries", price: "20", badge: "Available all day" },
+        { name: "Penne Arrabbiata", description: "Spicy tomato sauce and parmesan", price: "18" },
+      ] },
+      { name: "Drinks", items: [
+        { name: "Fresh Orange Juice", description: "Pressed to order", price: "7" },
+        { name: "Filter Coffee", description: "Freshly brewed", price: "5" },
+      ] },
+    ],
+  },
+  {
+    id: "blank",
+    label: "Blank menu",
+    description: "Add every category and item yourself",
+    defaultName: "New Menu",
+    subtitle: "",
+    themePresetId: "minimal",
+    categories: [],
+  },
+];
+
+export const menuStarters = menuStartersEn;
+
+export function getMenuStarters(locale: AppLocale = "en") {
+  return locale === "tr" ? menuStartersTr : menuStartersEn;
 }
 
-function adaptStarterPrice(price: string, currency: MenuStarterCurrency) {
-  if (currency === "₺") return price;
+export function getMenuStarter(id: MenuStarterId, locale: AppLocale = "en") {
+  const starters = getMenuStarters(locale);
+  return starters.find((starter) => starter.id === id) || starters[0];
+}
+
+function adaptStarterPrice(price: string, currency: MenuStarterCurrency, locale: AppLocale) {
   const numericPrice = Number(price);
   if (!Number.isFinite(numericPrice)) return price;
-  const divisor = currency === "£" ? 30 : 25;
-  return String(Math.max(1, Math.round(numericPrice / divisor)));
+  if (locale === "tr") {
+    if (currency === "₺") return price;
+    const divisor = currency === "£" ? 52 : currency === "€" ? 46 : 40;
+    return String(Math.max(1, Math.round(numericPrice / divisor)));
+  }
+  if (currency === "₺") return String(Math.max(1, Math.round(numericPrice * 40)));
+  if (currency === "£") return String(Math.max(1, Math.round(numericPrice * 0.8)));
+  return price;
 }
 
 export function createMenuFromStarter(
   starterId: MenuStarterId,
   businessName: string,
   currency: MenuStarterCurrency,
+  locale: AppLocale = "en",
 ): MenuData {
-  const starter = getMenuStarter(starterId);
+  const starter = getMenuStarter(starterId, locale);
   return {
     restaurantName: businessName.trim() || starter.defaultName,
     subtitle: starter.subtitle,
     currency,
+    sourceLanguage: locale,
     categories: starter.categories.map((category) => ({
-      id: createId("kategori"),
+      id: createId("category"),
       name: category.name,
       items: category.items.map((item) => ({
-        id: createId("urun"),
+        id: createId("item"),
         name: item.name,
         description: item.description,
-        price: adaptStarterPrice(item.price, currency),
+        price: adaptStarterPrice(item.price, currency, locale),
         badge: item.badge || "",
         originalPrice: "",
         isCampaign: false,

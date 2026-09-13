@@ -3,14 +3,17 @@ import { isSameOrigin } from "@/lib/auth";
 import { readJsonRequest } from "@/lib/http";
 import { isValidMenuEventBatch, recordMenuEventBatch } from "@/lib/menu-events";
 import { checkRateLimit, getClientAddress } from "@/lib/rate-limit";
+import { resolveRequestLocale } from "@/lib/i18n";
 
 export const runtime = "nodejs";
 
 const maximumRequestBytes = 16_000;
 
 export async function POST(request: Request) {
+  const locale = resolveRequestLocale(request);
+  const t = (english: string, turkish: string) => locale === "tr" ? turkish : english;
   if (!isSameOrigin(request)) {
-    return NextResponse.json({ message: "Geçersiz istek kaynağı." }, { status: 403 });
+    return NextResponse.json({ message: t("Invalid request origin.", "Geçersiz istek kaynağı.") }, { status: 403 });
   }
 
   const rateLimit = checkRateLimit(
@@ -20,7 +23,7 @@ export async function POST(request: Request) {
   );
   if (!rateLimit.allowed) {
     return NextResponse.json(
-      { message: "Çok fazla analitik isteği gönderildi." },
+      { message: t("Too many analytics requests were sent.", "Çok fazla analitik isteği gönderildi.") },
       {
         status: 429,
         headers: { "Retry-After": String(rateLimit.retryAfterSeconds) },
@@ -31,18 +34,18 @@ export async function POST(request: Request) {
   const parsed = await readJsonRequest(request, maximumRequestBytes);
   if (!parsed.ok) {
     return NextResponse.json(
-      { message: parsed.reason === "too-large" ? "İstek çok büyük." : "Geçersiz istek." },
+      { message: parsed.reason === "too-large" ? t("Request is too large.", "İstek çok büyük.") : t("Invalid request.", "Geçersiz istek.") },
       { status: parsed.status },
     );
   }
   const body = parsed.value;
   if (!isValidMenuEventBatch(body)) {
-    return NextResponse.json({ message: "Geçersiz analitik verisi." }, { status: 400 });
+    return NextResponse.json({ message: t("Invalid analytics data.", "Geçersiz analitik verisi.") }, { status: 400 });
   }
 
   const result = recordMenuEventBatch(body);
   if (!result.found) {
-    return NextResponse.json({ message: "Oturum bulunamadı." }, { status: 404 });
+    return NextResponse.json({ message: t("Session not found.", "Oturum bulunamadı.") }, { status: 404 });
   }
 
   return NextResponse.json(

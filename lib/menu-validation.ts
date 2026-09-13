@@ -127,6 +127,7 @@ export function isValidMenuData(value: unknown): value is MenuData {
     "categories",
     "currency",
     "restaurantName",
+    "sourceLanguage",
     "subtitle",
     "translations",
   ];
@@ -137,6 +138,12 @@ export function isValidMenuData(value: unknown): value is MenuData {
     typeof menu.restaurantName !== "string" || menu.restaurantName.length > 120 ||
     typeof menu.subtitle !== "string" || menu.subtitle.length > 240 ||
     typeof menu.currency !== "string" || menu.currency.length > 12 ||
+    (menu.sourceLanguage !== undefined && (
+      typeof menu.sourceLanguage !== "string" ||
+      menu.sourceLanguage.length < 2 ||
+      menu.sourceLanguage.length > 35 ||
+      !/^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/.test(menu.sourceLanguage)
+    )) ||
     !isValidBusinessProfile(menu.businessProfile) ||
     !isEnglishTranslationContainer(menu.translations, isValidMenuEnglishTranslation) ||
     !Array.isArray(menu.categories) ||

@@ -23,6 +23,7 @@ import {
   themeDesignSchema,
   type GeneratedThemeDesign,
 } from "@/lib/theme-design";
+import { resolveRequestLocale } from "@/lib/i18n";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -70,15 +71,17 @@ function normalizeBrief(value: string) {
 }
 
 export async function POST(request: Request) {
+  const locale = resolveRequestLocale(request);
+  const t = (english: string, turkish: string) => locale === "tr" ? turkish : english;
   if (!isSameOrigin(request)) {
-    return json({ message: "Geçersiz istek kaynağı." }, { status: 403 });
+    return json({ message: t("Invalid request origin.", "Geçersiz istek kaynağı.") }, { status: 403 });
   }
 
   const user = await getCurrentUser();
   if (!user) {
-    return json({ message: "AI tasarım oluşturmak için giriş yapmalısın." }, { status: 401 });
+    return json({ message: t("Log in to create an AI design.", "AI tasarım oluşturmak için giriş yapmalısın.") }, { status: 401 });
   }
-  const accountBlock = getAccountFeatureBlock(user.account, "ai");
+  const accountBlock = getAccountFeatureBlock(user.account, "ai", locale);
   if (accountBlock) {
     return json(
       { code: accountBlock.code, message: accountBlock.message },
@@ -91,8 +94,8 @@ export async function POST(request: Request) {
     return json(
       {
         message: requestBodyResult.reason === "too-large"
-          ? "Tasarım isteği boyut sınırını aşıyor."
-          : "Geçersiz istek.",
+          ? t("The design request exceeds the size limit.", "Tasarım isteği boyut sınırını aşıyor.")
+          : t("Invalid request.", "Geçersiz istek."),
       },
       { status: requestBodyResult.status },
     );
@@ -103,7 +106,7 @@ export async function POST(request: Request) {
     typeof requestBodyResult.value.menuId !== "string" ||
     typeof requestBodyResult.value.requestId !== "string"
   ) {
-    return json({ message: "Tasarım isteği uygun değil." }, { status: 400 });
+    return json({ message: t("The design request is not valid.", "Tasarım isteği uygun değil.") }, { status: 400 });
   }
   const body = requestBodyResult.value as ThemeDesignBody;
 
@@ -115,12 +118,12 @@ export async function POST(request: Request) {
     !uuidPattern.test(body.menuId) ||
     !uuidPattern.test(body.requestId)
   ) {
-    return json({ message: "Tasarım açıklaması veya işlem bilgisi geçersiz." }, { status: 400 });
+    return json({ message: t("The design description or request details are invalid.", "Tasarım açıklaması veya işlem bilgisi geçersiz.") }, { status: 400 });
   }
 
   const storedMenu = getUserMenu(user.id, body.menuId);
   if (!storedMenu) {
-    return json({ message: "Tasarımı hazırlanacak menü bulunamadı." }, { status: 404 });
+    return json({ message: t("The menu to be designed could not be found.", "Tasarımı hazırlanacak menü bulunamadı.") }, { status: 404 });
   }
 
   const visibleItems = storedMenu.menu.categories.flatMap((category) =>
@@ -129,6 +132,7 @@ export async function POST(request: Request) {
       .map((item) => ({ category: category.name, name: item.name })),
   );
   const designContext = {
+    responseLanguage: locale === "tr" ? "Turkish" : "English",
     requestedDirection: brief,
     menu: {
       restaurantName: storedMenu.menu.restaurantName,
@@ -191,7 +195,7 @@ export async function POST(request: Request) {
     return json(
       {
         code: "THEME_DESIGN_RATE_LIMIT",
-        message: "Saatlik AI tasarım sınırına ulaştın. Bir süre sonra tekrar dene.",
+        message: t("You have reached the hourly AI design limit. Try again later.", "Saatlik AI tasarım sınırına ulaştın. Bir süre sonra tekrar dene."),
       },
       {
         status: 429,
@@ -209,7 +213,7 @@ export async function POST(request: Request) {
     return json(
       {
         code: "AI_NOT_CONFIGURED",
-        message: "AI tasarım üretimi için OPENAI_API_KEY ayarlanmalı.",
+        message: t("OPENAI_API_KEY must be configured for AI design generation.", "AI tasarım üretimi için OPENAI_API_KEY ayarlanmalı."),
       },
       { status: 503 },
     );
@@ -219,7 +223,7 @@ export async function POST(request: Request) {
   try {
     spendResult = spendAICredits(user.id, {
       amount: aiCreditCosts.themeDesign,
-      description: "AI özel menü tasarımı",
+      description: t("Custom AI menu design", "AI özel menü tasarımı"),
       operation: "theme-design",
       referenceId: spendReferenceId,
     });
@@ -233,7 +237,13 @@ export async function POST(request: Request) {
       return json(
         {
           code: error.code,
-          message: error.message,
+          message: locale === "tr"
+            ? error.message
+            : error.code === "INSUFFICIENT_CREDITS"
+              ? "You do not have enough AI credits for this action."
+              : error.code === "IDEMPOTENCY_CONFLICT"
+                ? "This request conflicts with an existing credit transaction."
+                : "The AI credit transaction is invalid.",
           credits: { balance: error.balance ?? 0, cost: aiCreditCosts.themeDesign },
         },
         { status },
@@ -246,7 +256,7 @@ export async function POST(request: Request) {
     return json(
       {
         code: "THEME_DESIGN_IN_PROGRESS",
-        message: "Bu tasarım isteği işleniyor veya sonucu artık saklanmıyor. Yeni bir istek oluştur.",
+        message: t("This design request is still processing or its result is no longer stored. Create a new request.", "Bu tasarım isteği işleniyor veya sonucu artık saklanmıyor. Yeni bir istek oluştur."),
         credits: { balance: spendResult.balance, cost: aiCreditCosts.themeDesign },
       },
       { status: 409 },
@@ -256,7 +266,7 @@ export async function POST(request: Request) {
   const refundAndRespond = (data: Record<string, unknown>, status: number) => {
     try {
       const refund = refundAICredits(user.id, {
-        description: "Başarısız AI tasarım üretimi iadesi",
+        description: t("Failed AI design refund", "Başarısız AI tasarım üretimi iadesi"),
         operation: "theme-design",
         spendReferenceId,
       });
@@ -277,7 +287,7 @@ export async function POST(request: Request) {
         {
           ...data,
           code: "THEME_DESIGN_REFUND_FAILED",
-          message: "Tasarım üretilemedi ve kredi iadesi tamamlanamadı. İşlem kaydını kontrol et.",
+          message: t("The design failed and the credit refund could not be completed. Check the transaction record.", "Tasarım üretilemedi ve kredi iadesi tamamlanamadı. İşlem kaydını kontrol et."),
           credits: { balance: spendResult.balance, cost: aiCreditCosts.themeDesign, refunded: false },
         },
         { status: 500 },
@@ -307,7 +317,7 @@ export async function POST(request: Request) {
           "Choose colors so text has at least 4.5:1 contrast against background and surface, and accent has at least 4.5:1 contrast against both background and surface.",
           "Keep background and surface in the same light or dark family so one readable text color can work on both.",
           "Keep the design readable on a narrow phone screen and set stylePreset to custom.",
-          "Write the design name and short summary in Turkish.",
+          `Write the design name and short summary in ${locale === "tr" ? "Turkish" : "English"}.`,
         ].join(" "),
         input: JSON.stringify(designContext),
         text: {
@@ -326,7 +336,7 @@ export async function POST(request: Request) {
     return refundAndRespond(
       {
         code: "AI_TEMPORARILY_UNAVAILABLE",
-        message: "AI tasarım servisine şu anda ulaşılamıyor. Kredin iade edildi.",
+        message: t("The AI design service is currently unavailable. Your credits were refunded.", "AI tasarım servisine şu anda ulaşılamıyor. Kredin iade edildi."),
       },
       503,
     );
@@ -337,7 +347,7 @@ export async function POST(request: Request) {
     result = (await openAIResponse.json()) as Record<string, unknown>;
   } catch {
     return refundAndRespond(
-      { message: "AI tasarım servisinden geçersiz yanıt alındı. Kredin iade edildi." },
+      { message: t("The AI design service returned an invalid response. Your credits were refunded.", "AI tasarım servisinden geçersiz yanıt alındı. Kredin iade edildi.") },
       502,
     );
   }
@@ -353,8 +363,8 @@ export async function POST(request: Request) {
       {
         code: temporary ? "AI_TEMPORARILY_UNAVAILABLE" : "THEME_DESIGN_FAILED",
         message: temporary
-          ? "AI tasarım servisi şu anda yoğun. Kredin iade edildi; biraz sonra tekrar dene."
-          : "Bu açıklamayla güvenli bir tasarım üretilemedi. Kredin iade edildi.",
+          ? t("The AI design service is busy. Your credits were refunded; try again later.", "AI tasarım servisi şu anda yoğun. Kredin iade edildi; biraz sonra tekrar dene.")
+          : t("A safe design could not be created from this description. Your credits were refunded.", "Bu açıklamayla güvenli bir tasarım üretilemedi. Kredin iade edildi."),
       },
       temporary ? 503 : 422,
     );
@@ -368,7 +378,7 @@ export async function POST(request: Request) {
     return refundAndRespond(
       {
         code: "INVALID_THEME_DESIGN",
-        message: "AI tasarım yanıtı güvenli biçime uymadı. Kredin iade edildi.",
+        message: t("The AI design response did not match the safe format. Your credits were refunded.", "AI tasarım yanıtı güvenli biçime uymadı. Kredin iade edildi."),
       },
       502,
     );
@@ -380,7 +390,7 @@ export async function POST(request: Request) {
     return refundAndRespond(
       {
         code: "INVALID_THEME_DESIGN",
-        message: "AI tasarım yanıtı güvenli biçime uymadı. Kredin iade edildi.",
+        message: t("The AI design response did not match the safe format. Your credits were refunded.", "AI tasarım yanıtı güvenli biçime uymadı. Kredin iade edildi."),
       },
       502,
     );

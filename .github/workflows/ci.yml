@@ -34,6 +34,9 @@ jobs:
       - name: TypeScript
         run: npm run typecheck
 
+      - name: Internationalization regression
+        run: npm run test:i18n
+
       - name: Production dependency audit
         run: npm audit --omit=dev --audit-level=high
 

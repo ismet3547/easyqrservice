@@ -1,25 +1,160 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { LegalPage } from "@/components/LegalPage";
+import { getLocalizedAppPath } from "@/lib/i18n";
+import { getRequestLocale } from "@/lib/i18n-server";
 import { getLegalConfig } from "@/lib/legal";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  title: "Kullanım Koşulları",
-  description: "easyqr hesabı, QR menü yayını, AI özellikleri ve plan kullanımına ilişkin koşullar.",
-  alternates: { canonical: "/kullanim-kosullari" },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getRequestLocale();
+  return locale === "tr"
+    ? {
+        title: "Kullanım Koşulları",
+        description: "easyqr hesabı, QR menü yayını, AI özellikleri ve plan kullanımına ilişkin koşullar.",
+        alternates: { canonical: "/kullanim-kosullari", languages: { en: "/terms", tr: "/kullanim-kosullari" } },
+      }
+    : {
+        title: "Terms of Service",
+        description: "Terms for easyqr accounts, QR-menu publishing, AI features, and plan access.",
+        alternates: { canonical: "/terms", languages: { en: "/terms", tr: "/kullanim-kosullari" } },
+      };
+}
 
-export default function TermsPage() {
-  const legal = getLegalConfig();
-  const hasContactEmail = legal.missingFields.every((field) => field !== "İletişim e-postası");
+export default async function TermsPage() {
+  const locale = await getRequestLocale();
+  const legal = getLegalConfig(locale);
+  const hasContactEmail = legal.contactEmailConfigured;
+
+  if (locale === "en") {
+    return (
+      <LegalPage
+        description="These terms explain the responsibilities and service limits that apply when you create an easyqr account and publish a QR menu."
+        eyebrow="Service agreement"
+        kind="terms"
+        locale={locale}
+        title="Terms of Service"
+      >
+        <section>
+          <h2>1. Parties and acceptance</h2>
+          <p>
+            These terms are between <strong>{legal.entityName}</strong>, the operator of
+            easyqr, and the person creating an account or the business they represent.
+            Accepting the terms during registration forms the service agreement. Our handling
+            of personal data is explained in the <Link href={getLocalizedAppPath(locale, "privacy")}>Privacy Notice</Link>.
+          </p>
+        </section>
+
+        <section>
+          <h2>2. The service</h2>
+          <p>
+            easyqr provides menu creation and editing, publishing through a QR link,
+            print-ready QR materials, limited menu analytics, and optional AI-assisted menu
+            extraction, translation, theme, and image tools.
+          </p>
+          <ul>
+            <li>New accounts start with a seven-day trial and one menu.</li>
+            <li>The current Pro plan supports up to five menus for the activated period.</li>
+            <li>AI features may be limited by plan, rate limits, credits, or provider capacity.</li>
+            <li>The plan duration, scope, and price shown before a purchase govern that transaction.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>3. Account security</h2>
+          <ul>
+            <li>Provide accurate, current information belonging to you or the business you represent.</li>
+            <li>You are responsible for securing your password and devices with account access.</li>
+            <li>Report suspected unauthorised access promptly through the contact address.</li>
+            <li>Do not use the service unlawfully, disrupt it, evade limits, or infringe another person&apos;s rights.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>4. Menu content and publishing</h2>
+          <p>
+            You retain responsibility for the text, prices, brands, images, contact details,
+            allergens, and other content you upload or publish. You grant easyqr a limited,
+            non-exclusive technical licence to host, process, and display that content in the
+            QR menus you choose to publish.
+          </p>
+          <ul>
+            <li>Check products, prices, opening hours, and allergen information before publishing.</li>
+            <li>Do not upload content that infringes copyright, trademarks, privacy, or other rights.</li>
+            <li>Content that is unlawful or creates a security risk may be removed and the account may be restricted.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>5. AI features</h2>
+          <p>
+            AI output is generated automatically and may be inaccurate, incomplete, or
+            unsuitable. easyqr provides it as a draft; the account owner decides whether to
+            publish it and must review names, prices, ingredients, allergens, nutrition claims,
+            translations, and images before use.
+          </p>
+        </section>
+
+        <section>
+          <h2>6. Fees, term, cancellation, and refunds</h2>
+          <p>
+            During the pilot, Pro access may be activated manually for the price and period
+            separately agreed with easyqr. The application does not currently renew plans or
+            charge cards automatically. Invoices, cancellation, withdrawal, and refund rights
+            depend on the transaction, whether you act as a business or consumer, and mandatory
+            law. Payment-specific terms will be presented before paid self-service checkout is enabled.
+          </p>
+        </section>
+
+        <section>
+          <h2>7. Availability and changes</h2>
+          <p>
+            Security work, maintenance, provider outages, or events outside reasonable control
+            may interrupt the service. We use reasonable technical measures and backups but do
+            not promise uninterrupted or error-free operation. Material changes to plans or
+            terms will be communicated through an appropriate channel before they take effect.
+          </p>
+        </section>
+
+        <section>
+          <h2>8. Ending an account</h2>
+          <p>
+            You can delete your account in Settings. Deletion permanently removes the active
+            account, menus, sessions, and related records; limited copies may remain until the
+            normal backup cycle completes. Serious or repeated violations may result in account
+            restriction or termination.
+          </p>
+        </section>
+
+        <section>
+          <h2>9. Limits of responsibility</h2>
+          <p>
+            To the extent permitted by mandatory law, easyqr is not responsible for indirect
+            loss caused by customer-published content, unchecked AI output, physical QR-print
+            quality, or third-party outages. Nothing in these terms excludes liability that
+            cannot lawfully be excluded, including liability for intent or gross negligence where applicable.
+          </p>
+        </section>
+
+        <section>
+          <h2>10. Governing law and contact</h2>
+          <p>
+            These terms are governed by the laws of the Republic of Türkiye, without removing
+            mandatory consumer protections or jurisdiction rights that apply where you live.
+            Questions can be sent to {hasContactEmail ? <a href={`mailto:${legal.contactEmail}`}>{legal.contactEmail}</a> : "the configured contact address"}.
+          </p>
+        </section>
+      </LegalPage>
+    );
+  }
 
   return (
     <LegalPage
       description="easyqr hesabı açarken ve QR menü hizmetini kullanırken tarafların sorumluluklarını ve hizmet sınırlarını açıklar."
       eyebrow="Hizmet sözleşmesi"
       kind="terms"
+      locale={locale}
       title="Kullanım Koşulları"
     >
       <section>
@@ -28,7 +163,7 @@ export default function TermsPage() {
           Bu koşullar, easyqr hizmetini sunan <strong>{legal.entityName}</strong> ile
           hesap oluşturan kişi veya adına hareket ettiği işletme arasındadır. Hesap
           oluştururken koşulları kabul etmeniz hizmet sözleşmesini kurar. Gizlilik ve
-          kişisel veri işleme bilgileri ayrıca <Link href="/gizlilik">Gizlilik ve KVKK Aydınlatma Metni</Link>’nde açıklanır.
+          kişisel veri işleme bilgileri ayrıca <Link href={getLocalizedAppPath(locale, "privacy")}>Gizlilik ve KVKK Aydınlatma Metni</Link>’nde açıklanır.
         </p>
       </section>
 

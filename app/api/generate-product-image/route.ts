@@ -9,6 +9,7 @@ import {
   readAiCache,
   writeAiCache,
 } from "@/lib/ai-cache";
+import { resolveRequestLocale } from "@/lib/i18n";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -18,6 +19,7 @@ type GenerateProductImageBody = {
   description?: string;
   categoryName?: string;
   restaurantName?: string;
+  sourceLanguage?: string;
   refresh?: boolean;
 };
 
@@ -57,12 +59,12 @@ function getVisualGuidance(name: string, categoryName: string) {
     return "This is Turkish ayran, a cold white yogurt drink served in a clear glass or traditional metal cup. It is a beverage, not yogurt in a bowl and not solid food.";
   }
 
-  const beverageCategories = ["icecek", "icecekler", "kahve", "cay", "mesrubat", "soguk icecek", "sicak icecek"];
+  const beverageCategories = ["icecek", "icecekler", "kahve", "cay", "mesrubat", "soguk icecek", "sicak icecek", "beverage", "beverages", "drink", "drinks", "coffee", "tea", "juice"];
   if (beverageCategories.some((keyword) => category.includes(keyword))) {
     return "This menu item belongs to the beverage category. Show it unmistakably as a drink in an appropriate glass or cup, never as solid food or a plated dish.";
   }
 
-  const dessertCategories = ["tatli", "tatlilar", "pasta", "dondurma"];
+  const dessertCategories = ["tatli", "tatlilar", "pasta", "dondurma", "dessert", "desserts", "cake", "cakes", "ice cream"];
   if (dessertCategories.some((keyword) => category.includes(keyword))) {
     return "This menu item belongs to the dessert category. Show a realistic single dessert serving, not a savory meal or beverage.";
   }
@@ -78,15 +80,17 @@ const cacheVersion = "v1";
 const cacheTtlMs = 14 * 24 * 60 * 60 * 1000;
 
 export async function POST(request: Request) {
+  const locale = resolveRequestLocale(request);
+  const t = (english: string, turkish: string) => locale === "tr" ? turkish : english;
   if (!isSameOrigin(request)) {
-    return NextResponse.json({ message: "Geçersiz istek kaynağı." }, { status: 403 });
+    return NextResponse.json({ message: t("Invalid request origin.", "Geçersiz istek kaynağı.") }, { status: 403 });
   }
 
   const user = await getCurrentUser();
   if (!user) {
-    return NextResponse.json({ message: "Görsel üretmek için giriş yapmalısın." }, { status: 401 });
+    return NextResponse.json({ message: t("Log in to generate images.", "Görsel üretmek için giriş yapmalısın.") }, { status: 401 });
   }
-  const accountBlock = getAccountFeatureBlock(user.account, "ai");
+  const accountBlock = getAccountFeatureBlock(user.account, "ai", locale);
   if (accountBlock) {
     return NextResponse.json(
       { code: accountBlock.code, message: accountBlock.message },
@@ -97,22 +101,23 @@ export async function POST(request: Request) {
   const parsed = await readJsonRequest(request, maximumRequestBytes);
   if (!parsed.ok) {
     return NextResponse.json(
-      { message: parsed.reason === "too-large" ? "İstek çok büyük." : "Geçersiz istek." },
+      { message: parsed.reason === "too-large" ? t("Request is too large.", "İstek çok büyük.") : t("Invalid request.", "Geçersiz istek.") },
       { status: parsed.status },
     );
   }
   if (
     !isRecordWithOnlyKeys(
       parsed.value,
-      ["categoryName", "description", "name", "refresh", "restaurantName"],
+      ["categoryName", "description", "name", "refresh", "restaurantName", "sourceLanguage"],
     ) ||
     (parsed.value.name !== undefined && typeof parsed.value.name !== "string") ||
     (parsed.value.description !== undefined && typeof parsed.value.description !== "string") ||
     (parsed.value.categoryName !== undefined && typeof parsed.value.categoryName !== "string") ||
     (parsed.value.restaurantName !== undefined && typeof parsed.value.restaurantName !== "string") ||
+    (parsed.value.sourceLanguage !== undefined && typeof parsed.value.sourceLanguage !== "string") ||
     (parsed.value.refresh !== undefined && typeof parsed.value.refresh !== "boolean")
   ) {
-    return NextResponse.json({ message: "Geçersiz istek." }, { status: 400 });
+    return NextResponse.json({ message: t("Invalid request.", "Geçersiz istek.") }, { status: 400 });
   }
   const body = parsed.value as GenerateProductImageBody;
 
@@ -120,6 +125,7 @@ export async function POST(request: Request) {
   const description = typeof body.description === "string" ? body.description.trim() : "";
   const categoryName = typeof body.categoryName === "string" ? body.categoryName.trim() : "";
   const restaurantName = typeof body.restaurantName === "string" ? body.restaurantName.trim() : "";
+  const sourceLanguage = typeof body.sourceLanguage === "string" ? body.sourceLanguage.trim() : "";
   const refresh = body.refresh === true;
 
   if (
@@ -128,10 +134,12 @@ export async function POST(request: Request) {
     description.length > 1000 ||
     categoryName.length > 100 ||
     restaurantName.length > 120 ||
+    sourceLanguage.length > 35 ||
+    (sourceLanguage && !/^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/i.test(sourceLanguage)) ||
     (body.refresh !== undefined && typeof body.refresh !== "boolean")
   ) {
     return NextResponse.json(
-      { message: "Ürün adı veya açıklaması görsel üretimi için uygun değil." },
+      { message: t("The item name or description is not valid for image generation.", "Ürün adı veya açıklaması görsel üretimi için uygun değil.") },
       { status: 400 },
     );
   }
@@ -139,7 +147,7 @@ export async function POST(request: Request) {
   const visualGuidance = getVisualGuidance(name, categoryName);
   const prompt = [
     "Create a photorealistic square product photograph for a professional restaurant QR menu.",
-    "The menu language is Turkish; interpret the Turkish item name using its category and description.",
+    `The menu text may be in any language${sourceLanguage ? ` (declared language: ${sourceLanguage})` : ""}; interpret the item using its category and description.`,
     "Menu item name: " + name + ".",
     categoryName ? "Menu category: " + categoryName + "." : "",
     description ? "Item description and ingredients: " + description + "." : "",
@@ -192,7 +200,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         code: "IMAGE_RATE_LIMIT",
-        message: "Saatlik görsel üretme sınırına ulaştın. Bir süre sonra tekrar dene.",
+        message: t("You have reached the hourly image generation limit. Try again later.", "Saatlik görsel üretme sınırına ulaştın. Bir süre sonra tekrar dene."),
       },
       {
         status: 429,
@@ -210,7 +218,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         code: "AI_NOT_CONFIGURED",
-        message: "AI görsel üretimi için OPENAI_API_KEY ayarlanmalı.",
+        message: t("OPENAI_API_KEY must be configured for AI image generation.", "AI görsel üretimi için OPENAI_API_KEY ayarlanmalı."),
       },
       { status: 503 },
     );
@@ -238,7 +246,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         code: "AI_TEMPORARILY_UNAVAILABLE",
-        message: "Görsel servisine şu anda ulaşılamıyor. Biraz sonra tekrar dene.",
+        message: t("The image service is currently unavailable. Try again shortly.", "Görsel servisine şu anda ulaşılamıyor. Biraz sonra tekrar dene."),
       },
       { status: 503 },
     );
@@ -249,7 +257,7 @@ export async function POST(request: Request) {
     result = (await openAIResponse.json()) as OpenAIImageResponse;
   } catch {
     return NextResponse.json(
-      { message: "Görsel servisinden geçersiz yanıt alındı." },
+      { message: t("The image service returned an invalid response.", "Görsel servisinden geçersiz yanıt alındı.") },
       { status: 502 },
     );
   }
@@ -264,8 +272,8 @@ export async function POST(request: Request) {
       {
         code: isTemporary ? "AI_TEMPORARILY_UNAVAILABLE" : "IMAGE_GENERATION_FAILED",
         message: isTemporary
-          ? "Görsel servisi şu anda yoğun veya kullanım kotası dolu. Biraz sonra tekrar dene."
-          : "Bu ürün için görsel üretilemedi. Ürün adını veya açıklamasını değiştirip tekrar dene.",
+          ? t("The image service is busy or its quota is exhausted. Try again later.", "Görsel servisi şu anda yoğun veya kullanım kotası dolu. Biraz sonra tekrar dene.")
+          : t("Could not generate an image for this item. Change the name or description and try again.", "Bu ürün için görsel üretilemedi. Ürün adını veya açıklamasını değiştirip tekrar dene."),
       },
       { status: isTemporary ? 503 : 422 },
     );
@@ -274,7 +282,7 @@ export async function POST(request: Request) {
   const base64Image = result.data?.[0]?.b64_json;
   if (!base64Image || base64Image.length > 12_000_000) {
     return NextResponse.json(
-      { message: "Üretilen görsel güvenli boyut sınırını aştı veya boş döndü." },
+      { message: t("The generated image exceeded the safe size limit or was empty.", "Üretilen görsel güvenli boyut sınırını aştı veya boş döndü.") },
       { status: 502 },
     );
   }
