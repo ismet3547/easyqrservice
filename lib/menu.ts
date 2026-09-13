@@ -1,3 +1,5 @@
+import type { AppLocale } from "@/lib/i18n";
+
 export const menuDietaryTags = ["vegan", "vegetarian", "gluten-free", "spicy"] as const;
 export type MenuDietaryTag = (typeof menuDietaryTags)[number];
 
@@ -53,6 +55,7 @@ export const allergenLabelsEn: Record<MenuAllergen, string> = {
 };
 
 export type MenuLanguage = "tr" | "en";
+export type MenuDisplayLanguage = "source" | "en";
 
 export const menuWeekdays = [
   "monday",
@@ -131,6 +134,7 @@ export type MenuData = {
   restaurantName: string;
   subtitle: string;
   currency: string;
+  sourceLanguage?: string;
   categories: MenuCategory[];
   businessProfile?: MenuBusinessProfile;
   translations?: {
@@ -352,7 +356,7 @@ export const defaultBusinessProfile: MenuBusinessProfile = {
   whatsapp: "",
   instagram: "",
   mapsUrl: "",
-  timezone: "Europe/Istanbul",
+  timezone: "UTC",
   hoursEnabled: false,
   weeklyHours: {
     monday: { isOpen: true, opensAt: "09:00", closesAt: "22:00" },
@@ -382,10 +386,11 @@ export function getMenuBusinessProfile(menu: MenuData): MenuBusinessProfile {
   };
 }
 
-export const demoMenu: MenuData = {
+export const demoMenuTr: MenuData = {
   restaurantName: "Sade Mutfak",
   subtitle: "Mevsiminde, yerel ve özenli",
   currency: "₺",
+  sourceLanguage: "tr",
   categories: [
     {
       id: "kahvalti",
@@ -455,6 +460,187 @@ export const demoMenu: MenuData = {
     },
   ],
 };
+
+export const demoMenu: MenuData = {
+  restaurantName: "Sage Kitchen",
+  subtitle: "Seasonal ingredients, thoughtfully prepared",
+  currency: "$",
+  sourceLanguage: "en",
+  businessProfile: {
+    ...defaultBusinessProfile,
+    timezone: "America/New_York",
+  },
+  categories: [
+    {
+      id: "breakfast",
+      name: "Breakfast",
+      items: [
+        {
+          id: "avocado-toast",
+          name: "Avocado Toast",
+          description: "Sourdough, avocado, poached egg and fresh herbs",
+          price: "14",
+          badge: "Popular",
+          originalPrice: "17",
+          isCampaign: true,
+          dietaryTags: ["vegetarian"],
+          allergens: ["gluten", "egg"],
+        },
+        {
+          id: "house-granola",
+          name: "House Granola",
+          description: "Greek yogurt, seasonal fruit, honey and hazelnuts",
+          price: "11",
+          badge: "",
+          dietaryTags: ["vegetarian"],
+          allergens: ["milk", "nuts"],
+        },
+        {
+          id: "garden-omelette",
+          name: "Garden Omelette",
+          description: "Free-range eggs, tomato, peppers and fresh herbs",
+          price: "13",
+          badge: "New",
+          allergens: ["egg"],
+        },
+      ],
+    },
+    {
+      id: "coffee",
+      name: "Coffee",
+      items: [
+        {
+          id: "flat-white",
+          name: "Flat White",
+          description: "Double espresso with silky steamed milk",
+          price: "6",
+          badge: "",
+          allergens: ["milk"],
+        },
+        {
+          id: "orange-cold-brew",
+          name: "Orange Cold Brew",
+          description: "18-hour cold brew with fresh orange peel",
+          price: "7",
+          badge: "Popular",
+        },
+      ],
+    },
+    {
+      id: "desserts",
+      name: "Desserts",
+      items: [
+        {
+          id: "burnt-cheesecake",
+          name: "Burnt Cheesecake",
+          description: "Basque-style cheesecake with dark chocolate sauce",
+          price: "10",
+          badge: "",
+          allergens: ["milk", "egg", "gluten"],
+        },
+      ],
+    },
+  ],
+};
+
+export function getDemoMenu(locale: AppLocale) {
+  return locale === "tr" ? demoMenuTr : demoMenu;
+}
+
+export function getMenuInterfaceLanguage(menu: MenuData): MenuLanguage {
+  const sourceLanguage = getMenuSourceLanguage(menu);
+  return sourceLanguage === "tr" || sourceLanguage.startsWith("tr-") ? "tr" : "en";
+}
+
+export function getMenuSourceLanguage(menu: MenuData) {
+  return menu.sourceLanguage?.trim().toLocaleLowerCase("en-US") || "tr";
+}
+
+export function getMenuTextDirection(language: string): "ltr" | "rtl" {
+  const baseLanguage = language.trim().toLocaleLowerCase("en-US").split("-")[0];
+  return ["ar", "dv", "fa", "he", "ps", "sd", "ug", "ur", "yi"].includes(baseLanguage)
+    ? "rtl"
+    : "ltr";
+}
+
+export function isMenuCurrencyPrefix(currency: string, language = "en") {
+  const normalizedCurrency = currency.trim();
+  if (
+    ["$", "£", "¥", "￥", "₹", "₩", "₱", "฿", "₪", "₦"].includes(normalizedCurrency) ||
+    /^(?:A|C|HK|NZ|R|S)\$$/.test(normalizedCurrency) ||
+    /^[A-Za-z]{3}$/.test(normalizedCurrency)
+  ) {
+    return true;
+  }
+  const baseLanguage = language.trim().toLocaleLowerCase("en-US").split("-")[0];
+  return normalizedCurrency === "€" && ["en", "nl"].includes(baseLanguage);
+}
+
+export function formatMenuPrice(amount: string, currency: string, language = "en") {
+  const normalizedCurrency = currency.trim();
+  if (!normalizedCurrency) return amount;
+  const separator = /^[A-Za-z]{3}$/.test(normalizedCurrency) ? "\u00a0" : "";
+  return isMenuCurrencyPrefix(normalizedCurrency, language)
+    ? `${normalizedCurrency}${separator}${amount}`
+    : `${amount}${separator}${normalizedCurrency}`;
+}
+
+export function normalizeMenuSearchText(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("en-US")
+    .replace(/ı/g, "i")
+    .replace(/[^\p{L}\p{N}\p{M}]+/gu, " ")
+    .trim();
+}
+
+export function normalizeMenuSlug(value: string, fallback = "menu", maximumLength = 60) {
+  const normalized = value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[Iİı]/g, "i")
+    .toLocaleLowerCase("en-US")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "")
+    .slice(0, maximumLength)
+    .replace(/-$/g, "");
+  return normalized || fallback;
+}
+
+export function resolveMenuDisplayLanguage(
+  menu: MenuData,
+  acceptLanguage: string | null | undefined,
+): MenuDisplayLanguage {
+  const sourceBaseLanguage = getMenuSourceLanguage(menu).split("-")[0];
+  if (sourceBaseLanguage === "en" || !acceptLanguage || !hasEnglishMenuTranslation(menu)) {
+    return "source";
+  }
+
+  const preferences = acceptLanguage
+    .split(",")
+    .map((entry, index) => {
+      const [language = "", ...parameters] = entry.trim().split(";");
+      const qualityParameter = parameters.find((parameter) => parameter.trim().startsWith("q="));
+      const parsedQuality = qualityParameter
+        ? Number.parseFloat(qualityParameter.trim().slice(2))
+        : 1;
+      return {
+        language: language.toLocaleLowerCase("en-US"),
+        quality: Number.isFinite(parsedQuality) ? parsedQuality : 0,
+        index,
+      };
+    })
+    .filter((entry) => entry.language && entry.language !== "*" && entry.quality > 0)
+    .sort((first, second) => second.quality - first.quality || first.index - second.index);
+
+  for (const preference of preferences) {
+    const preferredBaseLanguage = preference.language.split("-")[0];
+    if (preferredBaseLanguage === sourceBaseLanguage) return "source";
+    if (preferredBaseLanguage === "en") return "en";
+  }
+  return "en";
+}
 
 export function getMenuTranslationFingerprint(menu: MenuData) {
   const source = JSON.stringify({

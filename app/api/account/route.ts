@@ -5,11 +5,12 @@ import { deleteCurrentSession, getCurrentUser, isSameOrigin } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { isRecordWithOnlyKeys, readJsonRequest } from "@/lib/http";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { resolveRequestLocale } from "@/lib/i18n";
 
 export const runtime = "nodejs";
 
 const maximumRequestBytes = 4 * 1024;
-const requiredConfirmation = "HESABIMI SİL";
+const confirmationPhrases = ["DELETE MY ACCOUNT", "HESABIMI SİL"] as const;
 
 type DeleteAccountBody = {
   confirmation?: unknown;
@@ -19,11 +20,14 @@ type DeleteAccountBody = {
 type PasswordRow = { password_hash: string };
 
 export async function DELETE(request: Request) {
+  const locale = resolveRequestLocale(request);
+  const t = (english: string, turkish: string) => locale === "tr" ? turkish : english;
+  const requiredConfirmation = locale === "tr" ? confirmationPhrases[1] : confirmationPhrases[0];
   if (!isSameOrigin(request)) {
-    return NextResponse.json({ message: "Geçersiz istek kaynağı." }, { status: 403 });
+    return NextResponse.json({ message: t("Invalid request origin.", "Geçersiz istek kaynağı.") }, { status: 403 });
   }
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ message: "Giriş gerekli." }, { status: 401 });
+  if (!user) return NextResponse.json({ message: t("Login required.", "Giriş gerekli.") }, { status: 401 });
 
   const rateLimit = checkRateLimit(
     `delete-account:${user.id}`,
@@ -32,7 +36,7 @@ export async function DELETE(request: Request) {
   );
   if (!rateLimit.allowed) {
     return NextResponse.json(
-      { message: "Çok fazla hesap silme denemesi yapıldı. Biraz sonra tekrar dene." },
+      { message: t("Too many account deletion attempts. Please try again later.", "Çok fazla hesap silme denemesi yapıldı. Biraz sonra tekrar dene.") },
       { status: 429, headers: { "Retry-After": String(rateLimit.retryAfterSeconds) } },
     );
   }
@@ -40,23 +44,23 @@ export async function DELETE(request: Request) {
   const parsed = await readJsonRequest(request, maximumRequestBytes);
   if (!parsed.ok) {
     return NextResponse.json(
-      { message: parsed.reason === "too-large" ? "İstek çok büyük." : "Geçersiz istek." },
+      { message: parsed.reason === "too-large" ? t("Request is too large.", "İstek çok büyük.") : t("Invalid request.", "Geçersiz istek.") },
       { status: parsed.status },
     );
   }
   if (!isRecordWithOnlyKeys(parsed.value, ["confirmation", "currentPassword"])) {
-    return NextResponse.json({ message: "Geçersiz istek." }, { status: 400 });
+    return NextResponse.json({ message: t("Invalid request.", "Geçersiz istek.") }, { status: 400 });
   }
   const body = parsed.value as DeleteAccountBody;
 
   const currentPassword = typeof body.currentPassword === "string" ? body.currentPassword : "";
   const confirmation = typeof body.confirmation === "string" ? body.confirmation : "";
   if (!currentPassword || Buffer.byteLength(currentPassword, "utf8") > 72) {
-    return NextResponse.json({ message: "Mevcut şifreni gir." }, { status: 400 });
+    return NextResponse.json({ message: t("Enter your current password.", "Mevcut şifreni gir.") }, { status: 400 });
   }
-  if (confirmation !== requiredConfirmation) {
+  if (!confirmationPhrases.includes(confirmation as typeof confirmationPhrases[number])) {
     return NextResponse.json(
-      { message: `Onay alanına tam olarak “${requiredConfirmation}” yaz.` },
+      { message: t(`Type “${requiredConfirmation}” exactly in the confirmation field.`, `Onay alanına tam olarak “${requiredConfirmation}” yaz.`) },
       { status: 400 },
     );
   }
@@ -67,12 +71,12 @@ export async function DELETE(request: Request) {
     ? await bcrypt.compare(currentPassword, account.password_hash)
     : false;
   if (!passwordMatches) {
-    return NextResponse.json({ message: "Mevcut şifren hatalı." }, { status: 401 });
+    return NextResponse.json({ message: t("Your current password is incorrect.", "Mevcut şifren hatalı.") }, { status: 401 });
   }
 
   const deleted = deleteUserAccount(user.id, account!.password_hash);
   if (!deleted) {
-    return NextResponse.json({ message: "Hesap bulunamadı." }, { status: 404 });
+    return NextResponse.json({ message: t("Account not found.", "Hesap bulunamadı.") }, { status: 404 });
   }
   await deleteCurrentSession();
   return NextResponse.json(

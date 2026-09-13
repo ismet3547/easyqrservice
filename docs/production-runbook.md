@@ -28,7 +28,7 @@ EMAIL_DELIVERY_MODE=resend
 RESEND_API_KEY=re_...
 EMAIL_FROM="easyqr <no-reply@easyqrservice.com>"
 LEGAL_ENTITY_NAME="Gerçek kişi adı veya şirket ticaret unvanı"
-LEGAL_CONTACT_EMAIL=kvkk@easyqrservice.com
+LEGAL_CONTACT_EMAIL=privacy@easyqrservice.com
 LEGAL_ADDRESS="Veri sorumlusunun açık tebligat adresi"
 
 BACKUP_RETENTION_DAYS=14
@@ -47,7 +47,8 @@ anahtarı yalnızca sunucuda tutulmalı ve `NEXT_PUBLIC_` önekiyle tanımlanmam
 Canlı uygulama, e-posta teslim ayarları eksikse başlamayı reddeder.
 
 `LEGAL_ENTITY_NAME`, `LEGAL_CONTACT_EMAIL` ve `LEGAL_ADDRESS` değerleri
-`/gizlilik` ile `/kullanim-kosullari` sayfalarında yayınlanır. Örnek veya marka
+`/privacy`, `/terms` ve bunların Türkçe karşılıkları `/gizlilik` ile
+`/kullanim-kosullari` sayfalarında yayınlanır. Örnek veya marka
 adı değil, hizmeti fiilen sunan gerçek kişi ya da şirketin yasal bilgileri
 kullanılmalıdır. `LEGAL_CONTACT_EMAIL` düzenli izlenen bir adres olmalıdır.
 
@@ -192,7 +193,7 @@ oluştuğunda PostgreSQL ve nesne depolamaya geçiş planlanmalıdır.
 
 - `/gizlilik`, `/cerez-politikasi` ve `/kullanim-kosullari` sayfalarında gerçek
   veri sorumlusu bilgilerinin göründüğünü kontrol et.
-- `LEGAL_CONTACT_EMAIL` gelen kutusunu izle; KVKK başvurularını en kısa sürede
+- `LEGAL_CONTACT_EMAIL` gelen kutusunu izle; gizlilik ve KVKK başvurularını en kısa sürede
   ve en geç 30 gün içinde sonuçlandıracak bir kayıt süreci oluştur.
 - OpenAI, Resend ve barındırma sağlayıcısının veri işleme/yurt dışı aktarım
   koşullarını seçilen üretim hesabıyla birlikte hukuk danışmanına teyit ettir.

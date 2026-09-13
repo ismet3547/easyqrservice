@@ -20,6 +20,7 @@ require.extensions[".ts"] = (module, filename) => module._compile(ts.transpileMo
 const { db } = require("../lib/db.ts");
 const { getEngagementAnalytics } = require("../lib/analytics-details.ts");
 const { getUserAnalytics } = require("../lib/analytics.ts");
+const { recordMenuEventBatch } = require("../lib/menu-events.ts");
 const now = new Date();
 const today = new Date(now);
 today.setUTCHours(0, 0, 0, 0);
@@ -48,7 +49,10 @@ try {
   insertUser.run("empty", "Empty", "empty@example.test", current, current);
   for (const [id, owner] of [["a1", "a"], ["a2", "a"], ["no-data", "a"], ["b1", "b"]]) {
     const published = {
-      restaurantName: `Live ${id}`, subtitle: "", currency: "₺", categories: [{
+      restaurantName: `Live ${id}`, subtitle: "", currency: "₺",
+      sourceLanguage: id === "a1" || id === "b1" ? "es" : "tr",
+      ...(id === "a1" ? { translations: { en: {} } } : {}),
+      categories: [{
         id: "c", name: "İçecekler", items: [
           { id: "p", name: "Türk kahvesi", price: "100" },
           { id: "falling", name: "Önceki dönem ürünü", price: "80" },
@@ -72,6 +76,13 @@ try {
   visit("a1", "future", "future", day(1));
   visit("a2", "second", "second");
   visit("b1", "foreign", "foreign");
+  visit("b1", "language-event-visit-0001", null, new Date().toISOString());
+  db.prepare("UPDATE menu_views SET language = 'es' WHERE visit_id = 'v1'").run();
+  assert.equal(recordMenuEventBatch({
+    events: [{ type: "language_change", value: "es" }],
+    visitId: "language-event-visit-0001",
+    visitorId: "global-visitor-id-001",
+  }).accepted, 1, "source-language interaction events support BCP 47 menu languages");
   for (const id of ["v1", "v2"]) {
     event("a1", id, "product_view", "p");
     event("a1", id, "category_view");
@@ -116,6 +127,11 @@ try {
   assert.equal(getUserAnalytics("a", 60, "b1").totalViews, 0);
   assert.equal(getUserAnalytics("a", 60, "b1").trackingStartedAt, null);
   assert.ok(getUserAnalytics("a", 60, "b1").dailyViews.every((point) => point.views === 0));
+  assert.equal(
+    getUserAnalytics("a", 60, "a1").dailyViews.reduce((sum, point) => sum + (point.languages.es || 0), 0),
+    1,
+    "BCP 47 menu languages remain visible in global analytics",
+  );
 
   for (const days of [7, 14, 30]) {
     const boundary = new Date(today.getTime() - (days - 1) * 86400000);
@@ -129,7 +145,7 @@ try {
     assert.equal(product.previousVisits, 1, "midnight-spanning event belongs to the visit's opening period");
     assert.equal(product.visits, days === 7 ? 0 : days === 14 ? 1 : 2);
   }
-  console.log("Analytics integration passed: scope/isolation, snapshots, unique visitors, dedupe, reach, history, empty states, and 7/14/30-day boundaries.");
+  console.log("Analytics integration passed: scope/isolation, snapshots, global languages, unique visitors, dedupe, reach, history, empty states, and 7/14/30-day boundaries.");
 } finally {
   db.close();
   fs.rmSync(temp, { recursive: true, force: true });

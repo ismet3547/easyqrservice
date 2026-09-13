@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import type { AppLocale } from "@/lib/i18n";
 
 export const trialDurationDays = 7;
 export const planMenuLimits = {
@@ -97,13 +98,15 @@ export function getAccountAccess(userId: string, now = new Date()): AccountAcces
 export function getAccountFeatureBlock(
   access: AccountAccess,
   feature: AccountFeature,
+  locale: AppLocale = "en",
 ): AccountFeatureBlock | null {
+  const t = (english: string, turkish: string) => locale === "tr" ? turkish : english;
   if (access.status === "expired") {
     return {
       code: "ACCOUNT_ACCESS_EXPIRED",
       message: access.plan === "trial"
-        ? "7 günlük deneme süren sona erdi. AI araçlarını kullanmak ve menü yayınlamak için Pro erişimini etkinleştir."
-        : "Pro erişim süren sona erdi. AI araçlarını kullanmak ve menü yayınlamak için erişimini yenile.",
+        ? t("Your 7-day trial has ended. Activate Pro access to use AI tools and publish menus.", "7 günlük deneme süren sona erdi. AI araçlarını kullanmak ve menü yayınlamak için Pro erişimini etkinleştir.")
+        : t("Your Pro access has expired. Renew access to use AI tools and publish menus.", "Pro erişim süren sona erdi. AI araçlarını kullanmak ve menü yayınlamak için erişimini yenile."),
       status: 403,
     };
   }
@@ -112,8 +115,8 @@ export function getAccountFeatureBlock(
     return {
       code: "MENU_LIMIT_REACHED",
       message: access.plan === "trial"
-        ? "Deneme planında 1 menü oluşturabilirsin. Daha fazla menü için Pro erişimini etkinleştir."
-        : `Pro planındaki ${access.maxMenus} menü sınırına ulaştın.`,
+        ? t("You can create 1 menu on the trial plan. Activate Pro access to create more.", "Deneme planında 1 menü oluşturabilirsin. Daha fazla menü için Pro erişimini etkinleştir.")
+        : t(`You have reached the ${access.maxMenus}-menu limit on the Pro plan.`, `Pro planındaki ${access.maxMenus} menü sınırına ulaştın.`),
       status: 409,
     };
   }

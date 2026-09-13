@@ -2,8 +2,10 @@ import { createHash } from "node:crypto";
 import { db } from "@/lib/db";
 import {
   getMenuBusinessProfile,
+  getMenuSourceLanguage,
   getVisibleMenu,
   hasEnglishMenuTranslation,
+  normalizeMenuSearchText,
   type MenuData,
   type MenuItem,
 } from "@/lib/menu";
@@ -158,7 +160,7 @@ function prepareEvent(
     if (event.resultCount > totalItems) return null;
     return {
       categoryId: null,
-      dedupeKey: `search:${hashValue(searchTerm.toLocaleLowerCase("tr-TR"))}`,
+      dedupeKey: `search:${hashValue(normalizeMenuSearchText(searchTerm))}`,
       eventValue: searchTerm,
       itemId: null,
       resultCount: event.resultCount,
@@ -190,8 +192,9 @@ function prepareEvent(
   }
 
   if (event.type === "language_change") {
-    if (event.value !== "tr" && event.value !== "en") return null;
-    if (event.value === "en" && !hasEnglishMenuTranslation(menu)) return null;
+    const sourceLanguage = getMenuSourceLanguage(menu);
+    if (event.value !== sourceLanguage && event.value !== "en") return null;
+    if (event.value === "en" && sourceLanguage !== "en" && !hasEnglishMenuTranslation(menu)) return null;
     return {
       categoryId: null,
       dedupeKey: `language:${event.value}`,

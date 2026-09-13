@@ -3,10 +3,10 @@ import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { PublicMenu } from "@/components/MenuPreview";
 import {
+  getMenuInterfaceLanguage,
+  getMenuSourceLanguage,
   getVisibleMenu,
-  hasEnglishMenuTranslation,
-  type MenuData,
-  type MenuLanguage,
+  resolveMenuDisplayLanguage,
 } from "@/lib/menu";
 import { resolveMenuDeviceType, resolveMenuTrafficSource } from "@/lib/menu-tracking";
 import { getPublishedMenu, recordMenuView } from "@/lib/menus";
@@ -22,39 +22,17 @@ type PublicMenuPageProps = {
   searchParams: Promise<{ src?: string | string[] }>;
 };
 
-function resolveInitialLanguage(
-  acceptLanguage: string | null,
-  menu: MenuData,
-): MenuLanguage {
-  if (!acceptLanguage || !hasEnglishMenuTranslation(menu)) return "tr";
-
-  const preferredLanguage = acceptLanguage
-    .split(",")
-    .map((entry, index) => {
-      const [language, ...parameters] = entry.trim().split(";");
-      const qualityParameter = parameters.find((parameter) => parameter.trim().startsWith("q="));
-      const parsedQuality = qualityParameter
-        ? Number.parseFloat(qualityParameter.trim().slice(2))
-        : 1;
-      return {
-        language: language.toLocaleLowerCase("en-US"),
-        quality: Number.isFinite(parsedQuality) ? parsedQuality : 0,
-        index,
-      };
-    })
-    .filter((entry) => entry.language && entry.language !== "*" && entry.quality > 0)
-    .sort((first, second) => second.quality - first.quality || first.index - second.index)[0]?.language;
-
-  return preferredLanguage && !preferredLanguage.startsWith("tr") ? "en" : "tr";
-}
-
 export async function generateMetadata({ params }: PublicMenuPageProps): Promise<Metadata> {
   const { slug } = await params;
   const storedMenu = getPublishedMenu(slug);
-  if (!storedMenu) return { title: "Menü bulunamadı — easyqr" };
+  if (!storedMenu) return { title: "Menu not found — easyqr" };
+  const interfaceLanguage = getMenuInterfaceLanguage(storedMenu.menu);
   return {
-    title: `${storedMenu.name} — Menü`,
-    description: storedMenu.menu.subtitle || `${storedMenu.name} dijital menüsü`,
+    alternates: { canonical: `/m/${encodeURIComponent(slug)}` },
+    title: `${storedMenu.name} — ${interfaceLanguage === "tr" ? "Menü" : "Menu"}`,
+    description: storedMenu.menu.subtitle || (interfaceLanguage === "tr"
+      ? `${storedMenu.name} dijital menüsü`
+      : `${storedMenu.name} digital menu`),
     robots: { index: true, follow: true },
   };
 }
@@ -65,9 +43,9 @@ export default async function PublicMenuPage({ params, searchParams }: PublicMen
   if (!storedMenu) notFound();
   const visibleMenu = getVisibleMenu(storedMenu.menu);
   const [requestHeaders, query] = await Promise.all([headers(), searchParams]);
-  const initialLanguage = resolveInitialLanguage(
-    requestHeaders.get("accept-language"),
+  const initialLanguage = resolveMenuDisplayLanguage(
     visibleMenu,
+    requestHeaders.get("accept-language"),
   );
   const sourceParameter = Array.isArray(query.src) ? query.src[0] : query.src;
   const requestHost = (requestHeaders.get("x-forwarded-host") || requestHeaders.get("host"))
@@ -95,7 +73,7 @@ export default async function PublicMenuPage({ params, searchParams }: PublicMen
   const analyticsVisitId = addressLimit.allowed && menuLimit.allowed
     ? recordMenuView(storedMenu.id, {
         deviceType,
-        language: initialLanguage,
+        language: initialLanguage === "en" ? "en" : getMenuSourceLanguage(visibleMenu),
         source: resolveMenuTrafficSource(
           sourceParameter,
           requestHeaders.get("referer"),

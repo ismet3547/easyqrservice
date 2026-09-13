@@ -39,6 +39,7 @@ import { DashboardMobileNav } from "@/components/DashboardMobileNav";
 import { DashboardMobileHeader, DashboardSidebar } from "@/components/DashboardSidebar";
 import { AccountAccessNotice } from "@/components/AccountAccessNotice";
 import { getOnboardingProgress, type OnboardingStepId } from "@/lib/onboarding";
+import { useAppLocale } from "@/components/LocaleProvider";
 
 function OnboardingStepIcon({ id }: { id: OnboardingStepId }) {
   if (id === "account") return <UserRound size={18} />;
@@ -47,19 +48,19 @@ function OnboardingStepIcon({ id }: { id: OnboardingStepId }) {
   return <ScanLine size={18} />;
 }
 
-function formatDashboardDay(date: string) {
-  return new Date(`${date}T12:00:00.000Z`).toLocaleDateString("tr-TR", {
+function formatDashboardDay(date: string, intlLocale: string) {
+  return new Date(`${date}T12:00:00.000Z`).toLocaleDateString(intlLocale, {
     day: "numeric",
     month: "short",
     timeZone: "UTC",
   });
 }
 
-function MetricChange({ current, previous }: { current: number; previous: number }) {
+function MetricChange({ current, locale, previous }: { current: number; locale: "en" | "tr"; previous: number }) {
   if (previous === 0) {
     return current > 0
-      ? <small className="positive"><Sparkles size={12} /> Yeni veri</small>
-      : <small className="neutral">Henüz veri yok</small>;
+      ? <small className="positive"><Sparkles size={12} /> {locale === "tr" ? "Yeni veri" : "New data"}</small>
+      : <small className="neutral">{locale === "tr" ? "Henüz veri yok" : "No data yet"}</small>;
   }
   const change = Math.round(((current - previous) / previous) * 100);
   if (change < 0) {
@@ -72,6 +73,7 @@ function DashboardMetric({
   current,
   icon,
   label,
+  locale,
   previous,
   subtitle,
   tone,
@@ -80,6 +82,7 @@ function DashboardMetric({
   current: number;
   icon: ReactNode;
   label: string;
+  locale: "en" | "tr";
   previous: number;
   subtitle: string;
   tone: "orange" | "green" | "purple" | "blue";
@@ -90,7 +93,7 @@ function DashboardMetric({
       <div className={`stat-icon ${tone}`}>{icon}</div>
       <span>{label}</span>
       <strong>{value}</strong>
-      <div><MetricChange current={current} previous={previous} /><small>{subtitle}</small></div>
+      <div><MetricChange current={current} locale={locale} previous={previous} /><small>{subtitle}</small></div>
     </article>
   );
 }
@@ -116,6 +119,8 @@ export function Dashboard({
   initialWelcome?: boolean;
 }) {
   const router = useRouter();
+  const { intlLocale, locale, number } = useAppLocale();
+  const t = (english: string, turkish: string) => locale === "tr" ? turkish : english;
   const [menus, setMenus] = useState(initialMenus);
   const [copiedId, setCopiedId] = useState("");
   const [deletingId, setDeletingId] = useState("");
@@ -126,7 +131,7 @@ export function Dashboard({
   const analytics = initialAnalytics.periods[period];
   const hasInteractionTracking = Boolean(initialAnalytics.trackingStartedAt);
   const firstPublishedMenu = menus.find((menu) => menu.status === "published");
-  const onboarding = getOnboardingProgress(menus);
+  const onboarding = getOnboardingProgress(menus, locale);
   const currentOnboardingStepId = onboarding.steps.find((step) => !step.complete)?.id;
   const returningRate = analytics.uniqueVisitors > 0
     ? Math.round((analytics.returningVisitors / analytics.uniqueVisitors) * 100)
@@ -146,45 +151,54 @@ export function Dashboard({
 
   if (topProduct) {
     opportunities.push({
-      description: `Son ${period} günde ${topProduct.views} doğrulanmış ürün görünürlüğü aldı.`,
+      description: t(
+        `${number(topProduct.views)} verified item views in the last ${period} days.`,
+        `Son ${period} günde ${number(topProduct.views)} doğrulanmış ürün görünürlüğü aldı.`,
+      ),
       href: `/studio?menu=${topProduct.menuId}`,
       icon: "flame",
-      label: "Ürünü geliştir",
-      title: `${topProduct.itemName} dikkat çekiyor`,
+      label: t("Improve this item", "Ürünü geliştir"),
+      title: t(`${topProduct.itemName} is getting attention`, `${topProduct.itemName} dikkat çekiyor`),
       tone: "orange",
     });
   }
   if (missedSearch) {
     opportunities.push({
-      description: `“${missedSearch.term}” ${missedSearch.count} kez arandı ancak eşleşen ürün bulunamadı.`,
+      description: t(
+        `Guests searched for “${missedSearch.term}” ${number(missedSearch.count)} times but found no matching item.`,
+        `“${missedSearch.term}” ${number(missedSearch.count)} kez arandı ancak eşleşen ürün bulunamadı.`,
+      ),
       href: "/dashboard/menus",
       icon: "search",
-      label: "Menüleri kontrol et",
-      title: "Müşterinin aradığını yakala",
+      label: t("Review menus", "Menüleri kontrol et"),
+      title: t("Add what guests are looking for", "Müşterinin aradığını yakala"),
       tone: "purple",
     });
   }
   if (lowReachCategory && opportunities.length < 3) {
     opportunities.push({
-      description: `Menü ziyaretlerinin yalnızca %${lowReachCategory.reach} kadarı bu kategoriye ulaştı.`,
+      description: t(
+        `Only ${lowReachCategory.reach}% of menu visits reached this category.`,
+        `Menü ziyaretlerinin yalnızca %${lowReachCategory.reach} kadarı bu kategoriye ulaştı.`,
+      ),
       href: `/studio?menu=${lowReachCategory.menuId}`,
       icon: "layers",
-      label: "Kategoriyi düzenle",
-      title: `${lowReachCategory.categoryName} daha görünür olabilir`,
+      label: t("Edit category", "Kategoriyi düzenle"),
+      title: t(`${lowReachCategory.categoryName} could be easier to find`, `${lowReachCategory.categoryName} daha görünür olabilir`),
       tone: "green",
     });
   }
   if (opportunities.length === 0) {
     opportunities.push({
       description: firstPublishedMenu
-        ? "QR kodunu müşterilerle paylaş. Ürün ilgisi oluştuğunda fırsatlar burada otomatik belirecek."
+        ? t("Share the QR code with guests. Opportunities will appear here as engagement grows.", "QR kodunu müşterilerle paylaş. Ürün ilgisi oluştuğunda fırsatlar burada otomatik belirecek.")
         : onboarding.nextAction.description,
       href: firstPublishedMenu
         ? `/dashboard/menus/${firstPublishedMenu.id}/qr`
         : onboarding.nextAction.href,
       icon: "flame",
-      label: firstPublishedMenu ? "QR kodunu paylaş" : onboarding.nextAction.label,
-      title: firstPublishedMenu ? "İlk davranış verilerini topla" : onboarding.nextAction.title,
+      label: firstPublishedMenu ? t("Share QR code", "QR kodunu paylaş") : onboarding.nextAction.label,
+      title: firstPublishedMenu ? t("Collect your first engagement data", "İlk davranış verilerini topla") : onboarding.nextAction.title,
       tone: "orange",
     });
   }
@@ -201,12 +215,12 @@ export function Dashboard({
   const logout = async () => {
     try {
       const response = await fetch("/api/auth/logout", { method: "POST" });
-      if (!response.ok) throw new Error("Çıkış yapılamadı. Yeniden dene.");
+      if (!response.ok) throw new Error(t("Could not log out. Please try again.", "Çıkış yapılamadı. Yeniden dene."));
       setActionError("");
       router.replace("/");
       router.refresh();
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : "Çıkış yapılamadı. Bağlantını kontrol et.");
+      setActionError(error instanceof Error ? error.message : t("Could not log out. Check your connection.", "Çıkış yapılamadı. Bağlantını kontrol et."));
     }
   };
 
@@ -217,13 +231,13 @@ export function Dashboard({
       setActionError("");
       window.setTimeout(() => setCopiedId(""), 1600);
     } catch {
-      setActionError("Bağlantı kopyalanamadı. Menüyü açıp adres çubuğundan kopyalayabilirsin.");
+      setActionError(t("Could not copy the link. Open the menu and copy it from the address bar.", "Bağlantı kopyalanamadı. Menüyü açıp adres çubuğundan kopyalayabilirsin."));
     }
   };
 
   const deleteMenu = async (storedMenu: StoredMenu) => {
     if (deletingId) return;
-    const confirmed = window.confirm(`“${storedMenu.name}” menüsünü silmek istediğine emin misin?`);
+    const confirmed = window.confirm(t(`Delete the “${storedMenu.name}” menu?`, `“${storedMenu.name}” menüsünü silmek istediğine emin misin?`));
     if (!confirmed) return;
     setDeletingId(storedMenu.id);
     setActionError("");
@@ -231,12 +245,12 @@ export function Dashboard({
       const response = await fetch(`/api/menus/${storedMenu.id}`, { method: "DELETE" });
       if (!response.ok) {
         const result = await response.json().catch(() => null) as { message?: string } | null;
-        throw new Error(result?.message || "Menü silinemedi. Yeniden dene.");
+        throw new Error(result?.message || t("Could not delete the menu. Please try again.", "Menü silinemedi. Yeniden dene."));
       }
       setMenus((current) => current.filter((menu) => menu.id !== storedMenu.id));
       router.refresh();
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : "Menü silinemedi. Bağlantını kontrol et.");
+      setActionError(error instanceof Error ? error.message : t("Could not delete the menu. Check your connection.", "Menü silinemedi. Bağlantını kontrol et."));
     } finally {
       setDeletingId("");
     }
@@ -252,13 +266,13 @@ export function Dashboard({
         <div className="dashboard-content">
           <div className="dashboard-heading">
             <div>
-              <span className="dashboard-kicker"><Sparkles size={14} /> Kontrol paneli</span>
-              <h1>Hoş geldin, {user.name.split(" ")[0]}.</h1>
-              <p>{welcomeVisible ? "İlk QR menünü birlikte hazırlayalım." : "Menülerini yönet, performansını takip et ve yeni deneyimler oluştur."}</p>
+              <span className="dashboard-kicker"><Sparkles size={14} /> {t("Dashboard", "Kontrol paneli")}</span>
+              <h1>{t("Welcome", "Hoş geldin")}, {user.name.split(" ")[0]}.</h1>
+              <p>{welcomeVisible ? t("Let's build your first QR menu.", "İlk QR menünü birlikte hazırlayalım.") : t("Manage menus, track performance, and improve the guest experience.", "Menülerini yönet, performansını takip et ve yeni deneyimler oluştur.")}</p>
             </div>
             {user.account.canCreateMenu
-              ? <Link className="dashboard-primary" href="/studio?new=1"><Plus size={18} /> Yeni menü oluştur</Link>
-              : <Link className="dashboard-primary secondary" href="/dashboard/settings">Planı görüntüle</Link>}
+              ? <Link className="dashboard-primary" href="/studio?new=1"><Plus size={18} /> {t("Create new menu", "Yeni menü oluştur")}</Link>
+              : <Link className="dashboard-primary secondary" href="/dashboard/settings">{t("View plan", "Planı görüntüle")}</Link>}
           </div>
 
           <AccountAccessNotice account={user.account} />
@@ -268,18 +282,18 @@ export function Dashboard({
             <section className={`onboarding-journey ${welcomeVisible ? "is-welcome" : ""}`} aria-labelledby="onboarding-title">
               <div className="onboarding-intro">
                 {welcomeVisible && (
-                  <button className="onboarding-welcome-close" type="button" onClick={dismissWelcome} aria-label="Hoş geldin mesajını kapat">
+                  <button className="onboarding-welcome-close" type="button" onClick={dismissWelcome} aria-label={t("Close welcome message", "Hoş geldin mesajını kapat")}>
                     <X size={16} />
                   </button>
                 )}
-                <span className="onboarding-kicker"><Sparkles size={14} /> {welcomeVisible ? "Hoş geldin" : "Başlangıç rehberi"}</span>
-                <h2 id="onboarding-title">{welcomeVisible ? "İlk QR menünü birlikte hazırlayalım" : onboarding.nextAction.title}</h2>
-                <p>{welcomeVisible ? "Dört kısa adımda menünü oluştur, yayınla ve ilk taramanı al. Tamamladığın adımlar otomatik işaretlenir." : onboarding.nextAction.description}</p>
-                <div className="onboarding-progress-copy"><strong>{onboarding.percentage}%</strong><span>{onboarding.completedSteps} / {onboarding.totalSteps} adım tamamlandı</span></div>
+                <span className="onboarding-kicker"><Sparkles size={14} /> {welcomeVisible ? t("Welcome", "Hoş geldin") : t("Getting started", "Başlangıç rehberi")}</span>
+                <h2 id="onboarding-title">{welcomeVisible ? t("Let's build your first QR menu", "İlk QR menünü birlikte hazırlayalım") : onboarding.nextAction.title}</h2>
+                <p>{welcomeVisible ? t("Create, publish, and scan your menu in four short steps. Completed steps update automatically.", "Dört kısa adımda menünü oluştur, yayınla ve ilk taramanı al. Tamamladığın adımlar otomatik işaretlenir.") : onboarding.nextAction.description}</p>
+                <div className="onboarding-progress-copy"><strong>{onboarding.percentage}%</strong><span>{onboarding.completedSteps} / {onboarding.totalSteps} {t("steps complete", "adım tamamlandı")}</span></div>
                 <div
                   className="onboarding-progress-track"
                   role="progressbar"
-                  aria-label="QR menü kurulum ilerlemesi"
+                  aria-label={t("QR menu setup progress", "QR menü kurulum ilerlemesi")}
                   aria-valuemin={0}
                   aria-valuemax={100}
                   aria-valuenow={onboarding.percentage}
@@ -287,14 +301,14 @@ export function Dashboard({
                 <Link className="onboarding-primary" href={onboarding.nextAction.href}>{onboarding.nextAction.label} <ChevronRight size={17} /></Link>
               </div>
 
-              <ol className="onboarding-steps" aria-label="QR menü kurulum adımları">
+              <ol className="onboarding-steps" aria-label={t("QR menu setup steps", "QR menü kurulum adımları")}>
                 {onboarding.steps.map((step, index) => {
                   const isCurrent = currentOnboardingStepId === step.id;
                   return (
                     <li className={`${step.complete ? "complete" : ""} ${isCurrent ? "current" : ""}`} key={step.id} aria-current={isCurrent ? "step" : undefined}>
                       <div className="onboarding-step-icon">{step.complete ? <Check size={18} /> : <OnboardingStepIcon id={step.id} />}</div>
-                      <div><span>Adım {index + 1}</span><strong>{step.label}</strong><small>{step.description}</small></div>
-                      <b>{step.complete ? "Tamam" : isCurrent ? "Sırada" : "Bekliyor"}</b>
+                      <div><span>{t("Step", "Adım")} {index + 1}</span><strong>{step.label}</strong><small>{step.description}</small></div>
+                      <b>{step.complete ? t("Done", "Tamam") : isCurrent ? t("Next", "Sırada") : t("Waiting", "Bekliyor")}</b>
                     </li>
                   );
                 })}
@@ -302,16 +316,16 @@ export function Dashboard({
             </section>
           )}
 
-          <section className="dashboard-period-toolbar" aria-label="Dashboard tarih aralığı">
+          <section className="dashboard-period-toolbar" aria-label={t("Dashboard date range", "Dashboard tarih aralığı")}>
             <div>
-              <strong>Menünde ne oluyor?</strong>
+              <strong>{t("What's happening on your menu?", "Menünde ne oluyor?")}</strong>
               <span>
                 {initialAnalytics.trackingStartedAt
-                  ? "Gerçek müşteri davranışlarından güncellenir."
-                  : "Yeni etkileşim ölçümü ilk müşteri ziyaretini bekliyor."}
+                  ? t("Updated from real guest activity.", "Gerçek müşteri davranışlarından güncellenir.")
+                  : t("Engagement tracking is waiting for the first guest visit.", "Yeni etkileşim ölçümü ilk müşteri ziyaretini bekliyor.")}
               </span>
             </div>
-            <div role="group" aria-label="Tarih aralığı seç">
+            <div role="group" aria-label={t("Select date range", "Tarih aralığı seç")}>
               {([7, 30] as DashboardPeriod[]).map((option) => (
                 <button
                   aria-pressed={period === option}
@@ -319,54 +333,58 @@ export function Dashboard({
                   key={option}
                   onClick={() => setPeriod(option)}
                   type="button"
-                >Son {option} gün</button>
+                >{t(`Last ${option} days`, `Son ${option} gün`)}</button>
               ))}
             </div>
           </section>
 
-          <section className="dashboard-v2-metrics" aria-label={`Son ${period} gün performans özeti`}>
+          <section className="dashboard-v2-metrics" aria-label={t(`Performance summary for the last ${period} days`, `Son ${period} gün performans özeti`)}>
             <DashboardMetric
               current={analytics.views}
               icon={<Eye size={20} />}
-              label="Menü görüntüleme"
+              label={t("Menu views", "Menü görüntüleme")}
+              locale={locale}
               previous={analytics.previousViews}
-              subtitle="önceki döneme göre"
+              subtitle={t("compared with the previous period", "önceki döneme göre")}
               tone="orange"
-              value={analytics.views.toLocaleString("tr-TR")}
+              value={number(analytics.views)}
             />
             <DashboardMetric
               current={analytics.uniqueVisitors}
               icon={<UsersRound size={20} />}
-              label="Tekil ziyaretçi"
+              label={t("Measured visitors", "Ölçülen ziyaretçi")}
+              locale={locale}
               previous={analytics.previousUniqueVisitors}
-              subtitle={`${analytics.qrScans} QR kaynaklı açılış`}
+              subtitle={t("among analytics-enabled visits", "analitiğe izin veren ziyaretlerde")}
               tone="green"
-              value={hasInteractionTracking ? analytics.uniqueVisitors.toLocaleString("tr-TR") : "—"}
+              value={hasInteractionTracking ? number(analytics.uniqueVisitors) : "—"}
             />
             <DashboardMetric
               current={returningRate}
               icon={<Repeat2 size={20} />}
-              label="Tekrar gelen"
+              label={t("Measured return rate", "Ölçülen geri dönüş")}
+              locale={locale}
               previous={previousReturningRate}
-              subtitle={`${analytics.returningVisitors} ziyaretçi geri geldi`}
+              subtitle={t(`${number(analytics.returningVisitors)} measured visitors returned`, `${number(analytics.returningVisitors)} ölçülen ziyaretçi geri geldi`)}
               tone="purple"
-              value={hasInteractionTracking ? `%${returningRate}` : "—"}
+              value={hasInteractionTracking ? `${returningRate}%` : "—"}
             />
             <DashboardMetric
               current={analytics.productViews}
               icon={<MousePointerClick size={20} />}
-              label="Ürün görünürlüğü"
+              label={t("Item views", "Ürün görünürlüğü")}
+              locale={locale}
               previous={analytics.previousProductViews}
-              subtitle={`${analytics.campaignViews} kampanya gösterimi`}
+              subtitle={t(`${number(analytics.campaignViews)} offer views`, `${number(analytics.campaignViews)} kampanya gösterimi`)}
               tone="blue"
-              value={hasInteractionTracking ? analytics.productViews.toLocaleString("tr-TR") : "—"}
+              value={hasInteractionTracking ? number(analytics.productViews) : "—"}
             />
           </section>
 
           <section className="dashboard-opportunities" aria-labelledby="dashboard-opportunities-title">
             <div className="dashboard-v2-section-heading">
-              <div><span><Sparkles size={13} /> Akıllı fırsatlar</span><h2 id="dashboard-opportunities-title">Sıradaki en iyi hamleler</h2></div>
-              <Link href="/dashboard/analytics">Tüm analitik <ArrowUpRight size={14} /></Link>
+              <div><span><Sparkles size={13} /> {t("Smart opportunities", "Akıllı fırsatlar")}</span><h2 id="dashboard-opportunities-title">{t("Your best next steps", "Sıradaki en iyi hamleler")}</h2></div>
+              <Link href="/dashboard/analytics">{t("All analytics", "Tüm analitik")} <ArrowUpRight size={14} /></Link>
             </div>
             <div className="dashboard-opportunity-grid">
               {opportunities.slice(0, 3).map((opportunity) => (
@@ -376,7 +394,7 @@ export function Dashboard({
                     {opportunity.icon === "layers" && <Layers3 size={20} />}
                     {opportunity.icon === "search" && <SearchX size={20} />}
                   </div>
-                  <span>Fırsat</span>
+                  <span>{t("Opportunity", "Fırsat")}</span>
                   <h3>{opportunity.title}</h3>
                   <p>{opportunity.description}</p>
                   <Link href={opportunity.href}>{opportunity.label} <ArrowUpRight size={14} /></Link>
@@ -388,14 +406,14 @@ export function Dashboard({
           <div className="dashboard-performance-grid">
             <section className="dashboard-popular-products">
               <div className="dashboard-v2-section-heading">
-                <div><span><Flame size={13} /> Ürün ilgisi</span><h2>En çok görüntülenen ürünler</h2></div>
-                <Link href="/dashboard/analytics">Detaylar <ArrowUpRight size={14} /></Link>
+                <div><span><Flame size={13} /> {t("Item engagement", "Ürün ilgisi")}</span><h2>{t("Most-viewed items", "En çok görüntülenen ürünler")}</h2></div>
+                <Link href="/dashboard/analytics">{t("Details", "Detaylar")} <ArrowUpRight size={14} /></Link>
               </div>
               {analytics.popularProducts.length === 0 ? (
                 <div className="dashboard-v2-empty">
                   <MousePointerClick size={24} />
-                  <strong>Ürün verisi henüz oluşmadı</strong>
-                  <p>Müşteriler yayınlanan menüde gezinmeye başladığında ürün sıralaması burada görünecek.</p>
+                  <strong>{t("No item data yet", "Ürün verisi henüz oluşmadı")}</strong>
+                  <p>{t("Item rankings will appear when guests start exploring your published menu.", "Müşteriler yayınlanan menüde gezinmeye başladığında ürün sıralaması burada görünecek.")}</p>
                 </div>
               ) : (
                 <div className="dashboard-product-ranking">
@@ -407,12 +425,12 @@ export function Dashboard({
                       <article key={`${product.menuId}-${product.categoryId}-${product.itemId}`}>
                         <b>{String(index + 1).padStart(2, "0")}</b>
                         <div><strong>{product.itemName}</strong><span>{product.menuName} · {product.categoryName}</span></div>
-                        {product.isCampaign && <em>Kampanya</em>}
-                        <strong>{product.views.toLocaleString("tr-TR")} <small>görünüm</small></strong>
+                        {product.isCampaign && <em>{t("Offer", "Kampanya")}</em>}
+                        <strong>{number(product.views)} <small>{t("views", "görünüm")}</small></strong>
                         <span className={change !== null && change < 0 ? "negative" : "positive"}>
-                          {change === null ? "Yeni" : `${change >= 0 ? "+" : ""}${change}%`}
+                          {change === null ? t("New", "Yeni") : `${change >= 0 ? "+" : ""}${change}%`}
                         </span>
-                        <Link href={`/studio?menu=${product.menuId}`} aria-label={`${product.itemName} ürününü düzenle`}><ArrowUpRight size={15} /></Link>
+                        <Link href={`/studio?menu=${product.menuId}`} aria-label={t(`Edit ${product.itemName}`, `${product.itemName} ürününü düzenle`)}><ArrowUpRight size={15} /></Link>
                       </article>
                     );
                   })}
@@ -422,44 +440,44 @@ export function Dashboard({
 
             <section className="dashboard-activity-card">
               <div className="dashboard-v2-section-heading">
-                <div><span><BarChart3 size={13} /> Günlük hareket</span><h2>Ziyaret trendi</h2></div>
+                <div><span><BarChart3 size={13} /> {t("Daily activity", "Günlük hareket")}</span><h2>{t("Visit trend", "Ziyaret trendi")}</h2></div>
               </div>
               <div className="dashboard-activity-summary">
-                <strong>{analytics.views.toLocaleString("tr-TR")}</strong>
-                <span>Son {period} günde menü açılışı</span>
+                <strong>{number(analytics.views)}</strong>
+                <span>{t(`menu views in the last ${period} days`, `Son ${period} günde menü açılışı`)}</span>
               </div>
-              <div className="dashboard-mini-chart" role="img" aria-label={`Son ${period} günlük menü ve ürün görüntüleme grafiği`}>
+              <div className="dashboard-mini-chart" role="img" aria-label={t(`Menu and item view chart for the last ${period} days`, `Son ${period} günlük menü ve ürün görüntüleme grafiği`)}>
                 {analytics.activity.map((point, index) => (
-                  <div key={point.date} title={`${formatDashboardDay(point.date)}: ${point.views} menü, ${point.productViews} ürün görünümü`}>
+                  <div key={point.date} title={t(`${formatDashboardDay(point.date, intlLocale)}: ${point.views} menu, ${point.productViews} item views`, `${formatDashboardDay(point.date, intlLocale)}: ${point.views} menü, ${point.productViews} ürün görünümü`)}>
                     <span>
                       <i style={{ height: `${Math.max((point.views / maximumActivity) * 100, point.views ? 5 : 0)}%` }} />
                       <b style={{ height: `${Math.max((point.productViews / maximumActivity) * 100, point.productViews ? 5 : 0)}%` }} />
                     </span>
-                    <small>{period === 7 || index % 5 === 0 || index === analytics.activity.length - 1 ? formatDashboardDay(point.date) : ""}</small>
+                    <small>{period === 7 || index % 5 === 0 || index === analytics.activity.length - 1 ? formatDashboardDay(point.date, intlLocale) : ""}</small>
                   </div>
                 ))}
               </div>
-              <div className="dashboard-chart-legend"><span><i /> Menü</span><span><i /> Ürün</span><Link href="/dashboard/analytics">Analitiği aç <ArrowUpRight size={13} /></Link></div>
+              <div className="dashboard-chart-legend"><span><i /> {t("Menu", "Menü")}</span><span><i /> {t("Item", "Ürün")}</span><Link href="/dashboard/analytics">{t("Open analytics", "Analitiği aç")} <ArrowUpRight size={13} /></Link></div>
               {(analytics.contactClicks > 0 || analytics.searches > 0) && (
-                <p className="dashboard-activity-detail"><strong>{analytics.searches}</strong> arama · <strong>{analytics.contactClicks}</strong> iletişim tıklaması</p>
+                <p className="dashboard-activity-detail"><strong>{number(analytics.searches)}</strong> {t("searches", "arama")} · <strong>{number(analytics.contactClicks)}</strong> {t("contact clicks", "iletişim tıklaması")}</p>
               )}
             </section>
           </div>
 
           <section className="dashboard-menus dashboard-v2-menus" id="menuler">
             <div className="dashboard-section-heading">
-              <div><span>İçerik</span><h2>Menülerim</h2></div>
-              {menus.length > 0 && user.account.canCreateMenu && <Link href="/studio?new=1"><Plus size={15} /> Yeni ekle</Link>}
+              <div><span>{t("Content", "İçerik")}</span><h2>{t("My menus", "Menülerim")}</h2></div>
+              {menus.length > 0 && user.account.canCreateMenu && <Link href="/studio?new=1"><Plus size={15} /> {t("Add new", "Yeni ekle")}</Link>}
             </div>
 
             {menus.length === 0 ? (
               <div className="dashboard-empty">
                 <div className="empty-illustration"><QrCode size={34} /><Sparkles size={16} /></div>
-                <h3>İlk menünü oluşturalım</h3>
-                <p>Mevcut menünü yükle; yapay zekâ ürünleri, kategorileri ve fiyatları senin için ayırsın.</p>
+                <h3>{t("Let's build your first menu", "İlk menünü oluşturalım")}</h3>
+                <p>{t("Upload your current menu and let AI extract the items, categories, and prices.", "Mevcut menünü yükle; yapay zekâ ürünleri, kategorileri ve fiyatları senin için ayırsın.")}</p>
                 {user.account.canCreateMenu
-                  ? <Link className="dashboard-primary" href="/studio?new=1"><Plus size={17} /> Menü oluştur</Link>
-                  : <Link className="dashboard-primary secondary" href="/dashboard/settings">Plan ayrıntıları</Link>}
+                  ? <Link className="dashboard-primary" href="/studio?new=1"><Plus size={17} /> {t("Create menu", "Menü oluştur")}</Link>
+                  : <Link className="dashboard-primary secondary" href="/dashboard/settings">{t("Plan details", "Plan ayrıntıları")}</Link>}
               </div>
             ) : (
               <div className="dashboard-menu-list">
@@ -471,7 +489,7 @@ export function Dashboard({
                   return (
                     <article className="dashboard-menu-card" key={storedMenu.id}>
                       <div className="menu-card-preview" style={{ background: storedMenu.theme.background, color: storedMenu.theme.text }}>
-                        <span style={{ background: storedMenu.theme.accent }}>{storedMenu.name.slice(0, 1).toLocaleUpperCase("tr-TR")}</span>
+                        <span style={{ background: storedMenu.theme.accent }}>{storedMenu.name.slice(0, 1).toLocaleUpperCase(intlLocale)}</span>
                         <strong>{storedMenu.name}</strong>
                         <i style={{ background: storedMenu.theme.accent }} />
                         <i /><i />
@@ -480,32 +498,32 @@ export function Dashboard({
                         <div className="menu-card-title">
                           <div>
                             <h3>{storedMenu.name}</h3>
-                            <span className={`status-badge ${storedMenu.status}`}><i /> {storedMenu.status === "published" ? "Yayında" : "Taslak"}</span>
-                            {storedMenu.hasUnpublishedChanges && <span className="status-badge update-pending"><i /> Güncelleme bekliyor</span>}
+                            <span className={`status-badge ${storedMenu.status}`}><i /> {storedMenu.status === "published" ? t("Live", "Yayında") : t("Draft", "Taslak")}</span>
+                            {storedMenu.hasUnpublishedChanges && <span className="status-badge update-pending"><i /> {t("Update pending", "Güncelleme bekliyor")}</span>}
                           </div>
                         </div>
-                        <p>{storedMenu.menu.categories.length} kategori · {productCount} ürün</p>
-                        <div className="menu-card-meta"><span><Eye size={13} /> {storedMenu.viewCount} görüntülenme</span><span>Güncellendi {new Date(storedMenu.updatedAt).toLocaleDateString("tr-TR", { day: "numeric", month: "short" })}</span></div>
+                        <p>{number(storedMenu.menu.categories.length)} {t("categories", "kategori")} · {number(productCount)} {t("items", "ürün")}</p>
+                        <div className="menu-card-meta"><span><Eye size={13} /> {number(storedMenu.viewCount)} {t("views", "görüntülenme")}</span><span>{t("Updated", "Güncellendi")} {new Date(storedMenu.updatedAt).toLocaleDateString(intlLocale, { day: "numeric", month: "short" })}</span></div>
                         <div className="menu-card-actions">
                           <Link className={publishActionAvailable ? "publish-draft" : undefined} href={studioHref}>
                             {publishActionAvailable ? <Rocket size={15} /> : <FilePenLine size={15} />}
                             {!user.account.canPublish
-                              ? "Düzenle"
+                              ? t("Edit", "Düzenle")
                               : storedMenu.status === "draft"
-                              ? "Düzenle ve yayınla"
+                              ? t("Edit and publish", "Düzenle ve yayınla")
                               : storedMenu.hasUnpublishedChanges
-                                ? "Güncellemeyi yayınla"
-                                : "Düzenle"}
+                                ? t("Publish update", "Güncellemeyi yayınla")
+                                : t("Edit", "Düzenle")}
                           </Link>
-                          {storedMenu.status === "published" && <Link className="qr" href={`/dashboard/menus/${storedMenu.id}/qr`}><QrCode size={15} /> QR kodu</Link>}
-                          {storedMenu.status === "published" && <a href={`/m/${storedMenu.slug}`} target="_blank" rel="noreferrer"><Eye size={15} /> Görüntüle</a>}
-                          {storedMenu.status === "published" && <button onClick={() => void copyMenuLink(storedMenu)}>{copiedId === storedMenu.id ? <Check size={15} /> : <Copy size={15} />} {copiedId === storedMenu.id ? "Kopyalandı" : "Bağlantı"}</button>}
+                          {storedMenu.status === "published" && <Link className="qr" href={`/dashboard/menus/${storedMenu.id}/qr`}><QrCode size={15} /> {t("QR code", "QR kodu")}</Link>}
+                          {storedMenu.status === "published" && <a href={`/m/${storedMenu.slug}`} target="_blank" rel="noreferrer"><Eye size={15} /> {t("View", "Görüntüle")}</a>}
+                          {storedMenu.status === "published" && <button onClick={() => void copyMenuLink(storedMenu)}>{copiedId === storedMenu.id ? <Check size={15} /> : <Copy size={15} />} {copiedId === storedMenu.id ? t("Copied", "Kopyalandı") : t("Link", "Bağlantı")}</button>}
                           <button
-                            aria-label={`${storedMenu.name} menüsünü sil`}
+                            aria-label={t(`Delete ${storedMenu.name}`, `${storedMenu.name} menüsünü sil`)}
                             className="delete-menu-button"
                             disabled={Boolean(deletingId)}
                             onClick={() => void deleteMenu(storedMenu)}
-                            title="Menüyü sil"
+                            title={t("Delete menu", "Menüyü sil")}
                           ><Trash2 size={15} /></button>
                         </div>
                       </div>

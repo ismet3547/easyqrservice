@@ -161,9 +161,13 @@ try {
   process.env.APP_URL = "https://menu.example.test";
   const resetUrl = new URL(createPasswordResetUrl("A".repeat(43)));
   assert.equal(resetUrl.origin, "https://menu.example.test");
-  assert.equal(resetUrl.pathname, "/sifre-sifirla");
+  assert.equal(resetUrl.pathname, "/reset-password");
   assert.equal(resetUrl.search, "", "reset token must not be sent in the HTTP query");
   assert.equal(resetUrl.hash, `#token=${"A".repeat(43)}`);
+  assert.equal(
+    new URL(createPasswordResetUrl("B".repeat(43), "tr")).pathname,
+    "/sifre-sifirla",
+  );
 
   const legacyUser = db.prepare(
     `SELECT plan, trial_ends_at, plan_expires_at, terms_accepted_at, terms_version

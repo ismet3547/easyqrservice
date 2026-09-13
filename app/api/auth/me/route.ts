@@ -4,6 +4,7 @@ import { getCurrentUser, isSameOrigin } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { isRecordWithOnlyKeys, readJsonRequest } from "@/lib/http";
 import { checkRateLimit, getClientAddress } from "@/lib/rate-limit";
+import { resolveRequestLocale } from "@/lib/i18n";
 
 export const runtime = "nodejs";
 
@@ -33,12 +34,14 @@ export async function GET() {
 }
 
 export async function PATCH(request: Request) {
+  const locale = resolveRequestLocale(request);
+  const t = (english: string, turkish: string) => locale === "tr" ? turkish : english;
   if (!isSameOrigin(request)) {
-    return NextResponse.json({ message: "Geçersiz istek kaynağı." }, { status: 403 });
+    return NextResponse.json({ message: t("Invalid request origin.", "Geçersiz istek kaynağı.") }, { status: 403 });
   }
 
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ message: "Giriş gerekli." }, { status: 401 });
+  if (!user) return NextResponse.json({ message: t("Login required.", "Giriş gerekli.") }, { status: 401 });
 
   const rateLimit = checkRateLimit(
     `profile-update:${user.id}:${getClientAddress(request)}`,
@@ -47,7 +50,7 @@ export async function PATCH(request: Request) {
   );
   if (!rateLimit.allowed) {
     return NextResponse.json(
-      { message: "Çok fazla profil güncelleme isteği yapıldı. Biraz sonra tekrar dene." },
+      { message: t("Too many profile update requests. Please try again later.", "Çok fazla profil güncelleme isteği yapıldı. Biraz sonra tekrar dene.") },
       { status: 429, headers: { "Retry-After": String(rateLimit.retryAfterSeconds) } },
     );
   }
@@ -55,7 +58,7 @@ export async function PATCH(request: Request) {
   const parsed = await readJsonRequest(request, maximumRequestBytes);
   if (!parsed.ok) {
     return NextResponse.json(
-      { message: parsed.reason === "too-large" ? "İstek çok büyük." : "Geçersiz istek." },
+      { message: parsed.reason === "too-large" ? t("Request is too large.", "İstek çok büyük.") : t("Invalid request.", "Geçersiz istek.") },
       { status: parsed.status },
     );
   }
@@ -68,17 +71,17 @@ export async function PATCH(request: Request) {
       typeof parsed.value.currentPassword !== "string"
     )
   ) {
-    return NextResponse.json({ message: "Geçersiz istek." }, { status: 400 });
+    return NextResponse.json({ message: t("Invalid request.", "Geçersiz istek.") }, { status: 400 });
   }
   const body = parsed.value as ProfileBody;
 
   const name = (body.name || "").trim();
   const email = normalizeEmail(body.email || "");
   if (name.length < 2 || name.length > 60) {
-    return NextResponse.json({ message: "Adın 2–60 karakter arasında olmalı." }, { status: 400 });
+    return NextResponse.json({ message: t("Your name must be between 2 and 60 characters.", "Adın 2–60 karakter arasında olmalı.") }, { status: 400 });
   }
   if (!isValidEmail(email)) {
-    return NextResponse.json({ message: "Geçerli bir e-posta adresi gir." }, { status: 400 });
+    return NextResponse.json({ message: t("Enter a valid email address.", "Geçerli bir e-posta adresi gir.") }, { status: 400 });
   }
 
   const emailChanged = email !== user.email.toLocaleLowerCase("en-US");
@@ -86,7 +89,7 @@ export async function PATCH(request: Request) {
     const currentPassword = body.currentPassword || "";
     if (!currentPassword || Buffer.byteLength(currentPassword, "utf8") > 72) {
       return NextResponse.json(
-        { message: "E-posta adresini değiştirmek için mevcut şifreni gir." },
+        { message: t("Enter your current password to change your email address.", "E-posta adresini değiştirmek için mevcut şifreni gir.") },
         { status: 400 },
       );
     }
@@ -98,7 +101,7 @@ export async function PATCH(request: Request) {
     );
     if (!passwordRateLimit.allowed) {
       return NextResponse.json(
-        { message: "Çok fazla şifre denemesi yapıldı. Biraz sonra tekrar dene." },
+        { message: t("Too many password attempts. Please try again later.", "Çok fazla şifre denemesi yapıldı. Biraz sonra tekrar dene.") },
         { status: 429, headers: { "Retry-After": String(passwordRateLimit.retryAfterSeconds) } },
       );
     }
@@ -110,7 +113,7 @@ export async function PATCH(request: Request) {
       ? await bcrypt.compare(currentPassword, account.password_hash)
       : false;
     if (!passwordMatches) {
-      return NextResponse.json({ message: "Mevcut şifren hatalı." }, { status: 401 });
+      return NextResponse.json({ message: t("Your current password is incorrect.", "Mevcut şifren hatalı.") }, { status: 401 });
     }
   }
 
@@ -119,7 +122,7 @@ export async function PATCH(request: Request) {
     .get(email, user.id);
   if (duplicate) {
     return NextResponse.json(
-      { message: "Bu e-posta adresi başka bir hesap tarafından kullanılıyor." },
+      { message: t("This email address is already used by another account.", "Bu e-posta adresi başka bir hesap tarafından kullanılıyor.") },
       { status: 409 },
     );
   }
@@ -132,7 +135,7 @@ export async function PATCH(request: Request) {
     const databaseError = error as { code?: string };
     if (databaseError.code === "SQLITE_CONSTRAINT_UNIQUE") {
       return NextResponse.json(
-        { message: "Bu e-posta adresi başka bir hesap tarafından kullanılıyor." },
+        { message: t("This email address is already used by another account.", "Bu e-posta adresi başka bir hesap tarafından kullanılıyor.") },
         { status: 409 },
       );
     }
@@ -141,7 +144,7 @@ export async function PATCH(request: Request) {
 
   return NextResponse.json(
     {
-      message: "Hesap bilgilerin güncellendi.",
+      message: t("Your account details were updated.", "Hesap bilgilerin güncellendi."),
       user: { ...user, name, email },
     },
     { headers: { "Cache-Control": "no-store" } },

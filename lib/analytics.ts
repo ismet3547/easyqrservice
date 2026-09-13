@@ -112,6 +112,12 @@ type TrackingRow = {
   tracking_started_at: string | null;
 };
 
+type DailyBreakdown = {
+  devices: Record<TrackedMenuDeviceType, number>;
+  languages: Record<MenuViewLanguage, number>;
+  sources: Record<MenuTrafficSource, number>;
+};
+
 function utcDateKey(date: Date) {
   return date.toISOString().slice(0, 10);
 }
@@ -125,6 +131,11 @@ function normalizeBreakdownKey<Key extends string>(
   keys: readonly Key[],
 ): Key {
   return keys.includes(value as Key) ? value as Key : "unknown" as Key;
+}
+
+function normalizeMenuLanguage(value: string) {
+  const language = value.trim().toLocaleLowerCase("en-US");
+  return /^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/.test(language) ? language : "unknown";
 }
 
 export function getUserAnalytics(userId: string, requestedDays = 60, menuId: string | null = null): UserAnalytics {
@@ -157,13 +168,9 @@ export function getUserAnalytics(userId: string, requestedDays = 60, menuId: str
      ORDER BY date ASC`,
   ).all(userId, start.toISOString(), menuId, menuId) as DailyBreakdownRow[];
 
-  const breakdownByDate = new Map<string, {
-    devices: Record<TrackedMenuDeviceType, number>;
-    languages: Record<MenuViewLanguage, number>;
-    sources: Record<MenuTrafficSource, number>;
-  }>();
+  const breakdownByDate = new Map<string, DailyBreakdown>();
   breakdownRows.forEach((row) => {
-    const breakdown = breakdownByDate.get(row.date) || {
+    const breakdown: DailyBreakdown = breakdownByDate.get(row.date) || {
       devices: emptyBreakdown(trackedMenuDeviceTypes),
       languages: emptyBreakdown(menuViewLanguages),
       sources: emptyBreakdown(menuTrafficSources),
@@ -171,10 +178,10 @@ export function getUserAnalytics(userId: string, requestedDays = 60, menuId: str
     const views = Number(row.views);
     const source = normalizeBreakdownKey(row.source, menuTrafficSources);
     const device = normalizeBreakdownKey(row.device_type, trackedMenuDeviceTypes);
-    const language = normalizeBreakdownKey(row.language, menuViewLanguages);
+    const language = normalizeMenuLanguage(row.language);
     breakdown.sources[source] += views;
     breakdown.devices[device] += views;
-    breakdown.languages[language] += views;
+    breakdown.languages[language] = (breakdown.languages[language] || 0) + views;
     breakdownByDate.set(row.date, breakdown);
   });
 
@@ -182,7 +189,7 @@ export function getUserAnalytics(userId: string, requestedDays = 60, menuId: str
     const date = new Date(start);
     date.setUTCDate(start.getUTCDate() + index);
     const key = utcDateKey(date);
-    const breakdown = breakdownByDate.get(key) || {
+    const breakdown: DailyBreakdown = breakdownByDate.get(key) || {
       devices: emptyBreakdown(trackedMenuDeviceTypes),
       languages: emptyBreakdown(menuViewLanguages),
       sources: emptyBreakdown(menuTrafficSources),

@@ -15,7 +15,7 @@ export type TrackedMenuDeviceType = (typeof trackedMenuDeviceTypes)[number];
 export type MenuDeviceType = TrackedMenuDeviceType | "bot";
 
 export const menuViewLanguages = ["tr", "en", "unknown"] as const;
-export type MenuViewLanguage = (typeof menuViewLanguages)[number];
+export type MenuViewLanguage = string;
 
 export type MenuViewContext = {
   deviceType: MenuDeviceType;

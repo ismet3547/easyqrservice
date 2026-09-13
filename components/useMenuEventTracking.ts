@@ -35,6 +35,13 @@ function getAnonymousVisitorId() {
   }
 }
 
+export function clearAnonymousVisitorId() {
+  try {
+    window.localStorage.removeItem(visitorStorageKey);
+    window.localStorage.removeItem(visitorExpirationKey);
+  } catch { /* Storage can be unavailable; future tracking still remains disabled. */ }
+}
+
 export function useMenuEventTracking(visitId?: string) {
   const queueRef = useRef<MenuInteractionEvent[]>([]);
   const timerRef = useRef<number | null>(null);

@@ -1,6 +1,8 @@
 import { notFound, redirect } from "next/navigation";
 import { QrCenter } from "@/components/QrCenter";
 import { getCurrentUser } from "@/lib/auth";
+import { getLocalizedAppPath } from "@/lib/i18n";
+import { getRequestLocale } from "@/lib/i18n-server";
 import { getUserMenu, listUserMenus } from "@/lib/menus";
 
 export const dynamic = "force-dynamic";
@@ -10,9 +12,8 @@ type QrCenterPageProps = {
 };
 
 export default async function QrCenterPage({ params }: QrCenterPageProps) {
-  const user = await getCurrentUser();
-  const { id } = await params;
-  if (!user) redirect(`/giris?next=/dashboard/menus/${encodeURIComponent(id)}/qr`);
+  const [user, locale, { id }] = await Promise.all([getCurrentUser(), getRequestLocale(), params]);
+  if (!user) redirect(`${getLocalizedAppPath(locale, "login")}?next=/dashboard/menus/${encodeURIComponent(id)}/qr`);
 
   const storedMenu = getUserMenu(user.id, id);
   if (!storedMenu) notFound();

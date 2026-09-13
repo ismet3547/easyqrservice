@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { isRecordWithOnlyKeys, readJsonRequest } from "@/lib/http";
 import { legalDocumentVersion } from "@/lib/legal";
 import { checkRateLimit, getClientAddress } from "@/lib/rate-limit";
+import { resolveRequestLocale } from "@/lib/i18n";
 
 export const runtime = "nodejs";
 
@@ -28,14 +29,16 @@ function isValidEmail(value: string) {
 }
 
 export async function POST(request: Request) {
+  const locale = resolveRequestLocale(request);
+  const t = (english: string, turkish: string) => locale === "tr" ? turkish : english;
   if (!isSameOrigin(request)) {
-    return NextResponse.json({ message: "Geçersiz istek kaynağı." }, { status: 403 });
+    return NextResponse.json({ message: t("Invalid request origin.", "Geçersiz istek kaynağı.") }, { status: 403 });
   }
 
   const rateLimit = checkRateLimit(`register:${getClientAddress(request)}`, 5, 15 * 60 * 1000);
   if (!rateLimit.allowed) {
     return NextResponse.json(
-      { message: "Çok fazla kayıt denemesi yapıldı. Biraz sonra tekrar dene." },
+      { message: t("Too many registration attempts. Please try again later.", "Çok fazla kayıt denemesi yapıldı. Biraz sonra tekrar dene.") },
       {
         status: 429,
         headers: { "Retry-After": String(rateLimit.retryAfterSeconds) },
@@ -46,7 +49,7 @@ export async function POST(request: Request) {
   const parsed = await readJsonRequest(request, maximumRequestBytes);
   if (!parsed.ok) {
     return NextResponse.json(
-      { message: parsed.reason === "too-large" ? "İstek çok büyük." : "Geçersiz istek." },
+      { message: parsed.reason === "too-large" ? t("Request is too large.", "İstek çok büyük.") : t("Invalid request.", "Geçersiz istek.") },
       { status: parsed.status },
     );
   }
@@ -57,7 +60,7 @@ export async function POST(request: Request) {
     typeof parsed.value.email !== "string" ||
     typeof parsed.value.password !== "string"
   ) {
-    return NextResponse.json({ message: "Geçersiz istek." }, { status: 400 });
+    return NextResponse.json({ message: t("Invalid request.", "Geçersiz istek.") }, { status: 400 });
   }
   const body = parsed.value as RegisterBody;
 
@@ -66,14 +69,14 @@ export async function POST(request: Request) {
   const password = body.password || "";
 
   if (name.length < 2 || name.length > 60) {
-    return NextResponse.json({ message: "Adın 2–60 karakter arasında olmalı." }, { status: 400 });
+    return NextResponse.json({ message: t("Your name must be between 2 and 60 characters.", "Adın 2–60 karakter arasında olmalı.") }, { status: 400 });
   }
   if (!isValidEmail(email)) {
-    return NextResponse.json({ message: "Geçerli bir e-posta adresi gir." }, { status: 400 });
+    return NextResponse.json({ message: t("Enter a valid email address.", "Geçerli bir e-posta adresi gir.") }, { status: 400 });
   }
   if (password.length < 8 || Buffer.byteLength(password, "utf8") > 72) {
     return NextResponse.json(
-      { message: "Şifren 8–72 karakter arasında olmalı." },
+      { message: t("Your password must be between 8 and 72 characters.", "Şifren 8–72 karakter arasında olmalı.") },
       { status: 400 },
     );
   }
@@ -81,7 +84,7 @@ export async function POST(request: Request) {
   const existing = db.prepare("SELECT id FROM users WHERE email = ?").get(email);
   if (existing) {
     return NextResponse.json(
-      { message: "Bu e-posta adresiyle zaten bir hesap bulunuyor." },
+      { message: t("An account already exists with this email address.", "Bu e-posta adresiyle zaten bir hesap bulunuyor.") },
       { status: 409 },
     );
   }
@@ -89,7 +92,7 @@ export async function POST(request: Request) {
   const globalRateLimit = checkRateLimit("register:global", 200, 60 * 60 * 1000);
   if (!globalRateLimit.allowed) {
     return NextResponse.json(
-      { message: "Kayıt sistemi şu anda yoğun. Biraz sonra tekrar dene." },
+      { message: t("Registration is busy right now. Please try again later.", "Kayıt sistemi şu anda yoğun. Biraz sonra tekrar dene.") },
       {
         status: 429,
         headers: { "Retry-After": String(globalRateLimit.retryAfterSeconds) },
@@ -116,7 +119,7 @@ export async function POST(request: Request) {
     const databaseError = error as { code?: string };
     if (databaseError.code === "SQLITE_CONSTRAINT_UNIQUE") {
       return NextResponse.json(
-        { message: "Bu e-posta adresiyle zaten bir hesap bulunuyor." },
+        { message: t("An account already exists with this email address.", "Bu e-posta adresiyle zaten bir hesap bulunuyor.") },
         { status: 409 },
       );
     }

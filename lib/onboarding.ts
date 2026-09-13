@@ -1,4 +1,5 @@
 import type { StoredMenu } from "@/lib/menus";
+import { formatAppNumber, type AppLocale } from "@/lib/i18n";
 
 export type OnboardingStepId = "account" | "menu" | "publish" | "scan";
 
@@ -25,7 +26,11 @@ export type OnboardingProgress = {
   totalSteps: number;
 };
 
-export function getOnboardingProgress(menus: readonly StoredMenu[]): OnboardingProgress {
+export function getOnboardingProgress(
+  menus: readonly StoredMenu[],
+  locale: AppLocale = "en",
+): OnboardingProgress {
+  const t = (english: string, turkish: string) => locale === "tr" ? turkish : english;
   const publishedMenus = menus.filter((menu) => menu.status === "published");
   const firstMenu = menus[0];
   const firstPublishedMenu = publishedMenus[0];
@@ -37,33 +42,33 @@ export function getOnboardingProgress(menus: readonly StoredMenu[]): OnboardingP
   const steps: OnboardingStep[] = [
     {
       complete: true,
-      description: "Hesabın ve çalışma alanın kullanıma hazır.",
+      description: t("Your account and workspace are ready.", "Hesabın ve çalışma alanın kullanıma hazır."),
       id: "account",
-      label: "Hesap hazır",
+      label: t("Account ready", "Hesap hazır"),
     },
     {
       complete: hasMenu,
       description: hasMenu
-        ? `${menus.length} menü çalışma alanına eklendi.`
-        : "PDF veya fotoğraf yükle ya da örnek menüyle başla.",
+        ? t(`${menus.length} menu${menus.length === 1 ? "" : "s"} added to your workspace.`, `${menus.length} menü çalışma alanına eklendi.`)
+        : t("Upload a PDF or photo, or start with a template.", "PDF veya fotoğraf yükle ya da örnek menüyle başla."),
       id: "menu",
-      label: "Menünü oluştur",
+      label: t("Create your menu", "Menünü oluştur"),
     },
     {
       complete: hasPublishedMenu,
       description: hasPublishedMenu
-        ? `${publishedMenus.length} menü müşterilere açık.`
-        : "İçeriği kontrol et ve kalıcı menü bağlantını aç.",
+        ? t(`${publishedMenus.length} menu${publishedMenus.length === 1 ? " is" : "s are"} live for guests.`, `${publishedMenus.length} menü müşterilere açık.`)
+        : t("Review the content and publish your permanent menu link.", "İçeriği kontrol et ve kalıcı menü bağlantını aç."),
       id: "publish",
-      label: "Menünü yayınla",
+      label: t("Publish your menu", "Menünü yayınla"),
     },
     {
       complete: hasFirstScan,
       description: hasFirstScan
-        ? `${totalViews.toLocaleString("tr-TR")} menü görüntülenmesi alındı.`
-        : "QR kodunu bir telefonla test et ve müşterilerinle paylaş.",
+        ? t(`${formatAppNumber(locale, totalViews)} menu views received.`, `${formatAppNumber(locale, totalViews)} menü görüntülenmesi alındı.`)
+        : t("Test the QR code on a phone and share it with your guests.", "QR kodunu bir telefonla test et ve müşterilerinle paylaş."),
       id: "scan",
-      label: "İlk taramayı al",
+      label: t("Get your first scan", "İlk taramayı al"),
     },
   ];
 
@@ -72,31 +77,31 @@ export function getOnboardingProgress(menus: readonly StoredMenu[]): OnboardingP
 
   if (!hasMenu) {
     nextAction = {
-      description: "Mevcut menü dosyanı yükle; ürünleri ve fiyatları yapay zekâ ayırsın.",
+      description: t("Upload your current menu and let AI extract the items and prices.", "Mevcut menü dosyanı yükle; ürünleri ve fiyatları yapay zekâ ayırsın."),
       href: "/studio?new=1&onboarding=1",
-      label: "İlk menünü oluştur",
-      title: "Menünü içeri aktar",
+      label: t("Create your first menu", "İlk menünü oluştur"),
+      title: t("Import your menu", "Menünü içeri aktar"),
     };
   } else if (!hasPublishedMenu) {
     nextAction = {
-      description: "Seçili taslak Studio’da açılacak ve yayın öncesi kontrol doğrudan gösterilecek.",
+      description: t("Open the draft in Studio and review it before publishing.", "Seçili taslak Studio’da açılacak ve yayın öncesi kontrol doğrudan gösterilecek."),
       href: `/studio?menu=${firstMenu.id}&onboarding=1&publish=1`,
-      label: "Yayınlama kontrolünü aç",
-      title: `“${firstMenu.name}” taslağını yayınla`,
+      label: t("Open publish review", "Yayınlama kontrolünü aç"),
+      title: t(`Publish “${firstMenu.name}”`, `“${firstMenu.name}” taslağını yayınla`),
     };
   } else if (!hasFirstScan) {
     nextAction = {
-      description: "QR kodunu indir, farklı bir telefonla okut ve masalarda kullanmaya başla.",
+      description: t("Download the QR code, scan it on another phone, and place it at your venue.", "QR kodunu indir, farklı bir telefonla okut ve masalarda kullanmaya başla."),
       href: `/dashboard/menus/${firstPublishedMenu.id}/qr?onboarding=1`,
-      label: "QR Baskı Merkezi",
-      title: "İlk taramayı yap",
+      label: t("Open QR Print Center", "QR Baskı Merkezi"),
+      title: t("Make the first scan", "İlk taramayı yap"),
     };
   } else {
     nextAction = {
-      description: "Ziyaret kaynaklarını ve en çok görüntülenen menülerini takip et.",
+      description: t("Track traffic sources and your most-viewed menus.", "Ziyaret kaynaklarını ve en çok görüntülenen menülerini takip et."),
       href: "/dashboard/analytics",
-      label: "Analitiği görüntüle",
-      title: "Menünü büyüt",
+      label: t("View analytics", "Analitiği görüntüle"),
+      title: t("Grow your menu", "Menünü büyüt"),
     };
   }
 

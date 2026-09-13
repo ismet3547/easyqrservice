@@ -1,7 +1,14 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { db } from "@/lib/db";
 import type { MenuViewContext } from "@/lib/menu-tracking";
-import { normalizeMenuTheme, type MenuData, type MenuTheme, type MenuThemeInput } from "@/lib/menu";
+import {
+  getMenuInterfaceLanguage,
+  normalizeMenuSlug,
+  normalizeMenuTheme,
+  type MenuData,
+  type MenuTheme,
+  type MenuThemeInput,
+} from "@/lib/menu";
 export { isValidMenuData, isValidMenuTheme } from "@/lib/menu-validation";
 
 export type MenuStatus = "draft" | "published";
@@ -38,14 +45,7 @@ type MenuRow = {
 };
 
 function slugify(value: string) {
-  return value
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/ı/g, "i")
-    .toLocaleLowerCase("tr-TR")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "")
-    .slice(0, 48) || "menu";
+  return normalizeMenuSlug(value, "menu", 48);
 }
 
 function uniqueSlug(name: string) {
@@ -57,6 +57,10 @@ function uniqueSlug(name: string) {
     if (!exists) return candidate;
   }
   return `${base}-${randomUUID()}`;
+}
+
+function getFallbackMenuName(menu: MenuData) {
+  return getMenuInterfaceLanguage(menu) === "tr" ? "İsimsiz menü" : "Untitled menu";
 }
 
 function parseRow(row: MenuRow): StoredMenu {
@@ -87,7 +91,7 @@ function parsePublishedRow(row: MenuRow): StoredMenu {
   );
   return {
     ...parseRow(row),
-    name: publishedMenu.restaurantName.trim() || "İsimsiz menü",
+    name: publishedMenu.restaurantName.trim() || getFallbackMenuName(publishedMenu),
     menu: publishedMenu,
     theme: publishedTheme,
     hasUnpublishedChanges: false,
@@ -111,7 +115,7 @@ export function getUserMenu(userId: string, id: string) {
 export function createUserMenu(userId: string, menu: MenuData, theme: MenuThemeInput) {
   const id = randomUUID();
   const now = new Date().toISOString();
-  const name = menu.restaurantName.trim() || "İsimsiz menü";
+  const name = menu.restaurantName.trim() || getFallbackMenuName(menu);
   const slug = uniqueSlug(name);
   const normalizedTheme = normalizeMenuTheme(theme);
   db.prepare(
@@ -148,7 +152,7 @@ export function updateUserMenu(
          published_theme_json = CASE WHEN ? = 1 THEN ? ELSE published_theme_json END
      WHERE id = ? AND user_id = ? AND updated_at = ?`,
   ).run(
-    menu.restaurantName.trim() || "İsimsiz menü",
+    menu.restaurantName.trim() || getFallbackMenuName(menu),
     nextStatus,
     serializedMenu,
     serializedTheme,

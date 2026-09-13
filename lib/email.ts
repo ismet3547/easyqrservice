@@ -1,4 +1,7 @@
+import { getLocalizedAppPath, type AppLocale } from "@/lib/i18n";
+
 type PasswordResetEmail = {
+  locale?: AppLocale;
   recipient: string;
   resetUrl: string;
 };
@@ -19,14 +22,14 @@ function getDeliveryMode() {
   )).trim().toLowerCase();
 }
 
-export function createPasswordResetUrl(token: string) {
+export function createPasswordResetUrl(token: string, locale: AppLocale = "en") {
   const appUrl = process.env.APP_URL?.trim() || "http://localhost:3000";
-  const url = new URL("/sifre-sifirla", appUrl);
+  const url = new URL(getLocalizedAppPath(locale, "resetPassword"), appUrl);
   url.hash = `token=${encodeURIComponent(token)}`;
   return url.toString();
 }
 
-export async function sendPasswordResetEmail({ recipient, resetUrl }: PasswordResetEmail) {
+export async function sendPasswordResetEmail({ locale = "en", recipient, resetUrl }: PasswordResetEmail) {
   const deliveryMode = getDeliveryMode();
   if (deliveryMode === "log") {
     if (process.env.NODE_ENV === "production" && process.env.ALLOW_DEMO_MODE !== "true") {
@@ -47,6 +50,29 @@ export async function sendPasswordResetEmail({ recipient, resetUrl }: PasswordRe
   }
 
   const safeResetUrl = escapeHtml(resetUrl);
+  const content = locale === "tr"
+    ? {
+        subject: "easyqr şifreni sıfırla",
+        text: `Şifreni yenilemek için bu bağlantıyı aç: ${resetUrl}\n\nBağlantı 30 dakika geçerlidir. Bu isteği sen yapmadıysan bu e-postayı yok sayabilirsin.`,
+        html: [
+          "<h1>Şifreni yenile</h1>",
+          "<p>easyqr hesabın için bir şifre sıfırlama isteği aldık.</p>",
+          `<p><a href=\"${safeResetUrl}\">Yeni şifre oluştur</a></p>`,
+          "<p>Bu bağlantı 30 dakika boyunca ve yalnızca bir kez kullanılabilir.</p>",
+          "<p>Bu isteği sen yapmadıysan e-postayı yok sayabilirsin.</p>",
+        ].join(""),
+      }
+    : {
+        subject: "Reset your easyqr password",
+        text: `Open this link to reset your password: ${resetUrl}\n\nThe link is valid for 30 minutes. If you did not request this, you can ignore this email.`,
+        html: [
+          "<h1>Reset your password</h1>",
+          "<p>We received a password reset request for your easyqr account.</p>",
+          `<p><a href=\"${safeResetUrl}\">Create a new password</a></p>`,
+          "<p>This link can be used once and expires after 30 minutes.</p>",
+          "<p>If you did not request this, you can ignore this email.</p>",
+        ].join(""),
+      };
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
@@ -56,15 +82,7 @@ export async function sendPasswordResetEmail({ recipient, resetUrl }: PasswordRe
     body: JSON.stringify({
       from,
       to: [recipient],
-      subject: "easyqr şifreni sıfırla",
-      text: `Şifreni yenilemek için bu bağlantıyı aç: ${resetUrl}\n\nBağlantı 30 dakika geçerlidir. Bu isteği sen yapmadıysan bu e-postayı yok sayabilirsin.`,
-      html: [
-        "<h1>Şifreni yenile</h1>",
-        "<p>easyqr hesabın için bir şifre sıfırlama isteği aldık.</p>",
-        `<p><a href=\"${safeResetUrl}\">Yeni şifre oluştur</a></p>`,
-        "<p>Bu bağlantı 30 dakika boyunca ve yalnızca bir kez kullanılabilir.</p>",
-        "<p>Bu isteği sen yapmadıysan e-postayı yok sayabilirsin.</p>",
-      ].join(""),
+      ...content,
     }),
     signal: AbortSignal.timeout(10_000),
   });

@@ -10,26 +10,34 @@ import {
   QrCode,
   Search,
   ShieldAlert,
+  ShieldCheck,
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { getThemeAccessibilityIssues, getReadableSecondaryColor, repairThemeAccessibility } from "@/lib/theme-design";
-import { useMenuEventTracking } from "@/components/useMenuEventTracking";
+import { clearAnonymousVisitorId, useMenuEventTracking } from "@/components/useMenuEventTracking";
+import { getLocalizedAppPath } from "@/lib/i18n";
 import {
   allergenLabels,
   allergenLabelsEn,
   dietaryTagLabels,
   dietaryTagLabelsEn,
   getMenuBusinessProfile,
+  getMenuInterfaceLanguage,
+  getMenuSourceLanguage,
+  getMenuTextDirection,
   getVisibleMenu,
   hasEnglishMenuTranslation,
+  isMenuCurrencyPrefix,
   menuAllergens,
   menuDietaryTags,
   menuWeekdays,
+  normalizeMenuSearchText as normalizeSearchText,
   normalizeMenuTheme,
   type MenuAllergen,
   type MenuBusinessProfile,
   type MenuDietaryTag,
+  type MenuDisplayLanguage,
   type MenuLanguage,
   type MenuWeekday,
   type PublishedMenu,
@@ -37,16 +45,44 @@ import {
 
 type PublicMenuProps = PublishedMenu & {
   analyticsVisitId?: string;
-  initialLanguage?: MenuLanguage;
+  initialLanguage?: MenuDisplayLanguage;
 };
 
 type MenuPreviewProps = PublishedMenu & {
   analyticsVisitId?: string;
   framed?: boolean;
-  initialLanguage?: MenuLanguage;
+  initialLanguage?: MenuDisplayLanguage;
 };
 
 const languagePreferenceKey = "easyqr-menu-language";
+const analyticsConsentStorageKey = "easyqr-analytics-consent";
+const analyticsConsentLifetimeMs = 180 * 24 * 60 * 60 * 1000;
+
+type AnalyticsConsent = "accepted" | "declined" | "unknown";
+
+function readAnalyticsConsent(): AnalyticsConsent {
+  try {
+    const stored = window.localStorage.getItem(analyticsConsentStorageKey);
+    if (!stored) return "unknown";
+    const parsed = JSON.parse(stored) as { choice?: unknown; expiresAt?: unknown };
+    if (
+      (parsed.choice === "accepted" || parsed.choice === "declined") &&
+      typeof parsed.expiresAt === "number" &&
+      parsed.expiresAt > Date.now()
+    ) return parsed.choice;
+    window.localStorage.removeItem(analyticsConsentStorageKey);
+  } catch { /* A missing or blocked preference means we ask before tracking. */ }
+  return "unknown";
+}
+
+function saveAnalyticsConsent(choice: Exclude<AnalyticsConsent, "unknown">) {
+  try {
+    window.localStorage.setItem(analyticsConsentStorageKey, JSON.stringify({
+      choice,
+      expiresAt: Date.now() + analyticsConsentLifetimeMs,
+    }));
+  } catch { /* The in-memory choice still applies for the current page. */ }
+}
 
 const interfaceText = {
   tr: {
@@ -82,7 +118,7 @@ const interfaceText = {
     allergenTitle: "Alerjen bilgisi",
     allergenNotice: "Bilgiler işletme beyanıdır. Ciddi alerjiniz veya çapraz bulaşma hassasiyetiniz varsa sipariş vermeden önce ekibe danışın.",
     enjoy: "Afiyet olsun",
-    vatIncluded: "Fiyatlara KDV dahildir",
+    priceNote: "Fiyat ve ürün durumu işletme tarafından sağlanır",
     language: "Menü dili",
     searchLabel: "Menüde ara",
     searchPlaceholder: "Ürün, kategori veya içerik ara",
@@ -129,7 +165,7 @@ const interfaceText = {
     allergenTitle: "Allergen information",
     allergenNotice: "Information is provided by the venue. If you have a serious allergy or cross-contact sensitivity, please ask the team before ordering.",
     enjoy: "Enjoy your meal",
-    vatIncluded: "Prices include VAT",
+    priceNote: "Prices and availability are provided by the venue",
     language: "Menu language",
     searchLabel: "Search this menu",
     searchPlaceholder: "Search items, categories or ingredients",
@@ -177,18 +213,16 @@ type OpeningState =
       };
     };
 
-function localizedText(source: string, translated: string | undefined, language: MenuLanguage) {
-  return language === "en" && typeof translated === "string" ? translated : source;
+function localizedText(source: string, translated: string | undefined, showEnglishTranslation: boolean) {
+  return showEnglishTranslation && typeof translated === "string" ? translated : source;
 }
 
-function normalizeSearchText(value: string) {
-  return value
-    .toLocaleLowerCase("tr-TR")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/ı/g, "i")
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
+function getLanguageLabel(language: string, interfaceLanguage: MenuLanguage) {
+  try {
+    return new Intl.DisplayNames([interfaceLanguage], { type: "language" }).of(language) || language;
+  } catch {
+    return language.toLocaleUpperCase("en-US");
+  }
 }
 
 function parseMenuTime(value: string) {
@@ -213,7 +247,7 @@ function getZonedTime(date: Date, timezone: string) {
   try {
     parts = readParts(timezone);
   } catch {
-    parts = readParts("Europe/Istanbul");
+    parts = readParts("UTC");
   }
 
   const weekdayValue = parts.find((part) => part.type === "weekday")?.value.toLowerCase();
@@ -344,8 +378,10 @@ export function PublicMenu({
   analyticsVisitId,
   menu,
   theme,
-  initialLanguage = "tr",
+  initialLanguage,
 }: PublicMenuProps) {
+  const [analyticsConsent, setAnalyticsConsent] = useState<AnalyticsConsent>("unknown");
+  const [privacyChoicesOpen, setPrivacyChoicesOpen] = useState(false);
   const resolvedTheme = useMemo(() => {
     const normalized = normalizeMenuTheme(theme);
     return getThemeAccessibilityIssues(normalized).length ? repairThemeAccessibility(normalized) : normalized;
@@ -357,13 +393,44 @@ export function PublicMenu({
     "--menu-text": resolvedTheme.text,
     background: resolvedTheme.background,
   } as CSSProperties;
+  const footerLanguage = initialLanguage === "en" ? "en" : getMenuInterfaceLanguage(menu);
+  const privacyCopy = footerLanguage === "tr"
+    ? {
+        accept: "Anonim analitiğe izin ver",
+        description: "Bu menünün geliştirilmesine yardımcı olmak için görüntülenen ürünler ve aramalar rastgele bir kimlikle ölçülebilir. Reklam veya siteler arası takip yapılmaz.",
+        necessary: "Yalnızca gerekli",
+        open: "Gizlilik tercihleri",
+        title: "Gizlilik tercihin",
+      }
+    : {
+        accept: "Allow anonymous analytics",
+        description: "To help improve this menu, viewed items and searches can be measured with a random identifier. It is never used for advertising or cross-site tracking.",
+        necessary: "Only necessary",
+        open: "Privacy choices",
+        title: "Your privacy choice",
+      };
+
+  useEffect(() => {
+    if (!analyticsVisitId) return;
+    const savedConsent = readAnalyticsConsent();
+    setAnalyticsConsent(savedConsent);
+    setPrivacyChoicesOpen(savedConsent === "unknown");
+  }, [analyticsVisitId]);
+
+  const chooseAnalytics = (choice: Exclude<AnalyticsConsent, "unknown">) => {
+    saveAnalyticsConsent(choice);
+    if (choice === "declined") clearAnonymousVisitorId();
+    setAnalyticsConsent(choice);
+    setPrivacyChoicesOpen(false);
+  };
+
   return (
     <main className="public-menu-shell" style={shellStyle}>
       <MenuPreview
-        analyticsVisitId={analyticsVisitId}
+        analyticsVisitId={analyticsConsent === "accepted" ? analyticsVisitId : undefined}
         menu={menu}
         theme={resolvedTheme}
-        initialLanguage={initialLanguage}
+        initialLanguage={initialLanguage || "source"}
       />
       <footer className="public-menu-footer" style={{ color: secondaryColor }}>
         <div className="public-menu-powered-by">
@@ -373,11 +440,25 @@ export function PublicMenu({
             <strong>easy<span>qr</span></strong>
           </div>
         </div>
-        <nav aria-label="Gizlilik bağlantıları">
-          <a href="/gizlilik">Gizlilik</a>
-          <a href="/cerez-politikasi">Çerezler</a>
+        <nav aria-label={footerLanguage === "tr" ? "Gizlilik bağlantıları" : "Privacy links"}>
+          <a href={getLocalizedAppPath(footerLanguage, "privacy")}>{footerLanguage === "tr" ? "Gizlilik" : "Privacy"}</a>
+          <a href={getLocalizedAppPath(footerLanguage, "cookies")}>{footerLanguage === "tr" ? "Çerezler" : "Cookies"}</a>
+          {analyticsVisitId && <button type="button" onClick={() => setPrivacyChoicesOpen(true)}>{privacyCopy.open}</button>}
         </nav>
       </footer>
+      {analyticsVisitId && privacyChoicesOpen && (
+        <aside className="menu-privacy-choice" aria-labelledby="menu-privacy-choice-title" role="region">
+          <span className="menu-privacy-choice-icon"><ShieldCheck aria-hidden="true" size={19} /></span>
+          <div>
+            <strong id="menu-privacy-choice-title">{privacyCopy.title}</strong>
+            <p>{privacyCopy.description} <a href={getLocalizedAppPath(footerLanguage, "cookies")}>{footerLanguage === "tr" ? "Ayrıntılar" : "Details"}</a></p>
+          </div>
+          <div className="menu-privacy-choice-actions">
+            <button type="button" onClick={() => chooseAnalytics("declined")}>{privacyCopy.necessary}</button>
+            <button className="primary" type="button" onClick={() => chooseAnalytics("accepted")}>{privacyCopy.accept}</button>
+          </div>
+        </aside>
+      )}
     </main>
   );
 }
@@ -387,20 +468,24 @@ export function MenuPreview({
   menu,
   theme,
   framed = false,
-  initialLanguage = "tr",
+  initialLanguage,
 }: MenuPreviewProps) {
   const resolvedTheme = useMemo(() => {
     const normalized = normalizeMenuTheme(theme);
     return getThemeAccessibilityIssues(normalized).length ? repairThemeAccessibility(normalized) : normalized;
   }, [theme]);
   const secondaryColor = useMemo(() => getReadableSecondaryColor(resolvedTheme), [resolvedTheme]);
-  const canUseEnglish = hasEnglishMenuTranslation(menu);
+  const rawSourceLanguage = getMenuSourceLanguage(menu);
+  const sourceLanguage = getMenuInterfaceLanguage(menu);
+  const currencyBeforeAmount = isMenuCurrencyPrefix(menu.currency, rawSourceLanguage);
+  const sourceIsEnglish = /^en(?:-|$)/i.test(rawSourceLanguage);
+  const canUseEnglish = !sourceIsEnglish && hasEnglishMenuTranslation(menu);
   const previewRef = useRef<HTMLDivElement>(null);
   const seenVisibilityEventsRef = useRef(new Set<string>());
   const lastTrackedSearchRef = useRef("");
   const trackEvent = useMenuEventTracking(framed ? undefined : analyticsVisitId);
-  const [language, setLanguage] = useState<MenuLanguage>(
-    initialLanguage === "en" && canUseEnglish ? "en" : "tr",
+  const [showEnglishTranslation, setShowEnglishTranslation] = useState(
+    initialLanguage === "en" && canUseEnglish,
   );
   const [searchQuery, setSearchQuery] = useState("");
   const [dietaryFilters, setDietaryFilters] = useState<MenuDietaryTag[]>([]);
@@ -412,7 +497,8 @@ export function MenuPreview({
     if (framed || !canUseEnglish) return;
     try {
       const savedLanguage = window.localStorage.getItem(languagePreferenceKey);
-      if (savedLanguage === "tr" || savedLanguage === "en") setLanguage(savedLanguage);
+      if (savedLanguage === "en") setShowEnglishTranslation(true);
+      if (savedLanguage === "source" || savedLanguage === "tr") setShowEnglishTranslation(false);
     } catch { /* Storage is optional; the menu must remain usable. */ }
   }, [canUseEnglish, framed]);
 
@@ -424,15 +510,15 @@ export function MenuPreview({
     return () => window.clearInterval(interval);
   }, [businessProfile.hoursEnabled, businessProfile.timezone]);
 
-  const activeLanguage: MenuLanguage = language === "en" && canUseEnglish ? "en" : "tr";
+  const activeLanguage: MenuLanguage = showEnglishTranslation ? "en" : sourceLanguage;
   const copy = interfaceText[activeLanguage];
   const menuTranslation = menu.translations?.en;
   const restaurantName = localizedText(
     menu.restaurantName,
     menuTranslation?.restaurantName,
-    activeLanguage,
+    showEnglishTranslation,
   );
-  const subtitle = localizedText(menu.subtitle, menuTranslation?.subtitle, activeLanguage);
+  const subtitle = localizedText(menu.subtitle, menuTranslation?.subtitle, showEnglishTranslation);
   const openingState = businessProfile.hoursEnabled && currentTime
     ? getOpeningState(businessProfile, currentTime)
     : null;
@@ -493,7 +579,7 @@ export function MenuPreview({
       const categoryName = localizedText(
         category.name,
         category.translations?.en?.name,
-        activeLanguage,
+        showEnglishTranslation,
       );
       return {
         ...category,
@@ -601,11 +687,12 @@ export function MenuPreview({
     return () => window.clearTimeout(timer);
   }, [analyticsVisitId, filteredItemCount, framed, searchQuery, trackEvent]);
 
-  const changeLanguage = (nextLanguage: MenuLanguage) => {
-    if (nextLanguage !== activeLanguage) {
-      trackEvent({ type: "language_change", value: nextLanguage });
+  const changeLanguage = (nextLanguage: MenuDisplayLanguage) => {
+    const nextShowsEnglish = nextLanguage === "en";
+    if (nextShowsEnglish !== showEnglishTranslation) {
+      trackEvent({ type: "language_change", value: nextShowsEnglish ? "en" : rawSourceLanguage });
     }
-    setLanguage(nextLanguage);
+    setShowEnglishTranslation(nextShowsEnglish);
     try {
       if (!framed) window.localStorage.setItem(languagePreferenceKey, nextLanguage);
     } catch { /* Keep the in-memory language choice. */ }
@@ -640,7 +727,8 @@ export function MenuPreview({
   return (
     <div
       className={`menu-preview font-${resolvedTheme.font} layout-${resolvedTheme.layout} card-${resolvedTheme.cardStyle} category-${resolvedTheme.categoryStyle} corners-${resolvedTheme.cornerStyle} density-${resolvedTheme.density} hero-${resolvedTheme.heroStyle} image-${resolvedTheme.imageRatio} price-${resolvedTheme.priceStyle} ${framed ? "is-framed" : ""}`}
-      lang={activeLanguage}
+      dir={showEnglishTranslation ? "ltr" : getMenuTextDirection(rawSourceLanguage)}
+      lang={showEnglishTranslation ? "en" : rawSourceLanguage}
       ref={previewRef}
       style={style}
     >
@@ -648,16 +736,16 @@ export function MenuPreview({
         {canUseEnglish && (
           <div className="menu-language-switch" role="group" aria-label={copy.language}>
             <button
-              className={activeLanguage === "tr" ? "active" : ""}
-              aria-label="Türkçe"
-              aria-pressed={activeLanguage === "tr"}
-              onClick={() => changeLanguage("tr")}
+              className={!showEnglishTranslation ? "active" : ""}
+              aria-label={getLanguageLabel(rawSourceLanguage, activeLanguage)}
+              aria-pressed={!showEnglishTranslation}
+              onClick={() => changeLanguage("source")}
               type="button"
-            >TR</button>
+            >{rawSourceLanguage.split("-")[0].toLocaleUpperCase("en-US").slice(0, 3)}</button>
             <button
-              className={activeLanguage === "en" ? "active" : ""}
+              className={showEnglishTranslation ? "active" : ""}
               aria-label="English"
-              aria-pressed={activeLanguage === "en"}
+              aria-pressed={showEnglishTranslation}
               onClick={() => changeLanguage("en")}
               type="button"
             >EN</button>
@@ -860,9 +948,9 @@ export function MenuPreview({
                 {category.items.map((item) => {
                   const soldOut = item.availability === "sold-out";
                   const itemTranslation = item.translations?.en;
-                  const itemName = localizedText(item.name, itemTranslation?.name, activeLanguage);
-                  const description = localizedText(item.description, itemTranslation?.description, activeLanguage);
-                  const badge = localizedText(item.badge, itemTranslation?.badge, activeLanguage);
+                  const itemName = localizedText(item.name, itemTranslation?.name, showEnglishTranslation);
+                  const description = localizedText(item.description, itemTranslation?.description, showEnglishTranslation);
+                  const badge = localizedText(item.badge, itemTranslation?.badge, showEnglishTranslation);
                   return (
                     <article
                       className={`menu-item ${item.image ? "has-image" : ""} ${soldOut ? "is-sold-out" : ""}`}
@@ -899,8 +987,8 @@ export function MenuPreview({
                         )}
                       </div>
                       <div className={`menu-price-area ${item.isCampaign && item.originalPrice ? "has-campaign" : ""}`}>
-                        {item.isCampaign && item.originalPrice && <><span className="menu-campaign-label">{copy.campaign}</span><del>{item.originalPrice}<small>{menu.currency}</small></del></>}
-                        <strong className="menu-price">{item.price}<small>{menu.currency}</small></strong>
+                        {item.isCampaign && item.originalPrice && <><span className="menu-campaign-label">{copy.campaign}</span><del>{currencyBeforeAmount && <small className="is-leading">{menu.currency}</small>}{item.originalPrice}{!currencyBeforeAmount && <small>{menu.currency}</small>}</del></>}
+                        <strong className="menu-price">{currencyBeforeAmount && <small className="is-leading">{menu.currency}</small>}{item.price}{!currencyBeforeAmount && <small>{menu.currency}</small>}</strong>
                       </div>
                     </article>
                   );
@@ -926,7 +1014,7 @@ export function MenuPreview({
           <span>{copy.allergenNotice}</span>
         </div>
       )}
-      <div className="menu-bottom-note"><span>{copy.enjoy}</span><i>✦</i><span>{copy.vatIncluded}</span></div>
+      <div className="menu-bottom-note"><span>{copy.enjoy}</span><i>✦</i><span>{copy.priceNote}</span></div>
     </div>
   );
 }

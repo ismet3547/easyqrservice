@@ -1,6 +1,9 @@
 # easyqr
 
-Restoran ve kafelerin mevcut PDF veya görsel menülerini yapay zekâ ile okuyup, düzenlenebilir ve telefona uygun QR menülere dönüştüren MVP.
+Restoran ve kafelerin mevcut PDF veya görsel menülerini yapay zekâ ile okuyup,
+düzenlenebilir ve telefona uygun QR menülere dönüştüren global-first MVP. Uygulama
+İngilizceyi varsayılan dil olarak kullanır; Türkçe arayüz ve mevcut Türkçe menüler
+geriye dönük olarak desteklenir.
 
 ## Neler hazır?
 
@@ -25,10 +28,13 @@ Restoran ve kafelerin mevcut PDF veya görsel menülerini yapay zekâ ile okuyup
 - Yaygın alerjen bilgileri ve müşteri menüsünde güvenlik uyarısı
 - Ürün görseli yükleme, tarayıcıda otomatik boyutlandırma ve sıkıştırma
 - Görseli olmayan ürünleri OpenAI ile tek tuşta ve toplu tamamlama
-- Menü başlığı, kategori, ürün, açıklama ve etiketler için tek tuşla İngilizce çeviri
-- QR menüde tarayıcı diline göre otomatik Türkçe/İngilizce açılış ve kalıcı TR/EN seçimi
-- Türkçe içerik değiştiğinde eski çeviriyi işaretleyen çeviri güncellik kontrolü
-- Ürün, açıklama, kategori, fiyat, etiket ve alerjenlerde Türkçe karakter duyarsız menü araması
+- Menü başlığı, kategori, ürün, açıklama ve etiketler için kaynak dilden tek tuşla İngilizce çeviri
+- İngilizce ve Türkçe uygulama arayüzü; paylaşılabilir `/login`, `/privacy`, `/sample-menu` ve geriye dönük Türkçe URL’ler
+- İngilizce, İspanyolca, Almanca, Fransızca, İtalyanca, Portekizce, Türkçe, Arapça, Çince, Japonca ve diğer BCP 47 kaynak dillerini koruyan menü modeli
+- RTL dillerde doğru yazım yönü; Unicode arama, yerel rakam doğrulaması ve para birimine uygun fiyat sırası
+- QR menüde tarayıcı diline göre kaynak dil/İngilizce açılış ve kaynak dil kodunu doğru gösteren kalıcı dil seçimi
+- Kaynak içerik değiştiğinde eski İngilizce çeviriyi işaretleyen çeviri güncellik kontrolü
+- Ürün, açıklama, kategori, fiyat, etiket ve alerjenlerde aksan/harf varyasyonlarına dayanıklı menü araması
 - Vegan, vejetaryen, glutensiz ve acılı filtreleri ile çoklu alerjen dışlama
 - İşletme logosu, adres, telefon, WhatsApp, Instagram ve Google Maps bağlantıları
 - Saat dilimine göre canlı açık/kapalı durumu, haftalık çalışma saatleri ve gece yarısını aşan servis desteği
@@ -57,9 +63,9 @@ Restoran ve kafelerin mevcut PDF veya görsel menülerini yapay zekâ ile okuyup
 - Dashboard’dan menü açma, bağlantı kopyalama ve silme
 - Günlük QR menü açılışlarını gösteren 7, 14 ve 30 günlük analitik ekranı
 - QR kod, doğrudan bağlantı ve sosyal yönlendirmeleri ayıran trafik kaynağı analizi
-- Mobil, tablet ve masaüstü cihazlarla Türkçe/İngilizce menü kullanım dağılımları
+- Mobil, tablet ve masaüstü cihazlarla BCP 47 menü dili kullanım dağılımları
 - Oturumla bağlı ürün/kategori görünürlüğü, kampanya gösterimi, arama, dil ve iletişim etkileşimi olayları
-- Ham ziyaretçi kimliğini saklamadan tekil ve tekrar gelen ziyaretçi ölçümüne hazır anonim SHA-256 eşleştirme
+- Yalnızca ziyaretçi izin verdiğinde çalışan, ham ziyaretçi kimliğini saklamadan tekil ve tekrar gelen ziyaretçi ölçümü yapan anonim SHA-256 eşleştirme
 - Ham IP veya tarayıcı bilgisi saklamayan ve bilinen botları saymayan gizlilik odaklı ölçüm
 - Menü bazlı görüntülenme sıralaması ve mobil dashboard navigasyonu
 - QR kod, bağlantı kopyalama, paylaşma ve SVG indirme
@@ -74,7 +80,8 @@ Restoran ve kafelerin mevcut PDF veya görsel menülerini yapay zekâ ile okuyup
 ## Yerelde çalıştırma
 
 Analitik veri kontrolleri için `npm run test:analytics`, hesap yaşam döngüsü için
-`npm run test:account` çalıştırılabilir. Testler geçici SQLite veritabanı
+`npm run test:account`, global dil ve URL kontrolleri için `npm run test:i18n`
+çalıştırılabilir. Testler geçici SQLite veritabanı
 oluşturur; uygulamanın veritabanına dokunmaz.
 
 Gereksinimler: Node.js 20.9 veya üzeri.
@@ -120,6 +127,7 @@ npm run build      # üretim derlemesi
 npm start          # üretim sunucusu
 npm run test:analytics # analitik kapsam ve hesaplama kontrolleri
 npm run test:account   # plan, şifre kurtarma, cache ve hesap silme kontrolleri
+npm run test:i18n      # dil seçimi, global URL, menü dili ve e-posta kontrolleri
 npm run test:ops   # ortam, online yedek ve geri yükleme kontrolleri
 npm run account:activate -- --email musteri@example.com --days 30
 npm run db:backup  # çalışan SQLite veritabanından güvenli yedek
@@ -157,6 +165,8 @@ gerektiğinde PostgreSQL'e geçilmelidir.
 - `app/dashboard/settings` ve `components/SettingsDashboard.tsx`: profil ve hesap güvenliği ayarları
 - `app/api/menus/*`: menü oluşturma, okuma, güncelleme, yayınlama ve silme
 - `app/m/[slug]`: herkese açık, kalıcı müşteri menüsü
+- `lib/i18n.ts`, `lib/i18n-server.ts`, `proxy.ts` ve `components/LocaleSwitcher.tsx`: EN/TR dil çözümleme, kalıcı tercih ve dile özel kamusal URL’ler
+- `app/login`, `app/register`, `app/forgot-password`, `app/reset-password`, `app/privacy`, `app/cookies`, `app/terms` ve `app/sample-menu`: İngilizce kamusal URL’ler; mevcut Türkçe URL’ler korunur
 - `app/api/extract-menu/route.ts`: dosya doğrulama ve AI tabanlı menü çıkarımı
 - `app/api/generate-product-image/route.ts`: kimlik doğrulamalı ve hız sınırlı ürün görseli üretimi
 - `app/api/generate-menu-theme/route.ts`: kredi kullanan, sahiplik kontrollü ve şema doğrulamalı özel tema üretimi
@@ -178,7 +188,7 @@ gerektiğinde PostgreSQL'e geçilmelidir.
 - `lib/menu-starters.ts`: sektör şablonları, örnek kategori/ürünler ve para birimine uyarlanmış başlangıç fiyatları
 - `lib/menu-readiness.ts`: yayın engelleri, kalite puanı ve iyileştirme önerileri için ortak doğrulama kuralları
 - `lib/menu.ts` ve `lib/menus.ts`: menü veri modeli, geriye dönük uyumlu Theme Engine 2.0 ve kalıcı menü işlemleri
-- `components/MenuPreview.tsx`: iki dilli müşteri menüsü, güvenli iletişim bağlantıları ve canlı çalışma saati hesabı
+- `components/MenuPreview.tsx`: kaynak dil/İngilizce müşteri menüsü, isteğe bağlı anonim analitik tercihi, güvenli iletişim bağlantıları ve canlı çalışma saati hesabı
 - `app/globals.css`: responsive tasarım sistemi
 
 ## MVP notu
@@ -216,6 +226,6 @@ Kullanıcılar, oturumlar, taslaklar ve yayınlanan menüler SQLite veritabanın
 - Gizli ürünler herkese açık müşteri bileşenine gönderilmeden önce sunucuda filtrelenir.
 - Alerjenler AI tarafından tahmin edilmez; işletme tarafından doğrulanarak girilir ve müşteri menüsünde çapraz bulaşma uyarısı gösterilir.
 - Menü araması ve filtreler tarayıcıda çalışır. En az iki karakterli aramalar, sonuç sayısıyla birlikte analitik için 80 karakterle sınırlandırılarak aynı-origin endpoint’ine gönderilir; alerjen filtresi yalnızca işletmenin beyan ettiği verileri esas alır.
-- Analitik kayıtlarında sınıflandırılmış kaynak, cihaz türü, gösterilen dil ve doğrulanmış menü etkileşimleri tutulur. Anonim tarayıcı kimliği yalnızca SHA-256 özeti olarak saklanır; ham IP, user-agent ve yönlendiren adres saklanmaz. Bilinen bot istekleri görüntülenmeye eklenmez.
+- Temel menü açılışı kalıcı tarayıcı kimliği olmadan sayılır. Ürün/kategori görünürlüğü, arama ve geri dönüş ölçümü yalnızca ziyaretçi anonim analitiğe izin verdikten sonra başlar; tercih menü altından geri çekilebilir. Anonim tarayıcı kimliği sunucuda yalnızca SHA-256 özeti olarak saklanır; ham IP, user-agent ve yönlendiren adres saklanmaz. Bilinen bot istekleri görüntülenmeye eklenmez.
 - Müşteri menüsündeki harita, WhatsApp ve Instagram bağlantıları yalnızca izin verilen HTTPS alan adlarına yönlendirilir; çalışma saatleri seçilen saat diliminde tarayıcıda hesaplanır.
 - Üretimde dağıtık rate limiting, PostgreSQL, e-posta doğrulama, kalıcı dosya politikası ve kötü amaçlı dosya taraması eklenmelidir.
