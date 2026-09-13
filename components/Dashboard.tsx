@@ -130,6 +130,7 @@ export function Dashboard({
 
   const analytics = initialAnalytics.periods[period];
   const hasInteractionTracking = Boolean(initialAnalytics.trackingStartedAt);
+  const hasDashboardActivity = analytics.views > 0 || analytics.productViews > 0 || analytics.uniqueVisitors > 0;
   const firstPublishedMenu = menus.find((menu) => menu.status === "published");
   const onboarding = getOnboardingProgress(menus, locale);
   const currentOnboardingStepId = onboarding.steps.find((step) => !step.complete)?.id;
@@ -338,50 +339,66 @@ export function Dashboard({
             </div>
           </section>
 
-          <section className="dashboard-v2-metrics" aria-label={t(`Performance summary for the last ${period} days`, `Son ${period} gün performans özeti`)}>
-            <DashboardMetric
-              current={analytics.views}
-              icon={<Eye size={20} />}
-              label={t("Menu views", "Menü görüntüleme")}
-              locale={locale}
-              previous={analytics.previousViews}
-              subtitle={t("compared with the previous period", "önceki döneme göre")}
-              tone="orange"
-              value={number(analytics.views)}
-            />
-            <DashboardMetric
-              current={analytics.uniqueVisitors}
-              icon={<UsersRound size={20} />}
-              label={t("Measured visitors", "Ölçülen ziyaretçi")}
-              locale={locale}
-              previous={analytics.previousUniqueVisitors}
-              subtitle={t("among analytics-enabled visits", "analitiğe izin veren ziyaretlerde")}
-              tone="green"
-              value={hasInteractionTracking ? number(analytics.uniqueVisitors) : "—"}
-            />
-            <DashboardMetric
-              current={returningRate}
-              icon={<Repeat2 size={20} />}
-              label={t("Measured return rate", "Ölçülen geri dönüş")}
-              locale={locale}
-              previous={previousReturningRate}
-              subtitle={t(`${number(analytics.returningVisitors)} measured visitors returned`, `${number(analytics.returningVisitors)} ölçülen ziyaretçi geri geldi`)}
-              tone="purple"
-              value={hasInteractionTracking ? `${returningRate}%` : "—"}
-            />
-            <DashboardMetric
-              current={analytics.productViews}
-              icon={<MousePointerClick size={20} />}
-              label={t("Item views", "Ürün görünürlüğü")}
-              locale={locale}
-              previous={analytics.previousProductViews}
-              subtitle={t(`${number(analytics.campaignViews)} offer views`, `${number(analytics.campaignViews)} kampanya gösterimi`)}
-              tone="blue"
-              value={hasInteractionTracking ? number(analytics.productViews) : "—"}
-            />
-          </section>
+          {hasDashboardActivity ? (
+            <section className="dashboard-v2-metrics" aria-label={t(`Performance summary for the last ${period} days`, `Son ${period} gün performans özeti`)}>
+              <DashboardMetric
+                current={analytics.views}
+                icon={<Eye size={20} />}
+                label={t("Menu views", "Menü görüntüleme")}
+                locale={locale}
+                previous={analytics.previousViews}
+                subtitle={t("compared with the previous period", "önceki döneme göre")}
+                tone="orange"
+                value={number(analytics.views)}
+              />
+              <DashboardMetric
+                current={analytics.uniqueVisitors}
+                icon={<UsersRound size={20} />}
+                label={t("Measured visitors", "Ölçülen ziyaretçi")}
+                locale={locale}
+                previous={analytics.previousUniqueVisitors}
+                subtitle={t("among analytics-enabled visits", "analitiğe izin veren ziyaretlerde")}
+                tone="green"
+                value={hasInteractionTracking ? number(analytics.uniqueVisitors) : "—"}
+              />
+              <DashboardMetric
+                current={returningRate}
+                icon={<Repeat2 size={20} />}
+                label={t("Measured return rate", "Ölçülen geri dönüş")}
+                locale={locale}
+                previous={previousReturningRate}
+                subtitle={t(`${number(analytics.returningVisitors)} measured visitors returned`, `${number(analytics.returningVisitors)} ölçülen ziyaretçi geri geldi`)}
+                tone="purple"
+                value={hasInteractionTracking ? `${returningRate}%` : "—"}
+              />
+              <DashboardMetric
+                current={analytics.productViews}
+                icon={<MousePointerClick size={20} />}
+                label={t("Item views", "Ürün görünürlüğü")}
+                locale={locale}
+                previous={analytics.previousProductViews}
+                subtitle={t(`${number(analytics.campaignViews)} offer views`, `${number(analytics.campaignViews)} kampanya gösterimi`)}
+                tone="blue"
+                value={hasInteractionTracking ? number(analytics.productViews) : "—"}
+              />
+            </section>
+          ) : (
+            <section className="dashboard-quiet-empty" aria-labelledby="dashboard-empty-title">
+              <span><ScanLine size={21} /></span>
+              <div>
+                <strong id="dashboard-empty-title">{t("Your dashboard will wake up after the first scan", "İlk taramayla dashboard'ın canlanacak")}</strong>
+                <p>{firstPublishedMenu
+                  ? t("Share your QR code with a guest. Useful activity will replace this message automatically.", "QR kodunu bir müşteriyle paylaş. Anlamlı hareket oluşunca bu mesaj otomatik olarak yerini verilere bırakacak.")
+                  : t("Publish your first menu, then scan its QR code once to verify the guest experience.", "İlk menünü yayınla, ardından müşteri deneyimini doğrulamak için QR kodunu bir kez okut.")}</p>
+              </div>
+              <Link href={firstPublishedMenu ? `/dashboard/menus/${firstPublishedMenu.id}/qr` : onboarding.nextAction.href}>
+                {firstPublishedMenu ? t("Open QR sharing", "QR paylaşımını aç") : onboarding.nextAction.label} <ChevronRight size={16} />
+              </Link>
+            </section>
+          )}
 
-          <section className="dashboard-opportunities" aria-labelledby="dashboard-opportunities-title">
+          {hasDashboardActivity && <>
+            <section className="dashboard-opportunities" aria-labelledby="dashboard-opportunities-title">
             <div className="dashboard-v2-section-heading">
               <div><span><Sparkles size={13} /> {t("Smart opportunities", "Akıllı fırsatlar")}</span><h2 id="dashboard-opportunities-title">{t("Your best next steps", "Sıradaki en iyi hamleler")}</h2></div>
               <Link href="/dashboard/analytics">{t("All analytics", "Tüm analitik")} <ArrowUpRight size={14} /></Link>
@@ -462,7 +479,8 @@ export function Dashboard({
                 <p className="dashboard-activity-detail"><strong>{number(analytics.searches)}</strong> {t("searches", "arama")} · <strong>{number(analytics.contactClicks)}</strong> {t("contact clicks", "iletişim tıklaması")}</p>
               )}
             </section>
-          </div>
+            </div>
+          </>}
 
           <section className="dashboard-menus dashboard-v2-menus" id="menuler">
             <div className="dashboard-section-heading">

@@ -6,6 +6,7 @@ import {
   Copy,
   Eye,
   FilePenLine,
+  MoreHorizontal,
   Plus,
   QrCode,
   Rocket,
@@ -139,8 +140,10 @@ export function MenusDashboard({ user, initialMenus }: { user: SessionUser; init
                       <div className="menus-card-heading">
                         <div><h2>{storedMenu.name}</h2><p>{number(storedMenu.menu.categories.length)} {t("categories", "kategori")} · {number(productCount)} {t("items", "ürün")}</p></div>
                         <div className="menu-status-stack">
-                          <span className={`status-badge ${storedMenu.status}`}><i /> {storedMenu.status === "published" ? t("Published", "Yayında") : t("Draft", "Taslak")}</span>
-                          {storedMenu.hasUnpublishedChanges && <span className="status-badge update-pending"><i /> {t("Update pending", "Güncelleme bekliyor")}</span>}
+                          <span className={`status-badge ${storedMenu.hasUnpublishedChanges ? "update-pending" : storedMenu.status}`}>
+                            <i /> {storedMenu.status === "published" ? t("Published", "Yayında") : t("Draft", "Taslak")}
+                            {storedMenu.hasUnpublishedChanges && <em> · {t("update pending", "güncelleme bekliyor")}</em>}
+                          </span>
                         </div>
                       </div>
                       <div className="menus-card-stats"><span><Eye size={14} /><strong>{number(storedMenu.viewCount)}</strong> {t("views", "görüntülenme")}</span><span>{t("Last updated", "Son güncelleme")} <strong>{date(storedMenu.updatedAt, { day: "numeric", month: "short", year: "numeric" })}</strong></span></div>
@@ -156,9 +159,14 @@ export function MenusDashboard({ user, initialMenus }: { user: SessionUser; init
                               : t("Edit", "Düzenle")}
                         </Link>
                         {storedMenu.status === "published" && <Link className="qr" href={`/dashboard/menus/${storedMenu.id}/qr`}><QrCode size={16} /> {t("QR code", "QR kodu")}</Link>}
-                        {storedMenu.status === "published" && <a href={`/m/${storedMenu.slug}`} target="_blank" rel="noreferrer"><Eye size={16} /> {t("Open", "Aç")}</a>}
-                        {storedMenu.status === "published" && <button onClick={() => void copyLink(storedMenu)}>{copiedId === storedMenu.id ? <Check size={16} /> : <Copy size={16} />}{copiedId === storedMenu.id ? t("Copied", "Kopyalandı") : t("Link", "Bağlantı")}</button>}
-                        <button className="danger" disabled={deletingId === storedMenu.id} onClick={() => void deleteMenu(storedMenu)} aria-label={t("Delete menu", "Menüyü sil")}><Trash2 size={16} /></button>
+                        <details className="menus-card-more">
+                          <summary aria-label={t(`More actions for ${storedMenu.name}`, `${storedMenu.name} için diğer işlemler`)} title={t("More actions", "Diğer işlemler")}><MoreHorizontal size={18} /></summary>
+                          <div className="menus-card-more-menu">
+                            {storedMenu.status === "published" && <a href={`/m/${storedMenu.slug}`} target="_blank" rel="noreferrer"><Eye size={16} /> {t("Open guest menu", "Müşteri menüsünü aç")}</a>}
+                            {storedMenu.status === "published" && <button onClick={() => void copyLink(storedMenu)}>{copiedId === storedMenu.id ? <Check size={16} /> : <Copy size={16} />}{copiedId === storedMenu.id ? t("Link copied", "Bağlantı kopyalandı") : t("Copy link", "Bağlantıyı kopyala")}</button>}
+                            <button className="danger" disabled={deletingId === storedMenu.id} onClick={() => void deleteMenu(storedMenu)}><Trash2 size={16} /> {t("Delete menu", "Menüyü sil")}</button>
+                          </div>
+                        </details>
                       </div>
                     </div>
                   </article>

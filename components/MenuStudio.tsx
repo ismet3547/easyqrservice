@@ -605,6 +605,7 @@ export function MenuStudio({
   const [publishOpen, setPublishOpen] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false);
+  const [inlinePreviewOpen, setInlinePreviewOpen] = useState(false);
   const [publishUrl, setPublishUrl] = useState("");
   const [copied, setCopied] = useState(false);
   const [publicPayload, setPublicPayload] = useState<PublishedMenu | null>(null);
@@ -709,6 +710,7 @@ export function MenuStudio({
     themeCreditBalance < aiCreditCosts.themeDesign;
   const changeEditorTab = (nextTab: StudioEditorTab) => {
     setTab(nextTab);
+    if (nextTab === "design" && !window.matchMedia("(max-width: 760px)").matches) setInlinePreviewOpen(true);
     setExpandedItemId("");
     window.requestAnimationFrame(() => {
       editorScrollRef.current?.scrollTo({ top: 0, behavior: "auto" });
@@ -2414,7 +2416,10 @@ export function MenuStudio({
         busy={leaving || publishing}
         onBack={() => { void goToDashboard(); }}
         onLogout={() => { void logout(); }}
-        onOpenPreview={() => setMobilePreviewOpen(true)}
+        onOpenPreview={() => {
+          if (window.matchMedia("(max-width: 760px)").matches) setMobilePreviewOpen(true);
+          else setInlinePreviewOpen((current) => !current);
+        }}
         onPublish={() => {
           setPublishError("");
           if (activeMenuStatus === "published" && saveStatus === "saved" && !hasUnpublishedChanges && activeMenuSlug) {
@@ -2426,6 +2431,7 @@ export function MenuStudio({
           }
         }}
         saveStatus={saveStatus}
+        previewVisible={inlinePreviewOpen}
         userName={currentUser?.name}
       />
 
@@ -2438,7 +2444,7 @@ export function MenuStudio({
         }}>{t("Retry", "Yeniden dene")}</button>
         <button type="button" onClick={downloadDraft}>{t("Download draft", "Taslağı indir")}</button>
       </div>}
-      <div className="studio-body">
+      <div className={`studio-body ${inlinePreviewOpen ? "has-preview" : "editor-focus"}`}>
         <aside className="editor-panel">
           <StudioEditorTabs activeTab={tab} onChange={changeEditorTab} />
 
@@ -3124,7 +3130,7 @@ export function MenuStudio({
           )}
         </aside>
 
-        <StudioPreviewStage menu={menu} theme={theme} />
+        {inlinePreviewOpen && <StudioPreviewStage menu={menu} theme={theme} />}
       </div>
 
       {publishReviewOpen && (
