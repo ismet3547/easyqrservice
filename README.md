@@ -129,6 +129,8 @@ npm run test:analytics # analitik kapsam ve hesaplama kontrolleri
 npm run test:account   # plan, şifre kurtarma, cache ve hesap silme kontrolleri
 npm run test:i18n      # dil seçimi, global URL, menü dili ve e-posta kontrolleri
 npm run test:ops   # ortam, online yedek ve geri yükleme kontrolleri
+npm run check:production-env # canlı ortam değişkenlerini doğrula
+npm run smoke:production -- --url https://easyqrservice.com
 npm run account:activate -- --email musteri@example.com --days 30
 npm run db:backup  # çalışan SQLite veritabanından güvenli yedek
 npm run db:verify -- --source /yedek.sqlite3

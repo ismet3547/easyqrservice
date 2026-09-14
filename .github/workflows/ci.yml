@@ -61,5 +61,14 @@ jobs:
           DATABASE_PATH: ${{ runner.temp }}/easyqr-build.db
           NEXT_TELEMETRY_DISABLED: "1"
 
+      - name: Docker Compose configuration
+        run: docker compose config --quiet
+        env:
+          APP_URL: https://menu.example.test
+          CLIENT_IP_HEADER: x-real-ip
+          LEGAL_ENTITY_NAME: Example Menu Ltd.
+          LEGAL_CONTACT_EMAIL: privacy@example.test
+          LEGAL_ADDRESS: Example Mahallesi No 1 Istanbul
+
       - name: Docker image
         run: docker build --tag easyqrservice:ci .
