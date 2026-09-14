@@ -6,6 +6,7 @@ import {
   ArrowLeft,
   BadgeCheck,
   CalendarDays,
+  ChevronDown,
   CheckCircle2,
   Eye,
   EyeOff,
@@ -322,11 +323,12 @@ export function SettingsDashboard({
                 </form>
               </section>
 
-              <section className="settings-card">
-                <div className="settings-card-heading">
+              <details className="settings-card settings-disclosure">
+                <summary className="settings-card-heading">
                   <span className="settings-card-icon green"><KeyRound size={20} /></span>
                   <div><h2>{t("Password and security", "Şifre ve güvenlik")}</h2><p>{t("Choose a new, strong password for your account.", "Hesabın için yeni ve güçlü bir giriş şifresi belirle.")}</p></div>
-                </div>
+                  <ChevronDown className="settings-disclosure-chevron" size={19} />
+                </summary>
 
                 <form className="settings-form" onSubmit={changePassword}>
                   <PasswordInput
@@ -361,13 +363,14 @@ export function SettingsDashboard({
                     </button>
                   </div>
                 </form>
-              </section>
+              </details>
 
-              <section className="settings-card settings-danger-card">
-                <div className="settings-card-heading">
+              <details className="settings-card settings-danger-card settings-disclosure">
+                <summary className="settings-card-heading">
                   <span className="settings-card-icon red"><AlertTriangle size={20} /></span>
                   <div><h2>{t("Danger zone", "Tehlikeli bölge")}</h2><p>{t("Permanently delete your account and all associated data.", "Hesabını ve ona bağlı tüm verileri kalıcı olarak sil.")}</p></div>
-                </div>
+                  <ChevronDown className="settings-disclosure-chevron" size={19} />
+                </summary>
 
                 <form className="settings-form" onSubmit={deleteAccount}>
                   <div className="settings-danger-warning">
@@ -406,7 +409,7 @@ export function SettingsDashboard({
                     </button>
                   </div>
                 </form>
-              </section>
+              </details>
             </div>
 
             <aside className="settings-side-column">

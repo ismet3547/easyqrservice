@@ -3,6 +3,7 @@
 import {
   ArrowLeft,
   Eye,
+  EyeOff,
   FileText,
   LogOut,
   Palette,
@@ -57,6 +58,7 @@ export function StudioHeader({
   onLogout,
   onOpenPreview,
   onPublish,
+  previewVisible,
   saveStatus,
   userName,
 }: {
@@ -68,6 +70,7 @@ export function StudioHeader({
   onLogout: () => void;
   onOpenPreview: () => void;
   onPublish: () => void;
+  previewVisible: boolean;
   saveStatus: StudioSaveStatus;
   userName?: string;
 }) {
@@ -77,6 +80,8 @@ export function StudioHeader({
     liveCurrent: "Canlı sürüm güncel",
     openQr: "QR menüyü aç",
     preview: "Önizle",
+    hidePreview: "Önizlemeyi gizle",
+    showPreview: "Önizlemeyi göster",
     publish: "Yayınla",
     publishChanges: "Değişiklikleri yayınla",
     publishMenu: "QR menüyü oluştur",
@@ -92,6 +97,8 @@ export function StudioHeader({
     liveCurrent: "Live version is up to date",
     openQr: "Open QR menu",
     preview: "Preview",
+    hidePreview: "Hide preview",
+    showPreview: "Show preview",
     publish: "Publish",
     publishChanges: "Publish changes",
     publishMenu: "Create QR menu",
@@ -136,8 +143,10 @@ export function StudioHeader({
         {userName && (
           <span className="studio-user"><UserRound size={15} /><span>{userName}</span></span>
         )}
-        <button className="secondary-button mobile-preview-button" type="button" onClick={onOpenPreview}>
-          <Eye size={17} /> <span>{copy.preview}</span>
+        <button aria-pressed={previewVisible} className="secondary-button mobile-preview-button" type="button" onClick={onOpenPreview}>
+          {previewVisible ? <EyeOff size={17} /> : <Eye size={17} />}
+          <span className="studio-preview-label-full">{previewVisible ? copy.hidePreview : copy.showPreview}</span>
+          <span className="studio-preview-label-mobile">{copy.preview}</span>
         </button>
         <button className="primary-button studio-publish-button" type="button" disabled={busy} onClick={onPublish}>
           <QrCode size={17} />
