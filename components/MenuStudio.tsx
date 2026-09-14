@@ -57,6 +57,7 @@ import {
   useRef,
   useState,
 } from "react";
+import Link from "next/link";
 import {
   createId,
   defaultTheme,
@@ -121,6 +122,8 @@ import {
 import type { StoredMenu } from "@/lib/menus";
 import { useAppLocale } from "@/components/LocaleProvider";
 import { getLocalizedAppPath, type AppLocale } from "@/lib/i18n";
+import { getQrCenterPath, getStudioMenuPath } from "@/lib/onboarding";
+import { ActivationGuide } from "@/components/ActivationGuide";
 
 type AuthUser = { id: string; name: string; email: string; createdAt: string };
 
@@ -561,9 +564,11 @@ function getEnglishTranslationCoverage(menu: MenuData) {
 
 export function MenuStudio({
   workspaceMode = false,
+  initialOnboarding = false,
   initialUser = null,
 }: {
   workspaceMode?: boolean;
+  initialOnboarding?: boolean;
   initialUser?: AuthUser | null;
 }) {
   const { intlLocale, locale } = useAppLocale();
@@ -1044,12 +1049,13 @@ export function MenuStudio({
     setActiveMenuSlug(result.menu.slug);
     setActiveMenuStatus(result.menu.status);
     setHasUnpublishedChanges(result.menu.hasUnpublishedChanges);
-    window.history.replaceState(null, "", `/studio?menu=${result.menu.id}`);
+    window.history.replaceState(null, "", getStudioMenuPath(result.menu.id, initialOnboarding));
     return result.menu;
   };
 
   const goToLogin = () => {
-    window.location.href = `${getLocalizedAppPath(locale, "login")}?next=%2Fstudio%3Fnew%3D1`;
+    const nextPath = `/studio?new=1${initialOnboarding ? "&onboarding=1" : ""}`;
+    window.location.href = `${getLocalizedAppPath(locale, "login")}?next=${encodeURIComponent(nextPath)}`;
   };
 
   const requestUpload = () => {
@@ -2429,6 +2435,23 @@ export function MenuStudio({
         userName={currentUser?.name}
       />
 
+      {initialOnboarding && activeMenuId && (
+        <ActivationGuide
+          currentStep={activeMenuStatus === "published" ? 4 : 3}
+          title={activeMenuStatus === "published"
+            ? t("Your menu is live. Test the QR code once.", "Menün yayında. QR kodunu bir kez test et.")
+            : t("Your draft is safe. Review and publish it.", "Taslağın güvende. Kontrol et ve yayınla.")}
+          description={activeMenuStatus === "published"
+            ? t("Open the QR center, scan the code on a phone, and confirm the guest menu loads.", "QR merkezini aç, kodu telefonla okut ve müşteri menüsünün açıldığını doğrula.")
+            : t("Changes save automatically. Complete the final review when the content looks right.", "Değişiklikler otomatik kaydolur. İçerik hazır olduğunda son kontrolü tamamla.")}
+          action={activeMenuStatus === "published" ? (
+            <Link href={getQrCenterPath(activeMenuId, true)}><ScanLine size={16} /> {t("Test QR code", "QR kodunu test et")}</Link>
+          ) : (
+            <button type="button" onClick={() => { setPublishError(""); setPublishReviewOpen(true); }}><QrCode size={16} /> {t("Review and publish", "Kontrol et ve yayınla")}</button>
+          )}
+        />
+      )}
+
       {saveError && <div className="studio-save-error" role="alert">
         <span><strong>{t("Changes could not be saved", "Değişiklikler kaydedilemedi")}</strong> {saveError}</span>
         <button type="button" onClick={() => {
@@ -3277,11 +3300,14 @@ export function MenuStudio({
               <div className="qr-brand"><QrCode size={13} /></div>
             </div>
             <div className="link-box"><span>{publishUrl}</span><button onClick={() => void copyLink()}>{copied ? <Check size={17} /> : <Copy size={17} />}</button></div>
-            <div className="publish-actions">
-              <button className="primary-button" onClick={downloadQr}><Download size={17} /> {t("Download QR code", "QR kodu indir")}</button>
+            <div className={`publish-actions ${initialOnboarding ? "onboarding" : ""}`}>
+              {initialOnboarding && activeMenuId && (
+                <Link className="primary-button publish-next-step" href={getQrCenterPath(activeMenuId, true)}><ScanLine size={17} /> {t("Test QR on a phone", "QR'ı telefonda test et")}</Link>
+              )}
+              <button className={initialOnboarding ? "secondary-button" : "primary-button"} onClick={downloadQr}><Download size={17} /> {t("Download QR code", "QR kodu indir")}</button>
               <button className="secondary-button" onClick={() => void shareLink()}><Share2 size={17} /> {t("Share", "Paylaş")}</button>
             </div>
-            {activeMenuId && <a className="publish-print-link" href={`/dashboard/menus/${activeMenuId}/qr`}><Printer size={16} /> {t("Open table cards and print templates", "Masa kartı ve baskı şablonlarını aç")}</a>}
+            {!initialOnboarding && activeMenuId && <a className="publish-print-link" href={getQrCenterPath(activeMenuId)}><Printer size={16} /> {t("Open table cards and print templates", "Masa kartı ve baskı şablonlarını aç")}</a>}
             <small>{t("This short link is permanent. Editor changes reach the same QR code only after you publish.", "Bu kısa bağlantı kalıcıdır. Editördeki değişiklikler yalnızca “Yayınla” dediğinde aynı QR koda yansır.")}</small>
           </section>
         </div>
