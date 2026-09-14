@@ -49,6 +49,7 @@ const {
   resolveMenuDisplayLanguage,
 } = require("../lib/menu.ts");
 const { getLegalConfig, getLegalDocumentDateLabel } = require("../lib/legal.ts");
+const { getOnboardingProgress, getQrCenterPath, getStudioMenuPath } = require("../lib/onboarding.ts");
 
 delete process.env.LEGAL_ENTITY_NAME;
 delete process.env.LEGAL_CONTACT_EMAIL;
@@ -136,4 +137,13 @@ assert.equal(getLegalDocumentDateLabel("tr"), "12 Eylül 2026");
 assert.match(getLegalConfig("en").entityName, /before launch/);
 assert.match(getLegalConfig("tr").entityName, /canlı ortamda/);
 
-console.log("Internationalization checks passed: locale negotiation, localized routes, legacy menus, Unicode search/prices, RTL, starters, reset URLs, and legal copy.");
+const draftMenu = { id: "menu / 1", name: "North Star", status: "draft", viewCount: 0 };
+const publishedMenu = { ...draftMenu, status: "published" };
+assert.equal(getStudioMenuPath(draftMenu.id, true), "/studio?menu=menu%20%2F%201&onboarding=1");
+assert.equal(getQrCenterPath(draftMenu.id, true), "/dashboard/menus/menu%20%2F%201/qr?onboarding=1");
+assert.equal(getOnboardingProgress([], "en").nextAction.href, "/studio?new=1&onboarding=1");
+assert.equal(getOnboardingProgress([draftMenu], "en").nextAction.href, "/studio?menu=menu%20%2F%201&onboarding=1&publish=1");
+assert.equal(getOnboardingProgress([publishedMenu], "en").nextAction.href, "/dashboard/menus/menu%20%2F%201/qr?onboarding=1");
+assert.equal(getOnboardingProgress([{ ...publishedMenu, viewCount: 1 }], "en").isComplete, true);
+
+console.log("Internationalization checks passed: locale negotiation, localized routes, activation paths, legacy menus, Unicode search/prices, RTL, starters, reset URLs, and legal copy.");

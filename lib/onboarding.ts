@@ -26,6 +26,14 @@ export type OnboardingProgress = {
   totalSteps: number;
 };
 
+export function getStudioMenuPath(menuId: string, onboarding = false) {
+  return `/studio?menu=${encodeURIComponent(menuId)}${onboarding ? "&onboarding=1" : ""}`;
+}
+
+export function getQrCenterPath(menuId: string, onboarding = false) {
+  return `/dashboard/menus/${encodeURIComponent(menuId)}/qr${onboarding ? "?onboarding=1" : ""}`;
+}
+
 export function getOnboardingProgress(
   menus: readonly StoredMenu[],
   locale: AppLocale = "en",
@@ -85,14 +93,14 @@ export function getOnboardingProgress(
   } else if (!hasPublishedMenu) {
     nextAction = {
       description: t("Open the draft in Studio and review it before publishing.", "Seçili taslak Studio’da açılacak ve yayın öncesi kontrol doğrudan gösterilecek."),
-      href: `/studio?menu=${firstMenu.id}&onboarding=1&publish=1`,
+      href: `${getStudioMenuPath(firstMenu.id, true)}&publish=1`,
       label: t("Open publish review", "Yayınlama kontrolünü aç"),
       title: t(`Publish “${firstMenu.name}”`, `“${firstMenu.name}” taslağını yayınla`),
     };
   } else if (!hasFirstScan) {
     nextAction = {
       description: t("Download the QR code, scan it on another phone, and place it at your venue.", "QR kodunu indir, farklı bir telefonla okut ve masalarda kullanmaya başla."),
-      href: `/dashboard/menus/${firstPublishedMenu.id}/qr?onboarding=1`,
+      href: getQrCenterPath(firstPublishedMenu.id, true),
       label: t("Open QR Print Center", "QR Baskı Merkezi"),
       title: t("Make the first scan", "İlk taramayı yap"),
     };

@@ -13,6 +13,7 @@ import {
   LockKeyhole,
   Printer,
   QrCode,
+  RefreshCcw,
   ScanLine,
   Share2,
   ShieldCheck,
@@ -24,6 +25,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { DashboardMobileNav } from "@/components/DashboardMobileNav";
 import { DashboardMobileHeader, DashboardSidebar } from "@/components/DashboardSidebar";
+import { ActivationGuide } from "@/components/ActivationGuide";
 import { useAppLocale } from "@/components/LocaleProvider";
 import type { SessionUser } from "@/lib/auth";
 import { normalizeMenuSlug } from "@/lib/menu";
@@ -197,10 +199,12 @@ function PrintSheet({
 
 export function QrCenter({
   menuCount,
+  onboardingMode = false,
   storedMenu,
   user,
 }: {
   menuCount: number;
+  onboardingMode?: boolean;
   storedMenu: StoredMenu;
   user: SessionUser;
 }) {
@@ -212,6 +216,8 @@ export function QrCenter({
   const [template, setTemplate] = useState<PrintTemplate>("table");
   const [feedback, setFeedback] = useState<Feedback>(null);
   const [pngLoading, setPngLoading] = useState(false);
+  const [checkingVisit, setCheckingVisit] = useState(false);
+  const [visitConfirmed, setVisitConfirmed] = useState(storedMenu.viewCount > 0);
   const feedbackTimer = useRef<number | null>(null);
   const filename = `${safeFilename(storedMenu.name)}-qr`;
   const logo = storedMenu.menu.businessProfile?.logo || "";
@@ -333,6 +339,26 @@ export function QrCenter({
     window.print();
   };
 
+  const checkFirstVisit = async () => {
+    if (checkingVisit) return;
+    setCheckingVisit(true);
+    try {
+      const response = await fetch(`/api/menus/${encodeURIComponent(storedMenu.id)}`, { cache: "no-store" });
+      const result = (await response.json()) as { menu?: StoredMenu; message?: string };
+      if (!response.ok || !result.menu) throw new Error(result.message || t("Could not check the menu visit.", "Menü ziyareti kontrol edilemedi."));
+      if (result.menu.viewCount > 0) {
+        setVisitConfirmed(true);
+        notify({ kind: "success", text: t("Test visit confirmed. Setup is complete.", "Test ziyareti doğrulandı. Kurulum tamamlandı.") });
+      } else {
+        notify({ kind: "error", text: t("No visit yet. Scan the QR code, wait a moment, then check again.", "Henüz ziyaret yok. QR kodunu okut, kısa bir süre bekle ve tekrar kontrol et.") });
+      }
+    } catch (error) {
+      notify({ kind: "error", text: error instanceof Error ? error.message : t("Could not check the menu visit.", "Menü ziyareti kontrol edilemedi.") });
+    } finally {
+      setCheckingVisit(false);
+    }
+  };
+
   if (storedMenu.status !== "published") {
     return (
       <main className="dashboard-shell">
@@ -378,6 +404,26 @@ export function QrCenter({
             </div>
             <Link className="settings-back-link" href="/dashboard/menus"><ArrowLeft size={17} /> {t("Back to my menus", "Menülerime dön")}</Link>
           </div>
+
+          {onboardingMode && (
+            <ActivationGuide
+              currentStep={4}
+              title={visitConfirmed
+                ? t("Your first menu is live and verified.", "İlk menün yayında ve doğrulandı.")
+                : t("One last check: open the QR menu.", "Son bir kontrol: QR menüyü aç.")}
+              description={visitConfirmed
+                ? t("Setup is complete. You can now place the permanent QR code at your venue.", "Kurulum tamamlandı. Kalıcı QR kodunu artık işletmende kullanabilirsin.")
+                : t("Scan the code with another phone. If a second device is unavailable, open the test link in a new tab.", "Kodu farklı bir telefonla okut. İkinci cihaz yoksa test bağlantısını yeni sekmede aç.")}
+              action={visitConfirmed ? (
+                <Link href="/dashboard?activated=1"><Check size={16} /> {t("Finish setup", "Kurulumu tamamla")}</Link>
+              ) : (
+                <div className="activation-guide-buttons">
+                  <a aria-disabled={!qrUrl} href={qrUrl || undefined} rel="noreferrer" target="_blank"><ExternalLink size={16} /> {t("Open test menu", "Test menüsünü aç")}</a>
+                  <button disabled={checkingVisit} onClick={() => void checkFirstVisit()} type="button"><RefreshCcw className={checkingVisit ? "activation-spinner" : ""} size={16} /> {t("Check visit", "Ziyareti kontrol et")}</button>
+                </div>
+              )}
+            />
+          )}
 
           <div className="qr-center-grid">
             <div className="qr-center-controls">
@@ -436,7 +482,7 @@ export function QrCenter({
                 <div className="qr-link-box"><span>{publicUrl || t("Preparing link…", "Bağlantı hazırlanıyor…")}</span><button aria-label={t("Copy link", "Bağlantıyı kopyala")} disabled={!publicUrl} onClick={() => void copyLink()}><Copy size={17} /></button></div>
                 <div className="qr-share-actions">
                   <button disabled={!publicUrl} onClick={() => void shareLink()}><Share2 size={16} /> {t("Share", "Paylaş")}</button>
-                  <a href={publicUrl || undefined} rel="noreferrer" target="_blank"><ExternalLink size={16} /> {t("Test menu", "Menüyü test et")}</a>
+                  <a href={qrUrl || undefined} rel="noreferrer" target="_blank"><ExternalLink size={16} /> {t("Test menu", "Menüyü test et")}</a>
                 </div>
               </section>
 

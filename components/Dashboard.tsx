@@ -5,6 +5,7 @@ import {
   BarChart3,
   BookOpen,
   Check,
+  CheckCircle2,
   ChevronRight,
   Copy,
   Eye,
@@ -110,11 +111,13 @@ type DashboardOpportunity = {
 export function Dashboard({
   user,
   initialAnalytics,
+  initialActivated = false,
   initialMenus,
   initialWelcome = false,
 }: {
   user: SessionUser;
   initialAnalytics: DashboardOverviewAnalytics;
+  initialActivated?: boolean;
   initialMenus: StoredMenu[];
   initialWelcome?: boolean;
 }) {
@@ -126,6 +129,7 @@ export function Dashboard({
   const [deletingId, setDeletingId] = useState("");
   const [actionError, setActionError] = useState("");
   const [welcomeVisible, setWelcomeVisible] = useState(initialWelcome);
+  const [activationSuccessVisible, setActivationSuccessVisible] = useState(initialActivated);
   const [period, setPeriod] = useState<DashboardPeriod>(7);
 
   const analytics = initialAnalytics.periods[period];
@@ -213,6 +217,11 @@ export function Dashboard({
     router.replace("/dashboard", { scroll: false });
   };
 
+  const dismissActivationSuccess = () => {
+    setActivationSuccessVisible(false);
+    router.replace("/dashboard", { scroll: false });
+  };
+
   const logout = async () => {
     try {
       const response = await fetch("/api/auth/logout", { method: "POST" });
@@ -278,6 +287,15 @@ export function Dashboard({
 
           <AccountAccessNotice account={user.account} />
           {actionError && <p className="studio-save-error" role="alert">{actionError}</p>}
+
+          {activationSuccessVisible && onboarding.isComplete && firstPublishedMenu && (
+            <section className="activation-success" aria-labelledby="activation-success-title">
+              <span><CheckCircle2 size={21} /></span>
+              <div><strong id="activation-success-title">{t("Your first QR menu is ready for guests.", "İlk QR menün müşteriler için hazır.")}</strong><p>{t("The permanent QR code is verified. Future menu updates will use the same code.", "Kalıcı QR kodun doğrulandı. Bundan sonraki menü güncellemelerin aynı kodda yayınlanacak.")}</p></div>
+              <Link href="/dashboard/analytics">{t("View analytics", "Analitiği görüntüle")} <ArrowUpRight size={15} /></Link>
+              <button onClick={dismissActivationSuccess} type="button" aria-label={t("Dismiss setup confirmation", "Kurulum onayını kapat")}><X size={16} /></button>
+            </section>
+          )}
 
           {(!onboarding.isComplete || welcomeVisible) && (
             <section className={`onboarding-journey ${welcomeVisible ? "is-welcome" : ""}`} aria-labelledby="onboarding-title">

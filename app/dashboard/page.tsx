@@ -11,7 +11,10 @@ export const dynamic = "force-dynamic";
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ welcome?: string | string[] }>;
+  searchParams: Promise<{
+    activated?: string | string[];
+    welcome?: string | string[];
+  }>;
 }) {
   const [user, locale] = await Promise.all([getCurrentUser(), getRequestLocale()]);
   if (!user) redirect(`${getLocalizedAppPath(locale, "login")}?next=/dashboard`);
@@ -22,6 +25,7 @@ export default async function DashboardPage({
     <Dashboard
       user={user}
       initialAnalytics={analytics}
+      initialActivated={params.activated === "1"}
       initialMenus={menus}
       initialWelcome={params.welcome === "1"}
     />
