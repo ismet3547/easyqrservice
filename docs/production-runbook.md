@@ -30,6 +30,7 @@ EMAIL_FROM="easyqr <no-reply@easyqrservice.com>"
 LEGAL_ENTITY_NAME="Gerçek kişi adı veya şirket ticaret unvanı"
 LEGAL_CONTACT_EMAIL=privacy@easyqrservice.com
 LEGAL_ADDRESS="Veri sorumlusunun açık tebligat adresi"
+CLIENT_IP_HEADER=x-real-ip
 
 BACKUP_RETENTION_DAYS=14
 BACKUP_MAX_FILES=30
@@ -81,6 +82,22 @@ Beklenen yanıt:
 {"status":"ok"}
 ```
 
+Uygulama açılmadan önce ortam dosyasını ayrıca doğrulamak için:
+
+```bash
+npm run check:production-env
+```
+
+İlk dağıtımdan ve her güncellemeden sonra public domain üzerindeki sağlık
+endpoint'i, HTTPS güvenlik başlıkları, `robots.txt`, sitemap ve İngilizce hukuki
+sayfaları tek komutla doğrula:
+
+```bash
+npm run smoke:production -- --url https://easyqrservice.com
+```
+
+Bu komut başarısızken dağıtımı tamamlanmış kabul etme.
+
 ## 4. Güncelleme
 
 Güncellemeden önce isteğe bağlı manuel yedek al, ardından yeni image'ı kur:
@@ -118,6 +135,15 @@ tekrarlar. Her yedekte:
 - SHA-256 checksum dosyası yazılır,
 - süre ve maksimum dosya sınırını aşan eski EasyQR yedekleri temizlenir,
 - en yeni iki yedek her durumda korunur.
+
+Yedekleme konteynerinin kendi healthcheck'i en yeni yedek ile checksum kaydının
+varlığını ve yedeğin planlanan aralığı aşmadığını denetler. `docker compose ps`
+çıktısında hem `app` hem `backup` servisleri `healthy` görünmelidir. `backup`
+servisi `unhealthy` ise yeni müşteri verisi almadan önce logları incele:
+
+```bash
+docker compose logs --tail=100 backup
+```
 
 Manuel yedek:
 

@@ -59,6 +59,12 @@ services:
     depends_on:
       app:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "scripts/check-backup-health.cjs"]
+      interval: 60s
+      timeout: 10s
+      start_period: 60s
+      retries: 3
 
 volumes:
   easyqr-data:

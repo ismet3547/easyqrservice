@@ -6,9 +6,11 @@ const os = require("node:os");
 const path = require("node:path");
 const Database = require("better-sqlite3");
 const { createDatabaseBackup } = require("./backup-database.cjs");
+const { checkBackupHealth } = require("./check-backup-health.cjs");
 const { verifyDatabaseFile } = require("./database-backup-utils.cjs");
 const { restoreDatabase } = require("./restore-database.cjs");
 const { validateProductionEnv } = require("./production-env.cjs");
+const { runProductionSmoke } = require("./smoke-production.cjs");
 
 const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), "easyqr-ops-test-"));
 const sourcePath = path.join(temporaryRoot, "live", "easyqr.db");
@@ -19,6 +21,7 @@ async function run() {
   const valid = validateProductionEnv({
     NODE_ENV: "production",
     APP_URL: "https://menu.example.test",
+    CLIENT_IP_HEADER: "x-real-ip",
     DATABASE_PATH: path.join(validationRoot, "easyqr.db"),
     OPENAI_API_KEY: "test-only",
     EMAIL_DELIVERY_MODE: "resend",
@@ -61,6 +64,52 @@ async function run() {
   assert.ok(invalid.errors.some((error) => error.includes("LEGAL_ENTITY_NAME")));
   assert.ok(invalid.errors.some((error) => error.includes("LEGAL_CONTACT_EMAIL")));
   assert.ok(invalid.errors.some((error) => error.includes("LEGAL_ADDRESS")));
+  assert.ok(invalid.errors.some((error) => error.includes("CLIENT_IP_HEADER")));
+
+  const smokeOrigin = "https://menu.example.test";
+  const securityHeaders = {
+    "content-security-policy": "default-src 'self'",
+    "strict-transport-security": "max-age=31536000; includeSubDomains",
+    "referrer-policy": "strict-origin-when-cross-origin",
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "SAMEORIGIN",
+  };
+  const smokeFetch = async (url) => {
+    const pathname = new URL(url).pathname;
+    if (pathname === "/api/health") {
+      return Response.json({ status: "ok" }, {
+        headers: { "Cache-Control": "no-store" },
+      });
+    }
+    if (pathname === "/robots.txt") {
+      return new Response(`User-Agent: *\nAllow: /\nSitemap: ${smokeOrigin}/sitemap.xml\n`);
+    }
+    if (pathname === "/sitemap.xml") {
+      return new Response(`<urlset><url><loc>${smokeOrigin}</loc></url></urlset>`);
+    }
+    return new Response("<!doctype html><html><body>EasyQR</body></html>", {
+      headers: { ...securityHeaders, "Content-Type": "text/html; charset=utf-8" },
+    });
+  };
+  const smokeResult = await runProductionSmoke({
+    baseUrl: smokeOrigin,
+    fetchImplementation: smokeFetch,
+  });
+  assert.equal(smokeResult.status, "ok");
+  assert.equal(smokeResult.checks.length, 7);
+  await assert.rejects(
+    () => runProductionSmoke({
+      baseUrl: smokeOrigin,
+      fetchImplementation: async (url) => {
+        const response = await smokeFetch(url);
+        if (new URL(url).pathname !== "/") return response;
+        const headers = new Headers(response.headers);
+        headers.delete("strict-transport-security");
+        return new Response(await response.text(), { headers });
+      },
+    }),
+    /strict-transport-security/,
+  );
 
   fs.mkdirSync(path.dirname(sourcePath), { recursive: true });
   const liveDatabase = new Database(sourcePath);
@@ -95,6 +144,20 @@ async function run() {
     const verified = verifyDatabaseFile(latest);
     assert.ok(verified.bytes > 0);
     assert.ok(verified.tableCount >= 1);
+    const backupHealth = checkBackupHealth({
+      backupDirectory,
+      intervalHours: 24,
+      now: new Date("2026-09-03T00:10:00.000Z"),
+    });
+    assert.equal(backupHealth.backup, latest);
+    assert.throws(
+      () => checkBackupHealth({
+        backupDirectory,
+        intervalHours: 24,
+        now: new Date("2026-09-04T02:00:00.000Z"),
+      }),
+      /gecikmiş/,
+    );
 
     const restoredPath = path.join(temporaryRoot, "restored", "easyqr.db");
     const restored = restoreDatabase({ sourcePath: latest, targetPath: restoredPath });
@@ -123,7 +186,7 @@ async function run() {
   }
 
   console.log(
-    "Production operations passed: env validation, live SQLite backup, retention, checksum, integrity, safe restore and overwrite refusal.",
+    "Production operations passed: env validation, deploy smoke gate, backup health, live SQLite backup, retention, checksum, integrity, safe restore and overwrite refusal.",
   );
 }
 

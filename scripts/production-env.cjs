@@ -42,9 +42,6 @@ function validateProductionEnv(environment, options = {}) {
   if (clientIpHeader && !["cf-connecting-ip", "x-forwarded-for", "x-real-ip"].includes(clientIpHeader)) {
     errors.push("CLIENT_IP_HEADER yalnızca cf-connecting-ip, x-forwarded-for veya x-real-ip olabilir.");
   }
-  if (!clientIpHeader) {
-    warnings.push("CLIENT_IP_HEADER ayarlanmamış; tüm ziyaretçiler ortak IP limitini paylaşır. Güvenilir proxy kurulumunu tamamla.");
-  }
 
   const appUrlValue = environment.APP_URL?.trim() || "";
   let appOrigin = "";
@@ -113,6 +110,13 @@ function validateProductionEnv(environment, options = {}) {
     "ALLOW_DEMO_MODE",
     errors,
   );
+  if (!clientIpHeader) {
+    if (allowDemoMode) {
+      warnings.push("CLIENT_IP_HEADER ayarlanmamış; demo ziyaretçileri ortak IP limitini paylaşır.");
+    } else {
+      errors.push("CLIENT_IP_HEADER müşteri ortamında zorunludur; güvenilir proxy tek bir doğrulanmış istemci IP'si yazmalıdır.");
+    }
+  }
   if (!environment.OPENAI_API_KEY?.trim() && !allowDemoMode) {
     errors.push("OPENAI_API_KEY zorunludur; yalnızca bilinçli demo için ALLOW_DEMO_MODE=true kullan.");
   }
