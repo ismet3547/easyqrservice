@@ -28,7 +28,7 @@ require.extensions[".ts"] = (module, filename) => module._compile(ts.transpileMo
   compilerOptions: { esModuleInterop: true, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText, filename);
 const { db } = require("../lib/db.ts");
-const { createSession } = require("../lib/auth.ts");
+const { createSession, isSameOrigin } = require("../lib/auth.ts");
 const { createPasswordResetToken, changePasswordWithCurrentHash, resetPasswordWithToken } = require("../lib/password-reset.ts");
 const { getClientAddressFromHeaders } = require("../lib/rate-limit.ts");
 const { readJsonRequest } = require("../lib/http.ts");
@@ -75,6 +75,23 @@ function testProxyTrust() {
   forged.set("x-real-ip", "192.0.2.3, 198.51.100.9");
   assert.equal(getClientAddressFromHeaders(forged), "unknown", "A list is not a verified single address");
   delete process.env.CLIENT_IP_HEADER;
+}
+function testLocalPreviewOrigin() {
+  process.env.LOCAL_PREVIEW_ORIGINS = "http://localhost:3001";
+  assert.equal(isSameOrigin(new Request("https://easyqr.test/api/test", {
+    headers: { Origin: "https://easyqr.test" },
+  })), true);
+  assert.equal(isSameOrigin(new Request("https://easyqr.test/api/test", {
+    headers: { Origin: "http://localhost:3001" },
+  })), true, "Explicit SSH tunnel origin should be accepted");
+  assert.equal(isSameOrigin(new Request("https://easyqr.test/api/test", {
+    headers: { Origin: "http://127.0.0.1:3001" },
+  })), false, "Loopback origins must match exactly");
+  process.env.LOCAL_PREVIEW_ORIGINS = "https://evil.test";
+  assert.equal(isSameOrigin(new Request("https://easyqr.test/api/test", {
+    headers: { Origin: "https://evil.test" },
+  })), false, "Non-loopback preview origins must never weaken CSRF checks");
+  delete process.env.LOCAL_PREVIEW_ORIGINS;
 }
 async function testRequestBounds() {
   let cancelled = false;
@@ -168,7 +185,7 @@ function testContrast() {
   console.log(`Primary button contrast: ${getColorContrastRatio(orange, "#ffffff").toFixed(2)}:1; ${examples.length} theme cases passed.`);
 }
 (async () => {
-  await testCredentials(); testProxyTrust(); await testRequestBounds();
+  await testCredentials(); testProxyTrust(); testLocalPreviewOrigin(); await testRequestBounds();
   await testMenuBoundaries(); await testSaveOrdering(); testPrices(); testContrast();
   console.log("Adversarial checks passed: credential revocation, stale credentials, proxy spoofing, stalled/large/malformed input, decompression cap, tenant isolation, CSRF, optimistic locking, published snapshots, trial cap and serialized saves.");
 })().finally(() => { db.close(); fs.rmSync(temporaryRoot, { recursive: true, force: true }); }).catch((error) => { console.error(error); process.exitCode = 1; });
