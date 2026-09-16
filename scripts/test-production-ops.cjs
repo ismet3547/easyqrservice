@@ -21,6 +21,7 @@ async function run() {
   const valid = validateProductionEnv({
     NODE_ENV: "production",
     APP_URL: "https://menu.example.test",
+    LOCAL_PREVIEW_ORIGINS: "http://localhost:3001,http://127.0.0.1:3002",
     CLIENT_IP_HEADER: "x-real-ip",
     DATABASE_PATH: path.join(validationRoot, "easyqr.db"),
     OPENAI_API_KEY: "test-only",
@@ -35,6 +36,10 @@ async function run() {
   assert.deepEqual(valid.errors, []);
   assert.equal(valid.config.backupRetentionDays, 14);
   assert.equal(valid.config.backupMaxFiles, 30);
+  assert.deepEqual(valid.config.localPreviewOrigins, [
+    "http://localhost:3001",
+    "http://127.0.0.1:3002",
+  ]);
 
   const demo = validateProductionEnv({
     APP_URL: "http://localhost:3000",
@@ -49,12 +54,14 @@ async function run() {
 
   const invalid = validateProductionEnv({
     APP_URL: "http://public.example.test/path",
+    LOCAL_PREVIEW_ORIGINS: "https://evil.example.test/path",
     DATABASE_PATH: "relative.db",
     NEXT_PUBLIC_OPENAI_API_KEY: "must-not-leak",
     NEXT_PUBLIC_RESEND_API_KEY: "must-not-leak",
   });
   assert.ok(invalid.errors.some((error) => error.includes("HTTPS")));
   assert.ok(invalid.errors.some((error) => error.includes("yalnızca origin")));
+  assert.ok(invalid.errors.some((error) => error.includes("LOCAL_PREVIEW_ORIGINS")));
   assert.ok(invalid.errors.some((error) => error.includes("mutlak")));
   assert.ok(invalid.errors.some((error) => error.includes("NEXT_PUBLIC_OPENAI_API_KEY")));
   assert.ok(invalid.errors.some((error) => error.includes("NEXT_PUBLIC_RESEND_API_KEY")));

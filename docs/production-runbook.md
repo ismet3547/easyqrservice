@@ -22,6 +22,8 @@ Repo kökünde Git tarafından izlenmeyen `.env` dosyasını oluştur:
 
 ```dotenv
 APP_URL=https://easyqrservice.com
+# Yalnızca kapalı SSH tüneliyle test ederken: http://localhost:3001
+LOCAL_PREVIEW_ORIGINS=
 OPENAI_API_KEY=sk-...
 ALLOW_DEMO_MODE=false
 EMAIL_DELIVERY_MODE=resend
@@ -97,6 +99,11 @@ npm run smoke:production -- --url https://easyqrservice.com
 ```
 
 Bu komut başarısızken dağıtımı tamamlanmış kabul etme.
+
+Public erişim kapalıyken SSH tüneli üzerinden tam giriş/kayıt akışını test etmek
+için `.env` dosyasına `LOCAL_PREVIEW_ORIGINS=http://localhost:3001` ekle ve
+uygulama konteynerini yeniden oluştur. Değer yalnızca loopback originlerini kabul
+eder; tünel testi tamamlandığında boşaltılmalıdır.
 
 ## 4. Güncelleme
 

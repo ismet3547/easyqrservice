@@ -33,6 +33,35 @@ function parseInteger(value, name, fallback, minimum, maximum, errors) {
   return parsed;
 }
 
+function parseLocalPreviewOrigins(value, errors) {
+  const rawOrigins = (value || "").split(",").map((entry) => entry.trim()).filter(Boolean);
+  if (rawOrigins.length > 5) {
+    errors.push("LOCAL_PREVIEW_ORIGINS en fazla 5 origin içerebilir.");
+  }
+
+  const origins = [];
+  for (const rawOrigin of rawOrigins.slice(0, 5)) {
+    try {
+      const parsed = new URL(rawOrigin);
+      const isLoopback = ["localhost", "127.0.0.1", "[::1]"].includes(parsed.hostname);
+      if (
+        !isLoopback || !["http:", "https:"].includes(parsed.protocol) ||
+        parsed.username || parsed.password || parsed.pathname !== "/" ||
+        parsed.search || parsed.hash
+      ) {
+        errors.push(
+          "LOCAL_PREVIEW_ORIGINS yalnızca localhost/127.0.0.1/[::1] originleri içerebilir.",
+        );
+        continue;
+      }
+      if (!origins.includes(parsed.origin)) origins.push(parsed.origin);
+    } catch {
+      errors.push("LOCAL_PREVIEW_ORIGINS geçerli, virgülle ayrılmış originler içermelidir.");
+    }
+  }
+  return origins;
+}
+
 function validateProductionEnv(environment, options = {}) {
   const cwd = options.cwd || process.cwd();
   const errors = [];
@@ -65,6 +94,10 @@ function validateProductionEnv(environment, options = {}) {
       errors.push("APP_URL geçerli bir mutlak URL olmalıdır.");
     }
   }
+  const localPreviewOrigins = parseLocalPreviewOrigins(
+    environment.LOCAL_PREVIEW_ORIGINS,
+    errors,
+  );
 
   const databaseValue = environment.DATABASE_PATH?.trim() || "";
   let databasePath = "";
@@ -206,6 +239,7 @@ function validateProductionEnv(environment, options = {}) {
     warnings,
     config: {
       appOrigin,
+      localPreviewOrigins,
       databasePath,
       backupDirectory,
       backupRetentionDays,

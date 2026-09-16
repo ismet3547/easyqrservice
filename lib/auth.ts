@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 const sessionCookieName = "easyqr_session";
 const rememberedSessionDurationMs = 30 * 24 * 60 * 60 * 1000;
 const standardSessionDurationMs = 24 * 60 * 60 * 1000;
+const loopbackHostnames = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
 export type SessionUser = {
   id: string;
@@ -94,15 +95,49 @@ export async function deleteCurrentSession() {
   cookieStore.delete(sessionCookieName);
 }
 
+function configuredRequestOrigins() {
+  const origins = new Set<string>();
+  const configuredAppUrl = process.env.APP_URL?.trim();
+  if (configuredAppUrl) {
+    try {
+      origins.add(new URL(configuredAppUrl).origin);
+    } catch {
+      // Production startup validation reports malformed configuration.
+    }
+  }
+
+  for (const value of (process.env.LOCAL_PREVIEW_ORIGINS || "").split(",")) {
+    const candidate = value.trim();
+    if (!candidate) continue;
+    try {
+      const parsed = new URL(candidate);
+      const isOriginOnly = (
+        !parsed.username && !parsed.password && parsed.pathname === "/" &&
+        !parsed.search && !parsed.hash
+      );
+      if (
+        isOriginOnly &&
+        loopbackHostnames.has(parsed.hostname) &&
+        ["http:", "https:"].includes(parsed.protocol)
+      ) {
+        origins.add(parsed.origin);
+      }
+    } catch {
+      // Ignore invalid runtime entries instead of weakening origin checks.
+    }
+  }
+  return origins;
+}
+
 export function isSameOrigin(request: Request) {
   const origin = request.headers.get("origin");
   if (!origin) return process.env.NODE_ENV !== "production";
 
   try {
     const parsedOrigin = new URL(origin);
-    const configuredAppUrl = process.env.APP_URL?.trim();
-    if (configuredAppUrl) {
-      return parsedOrigin.origin === new URL(configuredAppUrl).origin;
+    const allowedOrigins = configuredRequestOrigins();
+    if (allowedOrigins.size > 0) {
+      return allowedOrigins.has(parsedOrigin.origin);
     }
 
     const expectedHost = (
