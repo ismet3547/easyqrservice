@@ -131,6 +131,7 @@ sayfayı yenilediğinde yeni durum görünür.
 tekrarlar. Her yedekte:
 
 - SQLite online backup oluşturulur,
+- bağımsız yedek `DELETE` journal moduna alınarak `-wal`/`-shm` yan dosyalarına bağımlılık kaldırılır,
 - `PRAGMA integrity_check` çalıştırılır,
 - SHA-256 checksum dosyası yazılır,
 - süre ve maksimum dosya sınırını aşan eski EasyQR yedekleri temizlenir,
