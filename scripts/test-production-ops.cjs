@@ -132,13 +132,41 @@ async function run() {
         maximumFiles: 2,
         now,
       }));
+      if (backups.length === 2) {
+        fs.writeFileSync(`${backups[0].filePath}-wal`, "legacy WAL sidecar");
+        fs.writeFileSync(`${backups[0].filePath}-shm`, "legacy SHM sidecar");
+      }
     }
 
-    const retained = fs.readdirSync(backupDirectory)
+    const backupEntries = fs.readdirSync(backupDirectory);
+    const retained = backupEntries
       .filter((name) => name.endsWith(".sqlite3"))
       .sort();
     assert.equal(retained.length, 2, "retention must cap backup files");
     assert.ok(backups[2].removed.length === 1, "oldest backup should be pruned");
+    assert.deepEqual(
+      backupEntries.filter((name) => (
+        name.includes(".tmp") || name.endsWith("-wal") || name.endsWith("-shm")
+      )),
+      [],
+      "backup creation and pruning must not leave SQLite sidecars",
+    );
+
+    for (const backupName of retained) {
+      const backupDatabase = new Database(path.join(backupDirectory, backupName), {
+        readonly: true,
+        fileMustExist: true,
+      });
+      try {
+        assert.equal(
+          backupDatabase.pragma("journal_mode", { simple: true }),
+          "delete",
+          "standalone backups must not depend on WAL sidecars",
+        );
+      } finally {
+        backupDatabase.close();
+      }
+    }
 
     const latest = backups[2].filePath;
     const verified = verifyDatabaseFile(latest);
@@ -186,7 +214,7 @@ async function run() {
   }
 
   console.log(
-    "Production operations passed: env validation, deploy smoke gate, backup health, live SQLite backup, retention, checksum, integrity, safe restore and overwrite refusal.",
+    "Production operations passed: env validation, deploy smoke gate, backup health, portable SQLite backup, sidecar cleanup, retention, checksum, integrity, safe restore and overwrite refusal.",
   );
 }
 

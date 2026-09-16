@@ -26,6 +26,27 @@ function backupFileName(now) {
   return `easyqr-${timestamp}-${crypto.randomBytes(4).toString("hex")}.sqlite3`;
 }
 
+function removeSqliteSidecars(databasePath) {
+  for (const suffix of ["-wal", "-shm"]) {
+    fs.rmSync(`${databasePath}${suffix}`, { force: true });
+  }
+}
+
+function normalizeBackupJournalMode(databasePath) {
+  const database = new Database(databasePath, { fileMustExist: true });
+  try {
+    const journalMode = String(
+      database.pragma("journal_mode = DELETE", { simple: true }),
+    ).toLowerCase();
+    if (journalMode !== "delete") {
+      throw new Error(`Yedek journal modu normalize edilemedi: ${journalMode}`);
+    }
+  } finally {
+    database.close();
+  }
+  removeSqliteSidecars(databasePath);
+}
+
 function pruneBackups(directory, retentionDays, maximumFiles, now) {
   const candidates = fs.readdirSync(directory, { withFileTypes: true })
     .filter((entry) => entry.isFile() && /^easyqr-\d{8}T\d{9}Z-[a-f0-9]{8}\.sqlite3$/i.test(entry.name))
@@ -45,6 +66,7 @@ function pruneBackups(directory, retentionDays, maximumFiles, now) {
 
     fs.unlinkSync(candidate.filePath);
     fs.rmSync(checksumFilePath(candidate.filePath), { force: true });
+    removeSqliteSidecars(candidate.filePath);
     removed.push(candidate.name);
   });
   return removed;
@@ -93,6 +115,10 @@ async function createDatabaseBackup(options = {}) {
   try {
     await source.backup(temporaryPath);
     fs.chmodSync(temporaryPath, 0o600);
+    // SQLite's online backup inherits WAL mode from the live database. Convert
+    // the standalone snapshot before verification so reads never need to
+    // create persistent -wal/-shm sidecars in the backup directory.
+    normalizeBackupJournalMode(temporaryPath);
     verifyDatabaseFile(temporaryPath, { requireChecksum: false });
     // A same-directory hard link publishes the verified backup without ever
     // replacing an existing path, even in the unlikely event of a name race.
@@ -112,7 +138,11 @@ async function createDatabaseBackup(options = {}) {
     return { ...verified, checksumPath, removed, pruneWarning };
   } catch (error) {
     fs.rmSync(temporaryPath, { force: true });
-    if (finalFileCreated) fs.rmSync(finalPath, { force: true });
+    removeSqliteSidecars(temporaryPath);
+    if (finalFileCreated) {
+      fs.rmSync(finalPath, { force: true });
+      removeSqliteSidecars(finalPath);
+    }
     if (checksumPath) fs.rmSync(checksumPath, { force: true });
     throw error;
   } finally {
@@ -138,4 +168,9 @@ if (require.main === module) {
     });
 }
 
-module.exports = { createDatabaseBackup, pruneBackups };
+module.exports = {
+  createDatabaseBackup,
+  normalizeBackupJournalMode,
+  pruneBackups,
+  removeSqliteSidecars,
+};
